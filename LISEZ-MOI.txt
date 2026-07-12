@@ -1,0 +1,40 @@
+NOS VACANCES - MYKONOS
+
+1. USAGE LOCAL (sans synchro)
+   Mettez le dossier en ligne (par exemple app.netlify.com/drop) et partagez l'adresse.
+   Chaque téléphone garde ses propres données. Pour installer : Ajouter a l'ecran d'accueil.
+   Dans l'appli, roue Reglages : choisir son prenom dans "Je suis".
+
+2. SYNCHRO PARTAGEE (recommandee pour le test)
+   a. Creez un compte gratuit sur supabase.com, puis un projet (choisissez la region
+      Frankfurt, Union europeenne). Attendez la fin de l'initialisation.
+   b. Menu SQL Editor, collez et executez ceci :
+
+      create table if not exists public.trips (
+        code text primary key,
+        data jsonb not null default '{}'::jsonb,
+        client_id text,
+        updated_at bigint
+      );
+      alter table public.trips enable row level security;
+      drop policy if exists trips_read on public.trips;
+      drop policy if exists trips_write on public.trips;
+      drop policy if exists trips_update on public.trips;
+      create policy trips_read   on public.trips for select using (true);
+      create policy trips_write  on public.trips for insert with check (true);
+      create policy trips_update on public.trips for update using (true) with check (true);
+      do $$ begin
+        alter publication supabase_realtime add table public.trips;
+      exception when duplicate_object then null; end $$;
+
+   c. Menu Project Settings, puis API. Copiez "Project URL" et la cle "anon public".
+   d. Ouvrez config.js et collez ces deux valeurs dans supabaseUrl et supabaseAnonKey.
+   e. Remettez le dossier en ligne (glisser-deposer).
+
+3. VERIFIER LA SYNCHRO
+   Ouvrez l'adresse dans deux navigateurs (ou telephone plus ordinateur).
+   En haut a droite, la pastille doit afficher "Synchro" en vert.
+   Ajoutez une activite ou un message dans l'un : il apparait dans l'autre en une a deux secondes.
+
+Remarque securite : pour le test, l'acces est ouvert a qui possede l'adresse.
+On ajoutera une vraie authentification avant une diffusion large.
