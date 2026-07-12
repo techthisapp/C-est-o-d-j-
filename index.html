@@ -7,17 +7,17 @@
   <meta name="theme-color" content="#0FB0AE" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="C où déjà ?" />
   <link rel="apple-touch-icon" href="icon-180.png" />
   <link rel="icon" href="icon-192.png" />
-  <style>html,body{margin:0;padding:0;background:#E1F4F3;} #root{min-height:100vh;}</style>
+  <style>html,body{margin:0;padding:0;background:#0B171D;overscroll-behavior:none;} #root{height:100dvh;}</style>
 </head>
 <body>
   <div id="root"></div>
   <script>window.global = window; window.process = window.process || { env: { NODE_ENV: "production" } };</script>
   <script src="config.js"></script>
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
