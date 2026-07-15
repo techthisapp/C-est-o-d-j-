@@ -2062,7 +2062,59 @@ function CapsuleCard({ now, onSave, onDelete }) {
   const wrap = { position: "relative", background: paper, border: `1px solid ${paperLine}`, borderRadius: T.r.lg, boxShadow: T.sh.card, padding: "13px 15px 13px 30px", overflow: "hidden" };
   const seam = <div style={{ position: "absolute", left: 15, top: 12, bottom: 12, borderLeft: `2px dashed ${paperLine}` }} />;
   const linedArea = { fontFamily: fH, fontSize: 19, lineHeight: "28px", color: inkPaper, width: "100%", boxSizing: "border-box", padding: "0 2px", border: "none", outline: "none", resize: "none", background: `repeating-linear-gradient(transparent, transparent 27px, ${paperLine} 27px, ${paperLine} 28px)`, minHeight: 56 };
-  const deposit = () => { const t = text.trim(); if (!t) return; onSave(t); setText(""); };
+  const taRef = useRef(null);
+  const [mq, setMq] = useState(null);
+  const normA = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const mentionables = ROSTER.filter((p) => p.active && p.id !== ME);
+  const sugg = mq == null ? [] : mentionables.filter((p) => normA(person(p.id).name).startsWith(normA(mq))).slice(0, 5);
+  const onType = (e) => {
+    const v = e.target.value;
+    setText(v);
+    const caret = e.target.selectionStart != null ? e.target.selectionStart : v.length;
+    const m = v.slice(0, caret).match(/(^|\s)@([\p{L}\p{M}'’-]*)$/u);
+    setMq(m ? m[2] : null);
+  };
+  const putCaret = (v) => setTimeout(() => { const el = taRef.current; if (el) { el.focus(); el.setSelectionRange(v.length, v.length); } }, 0);
+  const insertMention = (name) => {
+    const el = taRef.current;
+    const caret = el && el.selectionStart != null ? el.selectionStart : text.length;
+    const up = text.slice(0, caret).replace(/@[\p{L}\p{M}'’-]*$/u, "@" + name + " ");
+    setText(up + text.slice(caret));
+    setMq(null);
+    putCaret(up);
+  };
+  const startMention = () => {
+    const v = text && !/\s$/.test(text) ? text + " @" : text + "@";
+    setText(v); setMq(""); putCaret(v);
+  };
+  const renderMentions = (txt) => {
+    const names = mentionables.concat(ROSTER.filter((p) => p.active && p.id === ME)).map((p) => person(p.id).name).filter(Boolean).sort((a, b) => b.length - a.length);
+    if (!names.length || !txt) return txt;
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp("@(" + names.map(esc).join("|") + ")", "g");
+    const out = []; let last = 0, m;
+    while ((m = re.exec(txt))) {
+      if (m.index > last) out.push(txt.slice(last, m.index));
+      out.push(<span key={m.index} style={{ color: T.c.seaDeep, fontWeight: 600 }}>@{m[1]}</span>);
+      last = m.index + m[0].length;
+    }
+    if (last < txt.length) out.push(txt.slice(last));
+    return out;
+  };
+  const mentionBar = sugg.length > 0 ? (
+    <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 8 }}>
+      {sugg.map((p) => (
+        <button key={p.id} onClick={() => insertMention(person(p.id).name)} style={{ cursor: "pointer", border: `1px solid ${paperLine}`, background: "transparent", borderRadius: T.r.pill, padding: "4px 11px 4px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Avatar id={p.id} size={20} />
+          <span style={{ fontFamily: fD, fontWeight: 600, fontSize: 12.5, color: inkPaper }}>{person(p.id).name}</span>
+        </button>
+      ))}
+    </div>
+  ) : null;
+  const atBtn = (
+    <button onClick={startMention} aria-label="Mentionner quelqu'un" style={{ cursor: "pointer", border: `1px solid ${paperLine}`, background: "transparent", color: inkFaintPaper, borderRadius: T.r.md, width: 34, height: 34, fontFamily: fD, fontWeight: 700, fontSize: 15, flex: "0 0 auto" }}>@</button>
+  );
+  const deposit = () => { const t = text.trim(); if (!t) return; onSave(t); setText(""); setMq(null); };
   if (reveal) {
     const all = [];
     ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => all.push({ pid: p.id, ...e })));
@@ -2078,9 +2130,9 @@ function CapsuleCard({ now, onSave, onDelete }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           {all.map((e) => (
             <div key={e.pid + e.id} style={{ borderBottom: `1px dashed ${paperLine}`, paddingBottom: 10 }}>
-              <div style={{ fontFamily: fH, fontWeight: 500, fontSize: 20, lineHeight: 1.35, color: inkPaper }}>« {e.text} »</div>
+              <div style={{ fontFamily: fH, fontWeight: 500, fontSize: 20, lineHeight: 1.35, color: inkPaper }}>« {renderMentions(e.text)} »</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 5 }}>
-                {e.open && <span style={{ fontFamily: fB, fontSize: 10, color: inkFaintPaper, border: `1px solid ${paperLine}`, borderRadius: T.r.pill, padding: "1px 7px", marginRight: 2 }}>à découvert</span>}
+                {e.open && <span style={{ fontFamily: fB, fontSize: 10, color: inkFaintPaper, border: `1px solid ${paperLine}`, borderRadius: T.r.pill, padding: "1px 7px", marginRight: 2 }}>à livre ouvert</span>}
                 <Avatar id={e.pid} size={18} />
                 <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 16, color: inkFaintPaper }}>{person(e.pid).name}</span>
                 {e.pid === ME && <button onClick={() => onDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: "none", background: "transparent", color: inkFaintPaper, padding: "2px", flex: "0 0 auto" }}><X size={13} /></button>}
@@ -2089,8 +2141,10 @@ function CapsuleCard({ now, onSave, onDelete }) {
           ))}
         </div>
         <div style={{ marginTop: all.length > 0 ? 12 : 2 }}>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Un mot de plus pour le livre..." style={linedArea} />
+          <textarea ref={taRef} value={text} onChange={onType} rows={2} placeholder="Un mot de plus pour le livre..." style={linedArea} />
+          {mentionBar}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 9, flexWrap: "wrap" }}>
+            {atBtn}
             <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: text.trim() ? T.c.sea : paperLine, color: text.trim() ? "#fff" : inkFaintPaper, borderRadius: T.r.md, padding: "9px 16px", fontFamily: fD, fontWeight: 700, fontSize: 13 }}>Ajouter au livre</button>
             <span style={{ fontFamily: fB, fontSize: 11, color: inkFaintPaper }}>Le livre est ouvert : ce mot sera visible immédiatement.</span>
           </div>
@@ -2128,14 +2182,16 @@ function CapsuleCard({ now, onSave, onDelete }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 11 }}>
           {mine.map((e) => (
             <div key={e.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, borderBottom: `1px dashed ${paperLine}`, paddingBottom: 6 }}>
-              <span style={{ flex: 1, minWidth: 0, fontFamily: fH, fontWeight: 500, fontSize: 19, lineHeight: 1.3, color: inkPaper }}>{e.text}</span>
+              <span style={{ flex: 1, minWidth: 0, fontFamily: fH, fontWeight: 500, fontSize: 19, lineHeight: 1.3, color: inkPaper }}>{renderMentions(e.text)}</span>
               <button onClick={() => onDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: "none", background: "transparent", color: inkFaintPaper, padding: "3px 2px", flex: "0 0 auto" }}><X size={14} /></button>
             </div>
           ))}
         </div>
       )}
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Un souvenir, un merci, une prédiction..." style={linedArea} />
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <textarea ref={taRef} value={text} onChange={onType} rows={2} placeholder="Un souvenir, un merci, une prédiction..." style={linedArea} />
+      {mentionBar}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+        {atBtn}
         <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: text.trim() ? T.c.sea : paperLine, color: text.trim() ? "#fff" : inkFaintPaper, borderRadius: T.r.md, padding: "9px 16px", fontFamily: fD, fontWeight: 700, fontSize: 13 }}>Déposer dans le carnet</button>
       </div>
     </div>
