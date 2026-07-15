@@ -2040,8 +2040,16 @@ function RecapCard({ dIdx, events, messages, photos, now, bare }) {
 
 /* Capsule temporelle : carnet secret du séjour */
 const normCaps = (v) => Array.isArray(v) ? v.filter((e) => e && e.id && e.text) : (v && v.text ? [{ id: "c-legacy-" + (v.at || 0), text: v.text, at: v.at || 0 }] : []);
-function CapsuleCard({ reveal, onSave, onDelete }) {
+function CapsuleCard({ now, onSave, onDelete }) {
   const caps = SETTINGS.capsule || {};
+  const revealAbs = (DAYS.length - 1) * 1440 + 1410;
+  const reveal = now >= revealAbs;
+  const left = Math.max(0, revealAbs - now);
+  const cd = left >= 1440
+    ? `${Math.floor(left / 1440)} j ${Math.floor((left % 1440) / 60)} h`
+    : left >= 60
+    ? `${Math.floor(left / 60)} h ${String(left % 60).padStart(2, "0")}`
+    : `${left} min`;
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const paper = IS_DARK ? "#2B251C" : "#FDF8EC";
@@ -2058,26 +2066,34 @@ function CapsuleCard({ reveal, onSave, onDelete }) {
   if (reveal) {
     const all = [];
     ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => all.push({ pid: p.id, ...e })));
-    if (all.length === 0) return null;
     all.sort((a, b) => (a.at || 0) - (b.at || 0));
     return (
       <div style={wrap}>
         {seam}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 16 }}>💌</span>
+          <span style={{ fontSize: 16 }}>📖</span>
           <span style={{ fontFamily: fD, fontWeight: 700, color: inkPaper, fontSize: 15 }}>Le livre d'or du séjour</span>
         </div>
-        <div style={{ fontFamily: fB, color: inkFaintPaper, fontSize: 12, marginBottom: 10 }}>Les mots déposés en secret pendant le séjour.</div>
+        <div style={{ fontFamily: fB, color: inkFaintPaper, fontSize: 12, marginBottom: 10 }}>{all.length > 0 ? "Les mots déposés en secret pendant le séjour." : "Le livre est ouvert. Écrivez le premier mot."}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           {all.map((e) => (
             <div key={e.pid + e.id} style={{ borderBottom: `1px dashed ${paperLine}`, paddingBottom: 10 }}>
               <div style={{ fontFamily: fH, fontWeight: 500, fontSize: 20, lineHeight: 1.35, color: inkPaper }}>« {e.text} »</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 5 }}>
+                {e.open && <span style={{ fontFamily: fB, fontSize: 10, color: inkFaintPaper, border: `1px solid ${paperLine}`, borderRadius: T.r.pill, padding: "1px 7px", marginRight: 2 }}>à découvert</span>}
                 <Avatar id={e.pid} size={18} />
                 <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 16, color: inkFaintPaper }}>{person(e.pid).name}</span>
+                {e.pid === ME && <button onClick={() => onDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: "none", background: "transparent", color: inkFaintPaper, padding: "2px", flex: "0 0 auto" }}><X size={13} /></button>}
               </div>
             </div>
           ))}
+        </div>
+        <div style={{ marginTop: all.length > 0 ? 12 : 2 }}>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Un mot de plus pour le livre..." style={linedArea} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 9, flexWrap: "wrap" }}>
+            <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: text.trim() ? T.c.sea : paperLine, color: text.trim() ? "#fff" : inkFaintPaper, borderRadius: T.r.md, padding: "9px 16px", fontFamily: fD, fontWeight: 700, fontSize: 13 }}>Ajouter au livre</button>
+            <span style={{ fontFamily: fB, fontSize: 11, color: inkFaintPaper }}>Le livre est ouvert : ce mot sera visible immédiatement.</span>
+          </div>
         </div>
       </div>
     );
@@ -2091,7 +2107,7 @@ function CapsuleCard({ reveal, onSave, onDelete }) {
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: "block", fontFamily: fD, fontWeight: 700, color: inkPaper, fontSize: 13.5 }}>Capsule temporelle</span>
             <span style={{ display: "block", fontFamily: fB, color: inkFaintPaper, fontSize: 11.5 }}>
-              {mine.length > 0 ? `${mine.length} mot${mine.length > 1 ? "s" : ""} de vous · ${totalWords} dans le carnet · révélation le dernier soir` : `Un carnet secret, révélé le dernier soir. ${writers > 0 ? `${writers} y ${writers > 1 ? "ont" : "a"} déjà écrit.` : "Écrivez le premier mot."}`}
+              {mine.length > 0 ? `${mine.length} mot${mine.length > 1 ? "s" : ""} de vous · ${totalWords} dans le carnet · révélation dans ${cd}` : `Un carnet secret. ${writers > 0 ? `${writers} y ${writers > 1 ? "ont" : "a"} déjà écrit. ` : ""}Révélation dans ${cd}.`}
             </span>
           </span>
           <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 17, color: inkFaintPaper, flex: "0 0 auto" }}>Écrire ✎</span>
@@ -2107,7 +2123,7 @@ function CapsuleCard({ reveal, onSave, onDelete }) {
         <span style={{ fontFamily: fD, fontWeight: 700, color: inkPaper, fontSize: 15, flex: 1 }}>Capsule temporelle</span>
         <button onClick={() => setOpen(false)} aria-label="Refermer le carnet" style={{ cursor: "pointer", border: "none", background: "transparent", color: inkFaintPaper, fontFamily: fD, fontWeight: 600, fontSize: 12, padding: 0 }}>Refermer</button>
       </div>
-      <div style={{ fontFamily: fB, color: inkFaintPaper, fontSize: 12, margin: "3px 0 10px" }}>Vos mots restent secrets jusqu'au dernier soir. Écrivez-en autant que vous voulez.</div>
+      <div style={{ fontFamily: fB, color: inkFaintPaper, fontSize: 12, margin: "3px 0 10px" }}>Vos mots restent secrets. Révélation dans {cd}, le dernier soir à 23h30.</div>
       {mine.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 11 }}>
           {mine.map((e) => (
@@ -2530,7 +2546,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
         </div>
         <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} />
         <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} />
-        {featureOn("capsule") && play && <CapsuleCard reveal={true} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
+        {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
       </div>
     );
   }
@@ -2619,7 +2635,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
 
       <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} />
 
-      {featureOn("capsule") && play && <CapsuleCard reveal={dIdx >= DAYS.length - 1 && mid >= 1080} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
+      {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
     </div>
   );
 }
@@ -4414,7 +4430,9 @@ export default function App() {
   };
   const saveCapsule = (text) => {
     const mine = normCaps((SETTINGS.capsule || {})[ME]);
-    SETTINGS = { ...SETTINGS, capsule: { ...(SETTINGS.capsule || {}), [ME]: [...mine, { id: uid("cap"), text, at: Date.now() }] } };
+    const entry = { id: uid("cap"), text, at: Date.now() };
+    if (now >= (DAYS.length - 1) * 1440 + 1410) entry.open = true;
+    SETTINGS = { ...SETTINGS, capsule: { ...(SETTINGS.capsule || {}), [ME]: [...mine, entry] } };
     setRev((r) => r + 1);
   };
   const deleteCapsule = (id) => {
