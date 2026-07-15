@@ -2433,7 +2433,62 @@ function PhotoStrip({ photos, onOpen, onLike }) {
     </div>
   );
 }
-function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent }) {
+function SouvenirCard({ events, photos, messages, onOpenEvent, onOpenPhoto, onFilm, onOpenQuiz }) {
+  const past = mainList(events);
+  const phs = (photos || []).filter((p) => p.url);
+  const msgs = (messages || []).filter((m) => !isVibe(m) && !isLoc(m));
+  const seen = new Set(); let lieux = 0;
+  past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(e.place.name)) { seen.add(e.place.name); lieux += 1; } });
+  let best = null, bestN = 0;
+  past.forEach((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); const n = v ? vibeTotal(v) : 0; if (n > bestN) { best = e; bestN = n; } });
+  let star = null, starN = 0;
+  phs.forEach((p) => {
+    let h = 0; Object.keys(p.reactions || {}).forEach((pid) => { if (((p.reactions || {})[pid] || []).includes("❤️")) h += 1; });
+    if (h > starN) { star = p; starN = h; }
+  });
+  const stats = [
+    [past.length, past.length > 1 ? "activités" : "activité"],
+    [phs.length, phs.length > 1 ? "photos" : "photo"],
+    [msgs.length, "messages"],
+    [lieux, lieux > 1 ? "lieux" : "lieu"],
+  ];
+  const btn = { cursor: "pointer", flex: 1, border: "none", borderRadius: T.r.pill, padding: "12px", fontFamily: fD, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 };
+  return (
+    <div style={{ background: T.c.card, borderRadius: T.r.lg, boxShadow: T.sh.card, overflow: "hidden" }}>
+      <div style={{ padding: "16px 17px 14px", background: `linear-gradient(135deg, ${T.c.sunSoft}, ${T.c.coralSoft || T.c.sunSoft})` }}>
+        <div style={{ display: "flex", textAlign: "center" }}>
+          {stats.map(([n, l]) => (
+            <div key={l} style={{ flex: 1 }}>
+              <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 23, fontVariantNumeric: "tabular-nums" }}>{n}</div>
+              <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 11.5 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {best && bestN > 0 && (
+        <button onClick={() => onOpenEvent(best)} style={{ cursor: "pointer", width: "100%", textAlign: "left", border: "none", background: "transparent", borderTop: `1px solid ${T.c.lineSoft}`, padding: "12px 16px", display: "flex", alignItems: "center", gap: 11 }}>
+          <span style={{ fontSize: 21, flex: "0 0 auto" }}>🤩</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: "block", fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Le moment préféré du groupe</span>
+            <span style={{ display: "block", fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 15.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{best.title}</span>
+          </span>
+          <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.coralDeep, fontSize: 13, flex: "0 0 auto" }}>{bestN} 🤩</span>
+        </button>
+      )}
+      {star && (
+        <button onClick={() => onOpenPhoto(star)} style={{ cursor: "pointer", width: "100%", border: "none", padding: 0, background: "transparent", display: "block", position: "relative" }}>
+          <img src={star.url} alt="" style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }} />
+          <span style={{ position: "absolute", left: 12, bottom: 11, background: "rgba(6,14,18,0.55)", color: "#fff", borderRadius: T.r.pill, padding: "4px 11px", fontFamily: fD, fontWeight: 700, fontSize: 12 }}>La photo du séjour · ❤ {starN}</span>
+        </button>
+      )}
+      <div style={{ display: "flex", gap: 9, padding: "13px 15px 15px" }}>
+        <button onClick={onFilm} style={{ ...btn, background: T.c.sea, color: "#fff" }}><Play size={16} /> Revoir le film</button>
+        {onOpenQuiz && <button onClick={onOpenQuiz} style={{ ...btn, background: T.c.card, color: T.c.seaDeep, border: `1px solid ${T.c.line}` }}>Rejouer le quiz</button>}
+      </div>
+    </div>
+  );
+}
+function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz }) {
   const ub = (id) => (unreadByEvent && unreadByEvent[id]) || 0;
   const op = (id) => (openPollsByEvent && openPollsByEvent[id]) || 0;
   const cur = currentEvent(events, now);
@@ -2449,6 +2504,30 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
   const nightMorning = !cur && mid < morningCutoff;
   const todayDone = (!cur && !sameDayNext) || nightMorning;
   const after = (!todayDone && sameDayNext) ? upcomingSameDay(events, now, dIdx).filter((e) => e.id !== sameDayNext.id).slice(0, 3) : [];
+  const tripOver = dayOfNow(now) >= DAYS.length;
+
+  if (tripOver) {
+    const nActifs = ROSTER.filter((p) => p.active).length;
+    const dEnd = new Date(isoPlusDays(SETTINGS.startISO, DAYS.length - 1) + "T12:00:00");
+    const dStart = new Date(SETTINGS.startISO + "T12:00:00");
+    const periode = dStart.getMonth() === dEnd.getMonth()
+      ? `Du ${dStart.getDate()} au ${dEnd.getDate()} ${MO[dEnd.getMonth()]}`
+      : `Du ${dStart.getDate()} ${MO[dStart.getMonth()]} au ${dEnd.getDate()} ${MO[dEnd.getMonth()]}`;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: fB, fontWeight: 600, color: T.c.inkFaint, fontSize: 12, letterSpacing: 0.8 }}>
+            {(SETTINGS.place || SETTINGS.name || "").toUpperCase()}  ·  SOUVENIRS
+          </div>
+          <h1 style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 32, lineHeight: 1.08, margin: "4px 0 0" }}>C'était {SETTINGS.place || "le séjour"}</h1>
+          <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 13.5, marginTop: 5 }}>{periode} · {DAYS.length} jours à {nActifs}</div>
+        </div>
+        <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} />
+        <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} />
+        {featureOn("capsule") && play && <CapsuleCard reveal={true} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -4342,7 +4421,7 @@ export default function App() {
   const openGames = () => setSheet({ mode: "games" });
   const gamesOn = ["bingo", "guess", "quiz"].some((k) => featureOn(k));
   const guessPending = messages.some((m) => isGuess(m) && !m.closed && m.who !== ME && !(((m.guesses || {})[ME]) || {}).text);
-  const quizUnlocked = clamp(dayOfNow(now), 0, DAYS.length - 1) >= DAYS.length - 1 && minsInDay(now) >= 1080;
+  const quizUnlocked = dayOfNow(now) >= DAYS.length || (clamp(dayOfNow(now), 0, DAYS.length - 1) >= DAYS.length - 1 && minsInDay(now) >= 1080);
   const saveQuizScore = (score, total) => {
     SETTINGS = { ...SETTINGS, quiz: { ...(SETTINGS.quiz || {}), [ME]: { score, total, at: Date.now() } } };
     setRev((r) => r + 1);
@@ -4637,7 +4716,7 @@ export default function App() {
         </div>
 
         <div key={tab} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", WebkitOverflowScrolling: "touch", overflowY: tab === "talk" ? "hidden" : "auto", padding: tab === "talk" ? "16px 16px 10px" : "18px 18px 24px", animation: "vfade .25s ease" }}>
-          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
+          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "program" && <ScreenProgram events={events} now={now} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onOpenEvent={openDetail} onEditEvent={openEdit} onAdd={openAdd} onDelete={deleteEvent} canEdit={canEdit} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "talk" && <ScreenTalk messages={messages} onSend={sendMessage} pollHandlers={pollHandlers} />}
           {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onFilm={() => setFilm(true)} />}
