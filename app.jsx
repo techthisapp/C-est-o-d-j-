@@ -960,14 +960,15 @@ function Landscape({ type, night }) {
   const c = T.c;
   const palette = {
     mer: "#4E9EBD", ville: "#8C9BA8", ski: "#9FC6DE",
-    rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82",
+    rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82", anniversaire: "#C79ED6",
   };
   const t = palette[type] ? type : "mer";
   const col = palette[t];
   const baseOp = (t === "ville" || t === "rando") ? 0.26 : 0.30;
   const op = night ? baseOp * 0.45 : baseOp;
   const gid = "ground-" + t;
-  const figOp = night ? 0.38 : 0.55;
+  const figOp = night ? 0.4 : 0.58;
+  const ink = c.inkSoft;
   let deco = null, fig = null;
   if (t === "ville") {
     const gauche = [[14, 13, 18], [31, 10, 26], [45, 15, 13], [64, 11, 21], [79, 14, 10]];
@@ -975,7 +976,7 @@ function Landscape({ type, night }) {
     deco = (
       <g>
         {[...gauche, ...droite].map(([bx, bw, bh], i) => (
-          <rect key={i} x={bx} y={92 - bh} width={bw} height={bh} rx="1" fill={c.inkSoft} opacity={i % 2 ? 0.10 : 0.14} />
+          <rect key={i} x={bx} y={92 - bh} width={bw} height={bh} rx="1" fill={ink} opacity={i % 2 ? 0.10 : 0.14} />
         ))}
         {night && [[34, 70], [67, 75], [246, 72], [281, 76]].map(([wx2, wy2], i) => (
           <rect key={"f" + i} x={wx2} y={wy2} width="2.4" height="3.2" fill={c.sun} opacity="0.5" style={{ animation: `vblink ${3.2 + i}s ease-in-out ${i * 0.9}s infinite` }} />
@@ -984,13 +985,11 @@ function Landscape({ type, night }) {
     );
     fig = (
       <g style={{ transformOrigin: "112px 92px", animation: "vdrift 13s ease-in-out infinite alternate" }}>
-        <circle cx="107.5" cy="89.4" r="2.6" />
-        <circle cx="116.5" cy="89.4" r="2.6" />
-        <path d="M 107.5 89.4 L 110.6 85.6 L 115.4 85.3 L 116.5 89.4" />
-        <path d="M 110.6 85.6 L 112.6 89.4 L 116.5 89.4" />
-        <circle cx="112.6" cy="80.8" r="1.5" fill={c.inkSoft} />
-        <path d="M 112.3 82.3 L 110.9 85.7" />
-        <path d="M 111.4 83.2 L 115 85.1" />
+        <circle cx="107.5" cy="89.4" r="2.6" fill="none" stroke={ink} strokeWidth="1.3" />
+        <circle cx="116.5" cy="89.4" r="2.6" fill="none" stroke={ink} strokeWidth="1.3" />
+        <path d="M 107.5 89.4 L 110.4 85.7 L 115.2 85.4 L 116.5 89.4 L 112.4 89.4 Z" fill="none" stroke={ink} strokeWidth="1.3" strokeLinejoin="round" />
+        <circle cx="112.7" cy="80.6" r="1.6" fill={ink} />
+        <rect x="111" y="82" width="3" height="4.6" rx="1.5" fill={ink} transform="rotate(16 112.5 84.3)" />
       </g>
     );
   } else if (t === "ski") {
@@ -1006,13 +1005,12 @@ function Landscape({ type, night }) {
       </g>
     );
     fig = (
-      <g style={{ transformOrigin: "117px 92px", animation: "vdrift 11s ease-in-out infinite alternate" }}>
-        <circle cx="118.6" cy="81.8" r="1.5" fill={c.inkSoft} />
-        <path d="M 118.2 83.3 L 116.2 87.2" />
-        <path d="M 116.2 87.2 L 114.2 91.2 M 116.2 87.2 L 117.8 91.2" />
-        <path d="M 117.7 84.4 L 120.7 85.8" />
-        <path d="M 120.7 85.8 L 119.5 91" />
-        <path d="M 111.5 91.4 L 121 91.4 Q 123.4 91.2 122.9 89.9" />
+      <g transform="translate(86, 70) rotate(30)">
+        <rect x="-5.5" y="0.6" width="11.4" height="1.25" rx="0.62" fill={ink} />
+        <circle cx="2.3" cy="-7.6" r="1.6" fill={ink} />
+        <rect x="-0.6" y="-6.8" width="3" height="5.4" rx="1.5" fill={ink} transform="rotate(18 0.9 -4.1)" />
+        <rect x="-1.9" y="-2.6" width="2.6" height="3.4" rx="1.3" fill={ink} transform="rotate(-14 -0.6 -0.9)" />
+        <path d="M 2.6 -5.2 L 5.4 0.4" stroke={ink} strokeWidth="1.05" strokeLinecap="round" />
       </g>
     );
   } else if (t === "rando") {
@@ -1025,18 +1023,18 @@ function Landscape({ type, night }) {
         <path d="M 110 83 L 114 90 L 106 90 Z" fill={c.sea} opacity="0.22" />
         <path d="M 110 86 L 115 92 L 105 92 Z" fill={c.sea} opacity="0.22" />
         <g style={{ animation: "vdrift 15s ease-in-out infinite alternate" }}>
-          <path d="M 226 26 q 3 -2.6 6 0 q 3 -2.6 6 0" fill="none" stroke={c.inkSoft} strokeWidth="1.1" opacity="0.42" strokeLinecap="round" />
+          <path d="M 226 26 q 3 -2.6 6 0 q 3 -2.6 6 0" fill="none" stroke={ink} strokeWidth="1.1" opacity="0.42" strokeLinecap="round" />
         </g>
       </g>
     );
     fig = (
-      <g style={{ transformOrigin: "63px 83px", animation: "vdrift 14s ease-in-out infinite alternate" }}>
-        <circle cx="63.2" cy="72.6" r="1.5" fill={c.inkSoft} />
-        <path d="M 63 74.1 L 62.4 78.6" />
-        <path d="M 62.4 78.6 L 60.6 83 M 62.4 78.6 L 64.6 83" />
-        <path d="M 62.8 75.3 L 65.3 77.3" />
-        <path d="M 65.3 77.3 L 65.9 83" />
-        <path d="M 61.9 75.4 Q 60.3 76.8 61.5 78.4" />
+      <g transform="translate(238, 80.7) rotate(-8)">
+        <circle cx="0.5" cy="-9.9" r="1.6" fill={ink} />
+        <rect x="-1.1" y="-8.4" width="3" height="5.2" rx="1.5" fill={ink} transform="rotate(10 0.4 -5.8)" />
+        <rect x="-0.3" y="-3.8" width="1.9" height="4.4" rx="0.95" fill={ink} transform="rotate(-22 0.65 -1.6)" />
+        <rect x="-1.7" y="-3.8" width="1.9" height="4.2" rx="0.95" fill={ink} transform="rotate(26 -0.75 -1.7)" />
+        <path d="M 2.2 -5.6 L 3.5 0.3" stroke={ink} strokeWidth="1.05" strokeLinecap="round" />
+        <rect x="-2.5" y="-8" width="1.9" height="3.1" rx="0.9" fill={ink} transform="rotate(8 -1.55 -6.4)" />
       </g>
     );
   } else if (t === "mariage") {
@@ -1054,13 +1052,12 @@ function Landscape({ type, night }) {
       </g>
     );
     fig = (
-      <g style={{ transformOrigin: "46px 84px", animation: "vsway 6s ease-in-out infinite alternate" }}>
-        <circle cx="43.4" cy="75.5" r="1.4" fill={c.inkSoft} />
-        <path d="M 43.4 76.9 L 41.6 84 L 45.3 84 Z" />
-        <circle cx="48.7" cy="74.9" r="1.4" fill={c.inkSoft} />
-        <path d="M 48.7 76.3 L 48.7 80.5" />
-        <path d="M 48.7 80.5 L 47.5 84 M 48.7 80.5 L 49.9 84" />
-        <path d="M 44.4 78.4 Q 46.1 79.4 47.9 78.2" />
+      <g transform="translate(252, 84.4)" style={{ transformOrigin: "252px 84.4px", animation: "vfloat 7s ease-in-out infinite" }}>
+        <circle cx="-2.3" cy="-8.7" r="1.5" fill={ink} />
+        <path d="M -2.3 -7.2 L -4.4 0 L -0.4 0 Z" fill={ink} />
+        <circle cx="2.4" cy="-9.2" r="1.6" fill={ink} />
+        <rect x="1.4" y="-7.7" width="2" height="7.7" rx="1" fill={ink} />
+        <path d="M -1.3 -4.8 L 1.5 -5" stroke={ink} strokeWidth="1" strokeLinecap="round" />
       </g>
     );
   } else if (t === "detente") {
@@ -1069,23 +1066,39 @@ function Landscape({ type, night }) {
         <path d="M 0 92 Q 46 74 92 92 Z" fill={c.sea} opacity="0.13" />
         <path d="M 228 92 Q 274 72 320 92 Z" fill={c.sea} opacity="0.15" />
         <g style={{ animation: "vdrift 15s ease-in-out infinite alternate" }}>
-          <path d="M 64 26 q 3 -2.6 6 0 q 3 -2.6 6 0" fill="none" stroke={c.inkSoft} strokeWidth="1.1" opacity="0.42" strokeLinecap="round" />
+          <path d="M 64 26 q 3 -2.6 6 0 q 3 -2.6 6 0" fill="none" stroke={ink} strokeWidth="1.1" opacity="0.42" strokeLinecap="round" />
         </g>
         <g style={{ animation: "vdrift 18s ease-in-out infinite alternate-reverse" }}>
-          <path d="M 248 20 q 2.6 -2.2 5.2 0 q 2.6 -2.2 5.2 0" fill="none" stroke={c.inkSoft} strokeWidth="1" opacity="0.38" strokeLinecap="round" />
+          <path d="M 248 20 q 2.6 -2.2 5.2 0 q 2.6 -2.2 5.2 0" fill="none" stroke={ink} strokeWidth="1" opacity="0.38" strokeLinecap="round" />
         </g>
       </g>
     );
     fig = (
+      <g transform="translate(110, 92) rotate(-7)" style={{ transformOrigin: "110px 92px", animation: "vsway 10s ease-in-out infinite alternate" }}>
+        <path d="M -7.4 -7.2 A 7.4 7.4 0 0 1 7.4 -7.2 Z" fill={ink} />
+        <path d="M 0 -7.2 L 0 0.6" stroke={ink} strokeWidth="1.15" strokeLinecap="round" />
+        <rect x="3.2" y="-0.6" width="6.4" height="1.25" rx="0.62" fill={ink} />
+      </g>
+    );
+  } else if (t === "anniversaire") {
+    const balloons = [[30, 66, c.coral, 0], [39, 72, c.sun, 1.4], [290, 63, c.sea, 0.8]];
+    deco = (
       <g>
-        <path d="M 102 92 L 107.2 85.4" />
-        <path d="M 104.6 88.8 L 112 88.8" />
-        <path d="M 112 88.8 L 113.2 92" />
-        <path d="M 104.6 88.8 L 108 92" />
-        <g style={{ transformOrigin: "115.5px 92px", animation: "vsway 8s ease-in-out infinite alternate" }}>
-          <path d="M 115.5 92 L 115.5 80.6" />
-          <path d="M 109 82.6 Q 115.5 76.2 122 82.6" />
-        </g>
+        <path d="M 0 92 Q 46 76 92 92 Z" fill={c.sun} opacity="0.11" />
+        <path d="M 226 92 Q 274 74 320 92 Z" fill={c.coral} opacity="0.10" />
+        {balloons.map(([bx, by, bc, dl], i) => (
+          <g key={i} style={{ transformOrigin: `${bx}px ${by}px`, animation: `vfloat ${5.5 + i}s ease-in-out ${dl}s infinite` }}>
+            <path d={`M ${bx} ${by + 2.6} Q ${bx + 1.4} ${by + 8} ${bx - 1} ${by + 12}`} fill="none" stroke={c.inkFaint} strokeWidth="0.8" opacity="0.5" />
+            <ellipse cx={bx} cy={by} rx="2.3" ry="2.8" fill={bc} opacity="0.55" />
+          </g>
+        ))}
+      </g>
+    );
+    fig = (
+      <g transform="translate(110, 92)">
+        <rect x="-5.2" y="-4.6" width="10.4" height="4.6" rx="1.2" fill={ink} />
+        <path d="M 0 -4.6 L 0 -7.4" stroke={ink} strokeWidth="1.15" strokeLinecap="round" />
+        <circle cx="0" cy="-8.4" r="1" fill={ink} style={{ transformOrigin: "110px 83.6px", animation: "vtwinkle 2.4s ease-in-out infinite" }} />
       </g>
     );
   } else {
@@ -1096,11 +1109,10 @@ function Landscape({ type, night }) {
       </g>
     );
     fig = (
-      <g style={{ transformOrigin: "250px 92px", animation: "vsway 7s ease-in-out infinite alternate" }}>
-        <path d="M 243 92 L 257 92 L 254 95 L 246 95 Z" />
-        <path d="M 250 91.6 L 250 79.8" />
-        <path d="M 251.3 81.2 L 256.2 91.2 L 251.3 91.2 Z" />
-        <path d="M 248.7 83.4 L 244.4 91.2 L 248.7 91.2 Z" />
+      <g style={{ transformOrigin: "250px 91px", animation: "vsway 7s ease-in-out infinite alternate" }}>
+        <path d="M 242 91 L 258 91 L 254.5 94 L 245.5 94 Z" fill={ink} />
+        <path d="M 249.5 90.5 L 249.5 79 L 242.5 90.5 Z" fill={ink} />
+        <path d="M 251.5 90.5 L 251.5 81.5 L 257.5 90.5 Z" fill={ink} />
       </g>
     );
   }
@@ -1114,9 +1126,7 @@ function Landscape({ type, night }) {
       </defs>
       <rect x="0" y="92.4" width="320" height="25.6" fill={"url(#" + gid + ")"} />
       {deco}
-      <g opacity={figOp} stroke={c.inkSoft} fill="none" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-        {fig}
-      </g>
+      <g opacity={figOp}>{fig}</g>
     </g>
   );
 }
@@ -1511,6 +1521,7 @@ const TRIP_TYPES = [
   { id: "ville", emoji: "🏙️", label: "City trip" },
   { id: "mariage", emoji: "💍", label: "Mariage" },
   { id: "detente", emoji: "🛋️", label: "Détente" },
+  { id: "anniversaire", emoji: "🎂", label: "Anniversaire" },
 ];
 const CONTENT_PACKS = {
   mer: {
