@@ -2503,10 +2503,48 @@ function PhotoOfDay({ photo, onOpen, onLike, noLabel }) {
     </div>
   );
 }
-function PhotoStrip({ photos, onOpen, onLike, noLabel }) {
+function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
   const list = [...(photos || [])].filter((p) => p.url).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 12);
   const [idx, setIdx] = useState(0);
   if (list.length === 0) return null;
+  if (variant === "polaroid") {
+    const tiltP = (id) => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997; return (h % 2 === 0 ? -1 : 1) * (1 + (h % 3) * 0.6); };
+    return (
+      <div>
+        <div onScroll={(e) => { const el = e.currentTarget; setIdx(clamp(Math.round(el.scrollLeft / Math.max(1, el.clientWidth * 0.74)), 0, list.length - 1)); }}
+          style={{ display: "flex", gap: 14, overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", padding: "10px 4px 14px" }}>
+          {list.map((p) => {
+            const liked = ((p.reactions || {})[ME] || []).includes("❤️");
+            let hearts = 0; Object.keys(p.reactions || {}).forEach((pid) => { if (((p.reactions || {})[pid] || []).includes("❤️")) hearts += 1; });
+            return (
+              <div key={p.id} style={{ flex: "0 0 74%", minWidth: 0, scrollSnapAlign: "center", transform: `rotate(${tiltP(p.id)}deg)` }}>
+                <div style={{ background: "#ffffff", padding: "9px 9px 10px", borderRadius: 4, boxShadow: "0 8px 20px rgba(31,58,68,0.16)" }}>
+                  <button onClick={() => onOpen(p)} aria-label="Ouvrir la photo" style={{ display: "block", width: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer" }}>
+                    <img src={p.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }} />
+                  </button>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 7, padding: "0 2px" }}>
+                    <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 17, color: "#40525B", display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      {p.who ? <Avatar id={p.who} size={17} /> : null} {p.who ? person(p.who).name : ""}
+                    </span>
+                    {onLike && (
+                      <button onClick={() => onLike(p.id)} aria-label={liked ? "Retirer mon j'aime" : "J'aime cette photo"} style={{ cursor: "pointer", border: "none", background: "transparent", padding: 2, display: "inline-flex", alignItems: "center", gap: 4, fontFamily: fD, fontWeight: 700, fontSize: 12, color: "#8A97A0", flex: "0 0 auto" }}>
+                        <Heart size={15} color={liked ? T.c.coral : "#8A97A0"} fill={liked ? T.c.coral : "none"} />{hearts > 0 ? hearts : ""}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {list.length > 1 && (
+          <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 2 }}>
+            {list.map((p, i) => <span key={p.id} style={{ width: i === idx ? 14 : 5, height: 5, borderRadius: T.r.pill, background: i === idx ? T.c.sea : T.c.line, transition: "width .2s ease" }} />)}
+          </div>
+        )}
+      </div>
+    );
+  }
   if (list.length === 1) return <PhotoOfDay photo={list[0]} onOpen={onOpen} onLike={onLike} noLabel={noLabel} />;
   return (
     <div>
@@ -2516,6 +2554,37 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel }) {
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 7 }}>
         {list.map((p, i) => <span key={p.id} style={{ width: i === idx ? 14 : 5, height: 5, borderRadius: T.r.pill, background: i === idx ? T.c.sea : T.c.line, transition: "width .2s ease" }} />)}
+      </div>
+    </div>
+  );
+}
+function SouvenirSky({ periode }) {
+  const t = LAND_PALETTE[SETTINGS.tripType] ? SETTINGS.tripType : "mer";
+  return (
+    <div style={{ position: "relative", margin: "0 -18px" }}>
+      <svg viewBox="0 0 320 128" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
+        <defs>
+          <linearGradient id="souvSky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#FFF4DE" />
+            <stop offset="0.7" stopColor="#FFE4C4" />
+            <stop offset="1" stopColor="#FFD9BC" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="320" height="128" fill="url(#souvSky)" />
+        <g transform="translate(0, 10)">
+          <circle cx="250" cy="64" r="26" fill={T.c.sun} opacity="0.3" />
+          <circle cx="250" cy="64" r="13" fill={T.c.sun} opacity="0.92" />
+          {[[36, 16], [84, 30], [138, 12], [198, 26], [292, 18]].map(([sx, sy], i) => (
+            <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
+          ))}
+          <Landscape type={t} night={false} />
+          <line x1="0" y1="92" x2="320" y2="92" stroke="#B08A5A" strokeOpacity="0.3" strokeWidth="1.4" />
+        </g>
+      </svg>
+      <div style={{ position: "absolute", left: 18, top: 13, right: 18, pointerEvents: "none" }}>
+        <div style={{ fontFamily: fB, fontWeight: 700, fontSize: 10.5, letterSpacing: 1.2, color: "#8A6E4B", textTransform: "uppercase" }}>{(SETTINGS.place || SETTINGS.name || "")} · Souvenirs</div>
+        <div style={{ fontFamily: fH, fontWeight: 600, fontSize: 37, color: "#233B45", lineHeight: 1.02, marginTop: 2 }}>C'était {SETTINGS.place || "le séjour"}</div>
+        <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4 }}>{periode}</div>
       </div>
     </div>
   );
@@ -2539,40 +2608,44 @@ function SouvenirCard({ events, photos, messages, onOpenEvent, onOpenPhoto, onFi
     [msgs.length, "messages"],
     [lieux, lieux > 1 ? "lieux" : "lieu"],
   ];
+  const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
+  const rot = [-6, 3, -3, 5];
   const btn = { cursor: "pointer", flex: 1, border: "none", borderRadius: T.r.pill, padding: "12px", fontFamily: fD, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 };
   return (
-    <div style={{ background: T.c.card, borderRadius: T.r.lg, boxShadow: T.sh.card, overflow: "hidden" }}>
-      <div style={{ padding: "16px 17px 14px", background: `linear-gradient(135deg, ${T.c.sunSoft}, ${T.c.coralSoft || T.c.sunSoft})` }}>
-        <div style={{ display: "flex", textAlign: "center" }}>
-          {stats.map(([n, l]) => (
-            <div key={l} style={{ flex: 1 }}>
-              <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 23, fontVariantNumeric: "tabular-nums" }}>{n}</div>
-              <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 11.5 }}>{l}</div>
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 4px" }}>
+        {stats.map(([n, l], i) => (
+          <div key={l} style={{ width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, opacity: 0.82, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+            <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 19, color: encres[i], lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{n}</span>
+              <span style={{ fontFamily: fB, fontWeight: 700, fontSize: 7.5, letterSpacing: 1.1, color: encres[i], textTransform: "uppercase", marginTop: 2 }}>{l}</span>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
       {best && bestN > 0 && (
-        <button onClick={() => onOpenEvent(best)} style={{ cursor: "pointer", width: "100%", textAlign: "left", border: "none", background: "transparent", borderTop: `1px solid ${T.c.lineSoft}`, padding: "12px 16px", display: "flex", alignItems: "center", gap: 11 }}>
-          <span style={{ fontSize: 21, flex: "0 0 auto" }}>🤩</span>
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Le moment préféré du groupe</span>
-            <span style={{ display: "block", fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 15.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{best.title}</span>
+        <button onClick={() => onOpenEvent(best)} style={{ cursor: "pointer", border: "none", background: "#FFF8E9", borderRadius: 10, padding: 0, display: "flex", alignItems: "stretch", transform: "rotate(1.2deg)", boxShadow: T.sh.card, overflow: "hidden", textAlign: "left", width: "96%", alignSelf: "center" }}>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "0 13px", fontSize: 23, borderRight: "2px dashed #E3D3AE", flex: "0 0 auto" }}>🤩</span>
+          <span style={{ flex: 1, minWidth: 0, padding: "10px 14px" }}>
+            <span style={{ display: "block", fontFamily: fB, fontWeight: 700, fontSize: 8.5, letterSpacing: 1.4, color: "#A5822F", textTransform: "uppercase" }}>Le moment préféré du groupe</span>
+            <span style={{ display: "block", fontFamily: fH, fontWeight: 600, fontSize: 23, color: "#4A3B23", lineHeight: 1.12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{best.title}</span>
+            <span style={{ display: "block", fontFamily: fB, fontSize: 11, color: "#8A7A55", marginTop: 1 }}>{bestN} réaction{bestN > 1 ? "s" : ""} 🤩</span>
           </span>
-          <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.coralDeep, fontSize: 13, flex: "0 0 auto" }}>{bestN} 🤩</span>
         </button>
       )}
       {star && (
-        <button onClick={() => onOpenPhoto(star)} style={{ cursor: "pointer", width: "100%", border: "none", padding: 0, background: "transparent", display: "block", position: "relative" }}>
-          <img src={star.url} alt="" style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }} />
-          <span style={{ position: "absolute", left: 12, bottom: 11, background: "rgba(6,14,18,0.55)", color: "#fff", borderRadius: T.r.pill, padding: "4px 11px", fontFamily: fD, fontWeight: 700, fontSize: 12 }}>La photo du séjour · ❤ {starN}</span>
+        <button onClick={() => onOpenPhoto(star)} style={{ cursor: "pointer", alignSelf: "center", width: "88%", border: "none", background: "#ffffff", padding: "11px 11px 12px", borderRadius: 4, boxShadow: "0 10px 26px rgba(31,58,68,0.18)", transform: "rotate(-2deg)", position: "relative", marginTop: 4 }}>
+          <span style={{ position: "absolute", left: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(-38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+          <span style={{ position: "absolute", right: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+          <img src={star.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }} />
+          <span style={{ display: "block", textAlign: "center", fontFamily: fH, fontWeight: 600, fontSize: 19, color: "#40525B", marginTop: 9 }}>La photo du séjour · ❤ {starN}</span>
         </button>
       )}
-      <div style={{ display: "flex", gap: 9, padding: "13px 15px 15px" }}>
+      <div style={{ display: "flex", gap: 9 }}>
         <button onClick={onFilm} style={{ ...btn, background: T.c.sea, color: "#fff" }}><Play size={16} /> Revoir le film</button>
         {onOpenQuiz && <button onClick={onOpenQuiz} style={{ ...btn, background: T.c.card, color: T.c.seaDeep, border: `1px solid ${T.c.line}` }}>Rejouer le quiz</button>}
       </div>
-    </div>
+    </>
   );
 }
 function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz }) {
@@ -2602,15 +2675,9 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
       : `Du ${dStart.getDate()} ${MO[dStart.getMonth()]} au ${dEnd.getDate()} ${MO[dEnd.getMonth()]}`;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: fB, fontWeight: 600, color: T.c.inkFaint, fontSize: 12, letterSpacing: 0.8 }}>
-            {(SETTINGS.place || SETTINGS.name || "").toUpperCase()}  ·  SOUVENIRS
-          </div>
-          <h1 style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 32, lineHeight: 1.08, margin: "4px 0 0" }}>C'était {SETTINGS.place || "le séjour"}</h1>
-          <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 13.5, marginTop: 5 }}>{periode} · {DAYS.length} jours à {nActifs}</div>
-        </div>
+        <SouvenirSky periode={`${periode} · ${DAYS.length} jours à ${nActifs}`} />
         <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} />
-        <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel />
+        <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel variant="polaroid" />
         {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
       </div>
     );
