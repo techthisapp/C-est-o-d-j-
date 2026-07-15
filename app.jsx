@@ -956,96 +956,79 @@ const wmoIcon = (c) => {
   if (c <= 86) return CloudSnow;
   return CloudLightning;
 };
-function Landscape({ type, night, sunX }) {
-  const c = T.c;
-  if (type === "mer") {
-    return (
-      <g>
-        <rect x="0" y="92.6" width="320" height="25" fill={c.sea} opacity="0.07" />
-        <g style={{ animation: "vdrift 9s ease-in-out infinite alternate" }}>
-          <path d="M -20 99.5 Q 20 96.5 60 99.5 T 140 99.5 T 220 99.5 T 300 99.5 T 380 99.5" fill="none" stroke={c.sea} strokeWidth="1.6" opacity="0.20" strokeLinecap="round" />
-        </g>
-        <g style={{ animation: "vdrift 13s ease-in-out infinite alternate-reverse" }}>
-          <path d="M -20 106.5 Q 20 103.8 60 106.5 T 140 106.5 T 220 106.5 T 300 106.5 T 380 106.5" fill="none" stroke={c.sea} strokeWidth="1.4" opacity="0.14" strokeLinecap="round" />
-        </g>
-        <g style={{ animation: "vshimmer 4.5s ease-in-out infinite" }}>
-          <ellipse cx={sunX} cy="102.5" rx="4.5" ry="8" fill={night ? c.sky : c.sun} opacity={night ? 0.18 : 0.26} />
-          <ellipse cx={sunX} cy="100.5" rx="1.6" ry="4.8" fill={night ? c.sky : c.sun} opacity={night ? 0.26 : 0.38} />
-        </g>
-        <g opacity={night ? 0.34 : 0.5} style={{ transformOrigin: "250px 91px", animation: "vsway 7s ease-in-out infinite alternate" }}>
-          <path d="M 242 91 L 258 91 L 254.5 94 L 245.5 94 Z" fill={c.inkSoft} />
-          <path d="M 249.5 90.5 L 249.5 79 L 242.5 90.5 Z" fill={c.inkSoft} />
-          <path d="M 251.5 90.5 L 251.5 81.5 L 257.5 90.5 Z" fill={c.inkSoft} />
-        </g>
-      </g>
-    );
-  }
-  if (type === "ville") {
-    const gauche = [[14, 13, 18], [31, 10, 26], [45, 15, 13], [64, 11, 21], [79, 14, 10]];
-    const droite = [[226, 13, 12], [243, 11, 24], [258, 16, 15], [278, 12, 20], [294, 13, 9]];
-    return (
-      <g>
-        {[...gauche, ...droite].map(([bx, bw, bh], i) => (
-          <rect key={i} x={bx} y={92 - bh} width={bw} height={bh} rx="1" fill={c.inkSoft} opacity={i % 2 ? 0.10 : 0.14} />
-        ))}
-        {night && [[34, 70], [67, 75], [246, 72], [281, 76]].map(([wx2, wy2], i) => (
-          <rect key={"f" + i} x={wx2} y={wy2} width="2.4" height="3.2" fill={c.sun} opacity="0.5" style={{ animation: `vblink ${3.2 + i}s ease-in-out ${i * 0.9}s infinite` }} />
-        ))}
-      </g>
-    );
-  }
-  if (type === "ski") {
-    return (
-      <g>
-        <path d="M 0 92 L 30 58 L 64 92 Z" fill={c.sky} opacity="0.16" />
-        <path d="M 34 92 L 66 48 L 104 92 Z" fill={c.sea} opacity="0.13" />
-        <path d="M 30 58 L 36.5 66.5 L 31 64.5 L 25 67 Z" fill="#ffffff" opacity="0.7" />
-        <path d="M 66 48 L 73 57 L 67 54.5 L 60 58 Z" fill="#ffffff" opacity="0.7" />
-        <path d="M 218 92 L 252 54 L 292 92 Z" fill={c.sea} opacity="0.13" />
-        <path d="M 262 92 L 292 62 L 320 92 Z" fill={c.sky} opacity="0.16" />
-        <path d="M 252 54 L 259 62.5 L 253 60 L 246 63 Z" fill="#ffffff" opacity="0.7" />
-      </g>
-    );
-  }
-  if (type === "rando") {
-    return (
-      <g>
-        <path d="M 0 92 Q 42 68 84 92 Z" fill={c.sea} opacity="0.13" />
-        <path d="M 210 92 Q 258 64 320 92 Z" fill={c.sea} opacity="0.15" />
-        <path d="M 96 78 L 101 87 L 91 87 Z" fill={c.sea} opacity="0.26" />
-        <path d="M 96 82 L 102.5 92 L 89.5 92 Z" fill={c.sea} opacity="0.26" />
-        <path d="M 110 83 L 114 90 L 106 90 Z" fill={c.sea} opacity="0.22" />
-        <path d="M 110 86 L 115 92 L 105 92 Z" fill={c.sea} opacity="0.22" />
-        <g style={{ animation: "vdrift 15s ease-in-out infinite alternate" }}>
-          <path d="M 226 26 q 3 -2.6 6 0 q 3 -2.6 6 0" fill="none" stroke={c.inkSoft} strokeWidth="1.1" opacity="0.42" strokeLinecap="round" />
-        </g>
-      </g>
-    );
-  }
-  if (type === "mariage") {
-    const gl = [[12, 18.3], [24, 22.6], [36, 25], [48, 24.4], [58, 23]];
-    const gr = [[303, 18.3], [291, 22.6], [279, 25], [267, 24.4], [257, 23]];
-    const cols = [c.coral, c.sun, c.sea, c.coral, c.sun];
-    return (
-      <g>
-        <path d="M 0 92 Q 46 76 92 92 Z" fill={c.sun} opacity="0.11" />
-        <path d="M 224 92 Q 272 74 320 92 Z" fill={c.coral} opacity="0.10" />
-        <path d="M 2 14 Q 34 30 66 22" fill="none" stroke={c.inkFaint} strokeWidth="1" opacity="0.45" />
-        <path d="M 318 14 Q 286 30 254 22" fill="none" stroke={c.inkFaint} strokeWidth="1" opacity="0.45" />
-        {gl.map(([px, py], i) => <path key={"l" + i} d={`M ${px} ${py} L ${px + 4.5} ${py} L ${px + 2.25} ${py + 6} Z`} fill={cols[i]} opacity="0.62" />)}
-        {gr.map(([px, py], i) => <path key={"r" + i} d={`M ${px} ${py} L ${px - 4.5} ${py} L ${px - 2.25} ${py + 6} Z`} fill={cols[i]} opacity="0.62" />)}
-      </g>
-    );
-  }
+function Landscape({ type, night }) {
+  const palette = {
+    mer: "#4E9EBD", ville: "#8C9BA8", ski: "#9FC6DE",
+    rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82",
+  };
+  const t = palette[type] ? type : "mer";
+  const col = palette[t];
+  const baseOp = (t === "ville" || t === "rando") ? 0.26 : 0.30;
+  const op = night ? baseOp * 0.45 : baseOp;
+  const grey = "#8A979E";
+  const figOp = night ? 0.30 : 0.55;
+  const gid = "ground-" + t;
+  let fig = null;
+  if (t === "ville") fig = (
+    <g transform="translate(296, 92)" style={{ animation: "vdrift 13s ease-in-out infinite alternate" }}>
+      <circle cx="-4.4" cy="-2.6" r="2.6" />
+      <circle cx="4.4" cy="-2.6" r="2.6" />
+      <path d="M -4.4 -2.6 L -1.4 -6.6 L 4.4 -2.6 M -1.4 -6.6 L 2.6 -6.6 M -1.4 -6.6 L -0.6 -2.9" />
+      <path d="M 2.6 -6.6 L 3.5 -8.1 M 2.9 -8.1 L 4.2 -8.1" />
+      <path d="M -1.4 -6.6 L -2.3 -7.9 M -3.1 -7.9 L -1.6 -7.9" />
+    </g>
+  );
+  else if (t === "ski") fig = (
+    <g transform="translate(297, 92)" style={{ animation: "vdrift 11s ease-in-out infinite alternate" }}>
+      <circle cx="1.8" cy="-9.6" r="1.5" />
+      <path d="M 1.3 -8.2 L -0.8 -4 L -3 -1.2 M -0.8 -4 L 0.9 -1" />
+      <path d="M 1.3 -7 L 4 -1.6" />
+      <path d="M -5.4 -0.3 L 3 -0.3 M -4.4 0.9 L 4 0.9" />
+    </g>
+  );
+  else if (t === "rando") fig = (
+    <g transform="translate(297, 92)" style={{ animation: "vdrift 14s ease-in-out infinite alternate" }}>
+      <circle cx="0" cy="-10.2" r="1.5" />
+      <path d="M 0 -8.6 L 0 -4.2" />
+      <path d="M 0 -4.2 L -2.6 0 M 0 -4.2 L 2.4 0" />
+      <path d="M 0 -7.6 L -2.3 -4.6 M 0 -7.6 L 2.5 -5.2" />
+      <path d="M 2.5 -5.2 L 3.4 0" />
+    </g>
+  );
+  else if (t === "mariage") fig = (
+    <g transform="translate(296, 92)" style={{ animation: "vfloat 6s ease-in-out infinite" }}>
+      <circle cx="-2.4" cy="-9" r="1.4" />
+      <path d="M -2.4 -7.5 L -4.2 0 L -0.7 0 Z" />
+      <circle cx="2.4" cy="-9.6" r="1.5" />
+      <path d="M 2.4 -8 L 2.4 -2.6 M 2.4 -2.6 L 1.2 0 M 2.4 -2.6 L 3.6 0" />
+      <path d="M -1.5 -6 Q 0 -4.9 1.5 -6.2" />
+    </g>
+  );
+  else if (t === "detente") fig = (
+    <g style={{ animation: "vdrift 16s ease-in-out infinite alternate" }}>
+      <g transform="translate(293, 79)"><path d="M -6 0 Q -3 -2.4 0 0 Q 3 -2.4 6 0" /></g>
+      <g transform="translate(304, 74) scale(0.7)"><path d="M -6 0 Q -3 -2.4 0 0 Q 3 -2.4 6 0" /></g>
+    </g>
+  );
+  else fig = (
+    <g transform="translate(297, 91.6)" style={{ animation: "vsway 7s ease-in-out infinite alternate", transformBox: "fill-box", transformOrigin: "50% 100%" }}>
+      <path d="M -6.5 0 L 6.5 0 L 3.8 3 L -3.8 3 Z" />
+      <path d="M 0 0 L 0 -10.5" />
+      <path d="M 0.8 -9.5 L 5.8 -1 L 0.8 -1 Z" />
+      <path d="M -0.8 -8 L -4.6 -1 L -0.8 -1 Z" />
+    </g>
+  );
   return (
     <g>
-      <path d="M 0 92 Q 46 74 92 92 Z" fill={c.sea} opacity="0.13" />
-      <path d="M 228 92 Q 274 72 320 92 Z" fill={c.sea} opacity="0.15" />
-      <g style={{ animation: "vdrift 15s ease-in-out infinite alternate" }}>
-        <path d="M 64 26 q 3 -2.6 6 0 q 3 -2.6 6 0" fill="none" stroke={c.inkSoft} strokeWidth="1.1" opacity="0.42" strokeLinecap="round" />
-      </g>
-      <g style={{ animation: "vdrift 18s ease-in-out infinite alternate-reverse" }}>
-        <path d="M 248 20 q 2.6 -2.2 5.2 0 q 2.6 -2.2 5.2 0" fill="none" stroke={c.inkSoft} strokeWidth="1" opacity="0.38" strokeLinecap="round" />
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={col} stopOpacity={op} />
+          <stop offset="1" stopColor={col} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="92.4" width="320" height="25.6" fill={"url(#" + gid + ")"} />
+      <g stroke={grey} strokeOpacity={figOp} fill="none" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+        {fig}
       </g>
     </g>
   );
@@ -1100,7 +1083,7 @@ function SunArc({ now, wx, coord, endMin }) {
         </radialGradient>
       </defs>
       <ellipse cx="160" cy="92" rx="150" ry="84" fill="url(#skyGlow)" clipPath="url(#aboveHorizon)" />
-      <Landscape type={SETTINGS.tripType || "mer"} night={night} sunX={x} />
+      <Landscape type={SETTINGS.tripType || "mer"} night={night} />
       {night && stars.map(([sx, sy], i) => (
         <circle key={i} cx={sx} cy={sy} r={i % 2 ? 1.3 : 1.8} fill={T.c.sky} opacity="0.7" style={{ transformOrigin: `${sx}px ${sy}px`, animation: `vbreath ${3.5 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
       ))}
