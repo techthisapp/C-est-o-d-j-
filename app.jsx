@@ -956,15 +956,16 @@ const wmoIcon = (c) => {
   if (c <= 86) return CloudSnow;
   return CloudLightning;
 };
+const LAND_PALETTE = {
+  mer: "#4E9EBD", ville: "#8C9BA8", ski: "#9FC6DE",
+  rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82", anniversaire: "#C79ED6",
+};
+const LAND_BASEOP = (t) => (t === "ville" ? 0.20 : t === "rando" ? 0.26 : 0.30);
 function Landscape({ type, night }) {
   const c = T.c;
-  const palette = {
-    mer: "#4E9EBD", ville: "#8C9BA8", ski: "#9FC6DE",
-    rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82", anniversaire: "#C79ED6",
-  };
-  const t = palette[type] ? type : "mer";
-  const col = palette[t];
-  const baseOp = t === "ville" ? 0.20 : t === "rando" ? 0.26 : 0.30;
+  const t = LAND_PALETTE[type] ? type : "mer";
+  const col = LAND_PALETTE[t];
+  const baseOp = LAND_BASEOP(t);
   const op = night ? baseOp * 0.45 : baseOp;
   const gid = "ground-" + t;
   const figOp = night ? 0.4 : 0.58;
@@ -1153,7 +1154,7 @@ function Landscape({ type, night }) {
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={col} stopOpacity={op} />
-          <stop offset="1" stopColor={col} stopOpacity="0" />
+          <stop offset="1" stopColor={col} stopOpacity={op * 0.55} />
         </linearGradient>
       </defs>
       <rect x="0" y="92.4" width="320" height="25.6" fill={"url(#" + gid + ")"} />
@@ -1185,7 +1186,10 @@ function SunArc({ now, wx, coord, endMin }) {
     else if (wx.app != null) { SIcon = Thermometer; sColor = T.c.coral; sValue = `${Math.round(wx.app)}°`; }
   }
   const stars = [[48, 26], [96, 13], [160, 8], [224, 13], [272, 26]];
+  const lpT = LAND_PALETTE[SETTINGS.tripType] ? SETTINGS.tripType : "mer";
+  const lpHex = LAND_PALETTE[lpT] + Math.round(LAND_BASEOP(lpT) * (night ? 0.45 : 1) * 0.55 * 255).toString(16).padStart(2, "0");
   return (
+    <div style={{ position: "relative" }}>
     <svg viewBox="0 0 320 118" aria-hidden="true" style={{ display: "block", width: "calc(100% + 36px)", height: "auto", margin: "0 -18px" }}>
       <defs>
         <linearGradient id="arcTrail" x1="0" y1="0" x2="1" y2="0">
@@ -1252,6 +1256,8 @@ function SunArc({ now, wx, coord, endMin }) {
         });
       })()}
     </svg>
+    <div aria-hidden style={{ position: "absolute", left: -18, right: -18, top: "100%", height: 58, zIndex: -1, pointerEvents: "none", background: `linear-gradient(to bottom, ${lpHex}, transparent)` }} />
+    </div>
   );
 }
 
