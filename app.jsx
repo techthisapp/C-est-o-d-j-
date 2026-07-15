@@ -964,11 +964,20 @@ function Landscape({ type, night }) {
   };
   const t = palette[type] ? type : "mer";
   const col = palette[t];
-  const baseOp = (t === "ville" || t === "rando") ? 0.26 : 0.30;
+  const baseOp = t === "ville" ? 0.20 : t === "rando" ? 0.26 : 0.30;
   const op = night ? baseOp * 0.45 : baseOp;
   const gid = "ground-" + t;
   const figOp = night ? 0.4 : 0.58;
   const ink = c.inkSoft;
+  const firework = (bx, by, colr, delay, sc) => (
+    <g key={"fw" + bx} opacity="0.5" style={{ transformOrigin: `${bx}px ${by}px`, animation: `vbreath 3.6s ease-in-out ${delay}s infinite` }}>
+      {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
+        const rad = (a * Math.PI) / 180;
+        return <line key={a} x1={bx + 2.2 * sc * Math.cos(rad)} y1={by + 2.2 * sc * Math.sin(rad)} x2={bx + 6.2 * sc * Math.cos(rad)} y2={by + 6.2 * sc * Math.sin(rad)} stroke={colr} strokeWidth="1" strokeLinecap="round" />;
+      })}
+      <circle cx={bx} cy={by} r="0.8" fill={colr} />
+    </g>
+  );
   let deco = null, fig = null;
   if (t === "ville") {
     const gauche = [[14, 13, 18], [31, 10, 26], [45, 15, 13], [64, 11, 21], [79, 14, 10]];
@@ -984,12 +993,16 @@ function Landscape({ type, night }) {
       </g>
     );
     fig = (
-      <g style={{ transformOrigin: "112px 92px", animation: "vdrift 13s ease-in-out infinite alternate" }}>
-        <circle cx="107.5" cy="89.4" r="2.6" fill="none" stroke={ink} strokeWidth="1.3" />
-        <circle cx="116.5" cy="89.4" r="2.6" fill="none" stroke={ink} strokeWidth="1.3" />
-        <path d="M 107.5 89.4 L 110.4 85.7 L 115.2 85.4 L 116.5 89.4 L 112.4 89.4 Z" fill="none" stroke={ink} strokeWidth="1.3" strokeLinejoin="round" />
-        <circle cx="112.7" cy="80.6" r="1.6" fill={ink} />
-        <rect x="111" y="82" width="3" height="4.6" rx="1.5" fill={ink} transform="rotate(16 112.5 84.3)" />
+      <g transform="translate(-13, 0)" style={{ transformOrigin: "105px 92px", animation: "vdrift 13s ease-in-out infinite alternate" }}>
+        <circle cx="100" cy="89.3" r="2.7" fill="none" stroke={ink} strokeWidth="1.7" />
+        <circle cx="110" cy="89.3" r="2.7" fill="none" stroke={ink} strokeWidth="1.7" />
+        <path d="M 100 89.3 L 104 85.2 L 109 85.2 L 110 89.3 M 104 85.2 L 105.6 89.3 L 100 89.3" fill="none" stroke={ink} strokeWidth="1.55" strokeLinejoin="round" />
+        <path d="M 109 85.2 L 109.9 83.4 M 109.1 83.3 L 110.7 83.5" fill="none" stroke={ink} strokeWidth="1.35" strokeLinecap="round" />
+        <path d="M 103.2 84.4 L 105.2 84.4" stroke={ink} strokeWidth="1.55" strokeLinecap="round" />
+        <circle cx="107.9" cy="78.9" r="1.55" fill={ink} />
+        <rect x="105.2" y="80.2" width="3" height="5" rx="1.5" fill={ink} transform="rotate(30 106.7 82.7)" />
+        <rect x="104.4" y="84.6" width="1.7" height="3.4" rx="0.85" fill={ink} transform="rotate(18 105.25 86.3)" />
+        <path d="M 107.7 81 L 109.5 83.5" stroke={ink} strokeWidth="1.3" strokeLinecap="round" />
       </g>
     );
   } else if (t === "ski") {
@@ -1038,21 +1051,18 @@ function Landscape({ type, night }) {
       </g>
     );
   } else if (t === "mariage") {
-    const gl = [[12, 18.3], [24, 22.6], [36, 25], [48, 24.4], [58, 23]];
-    const gr = [[303, 18.3], [291, 22.6], [279, 25], [267, 24.4], [257, 23]];
-    const cols = [c.coral, c.sun, c.sea, c.coral, c.sun];
     deco = (
       <g>
         <path d="M 0 92 Q 46 76 92 92 Z" fill={c.sun} opacity="0.11" />
         <path d="M 224 92 Q 272 74 320 92 Z" fill={c.coral} opacity="0.10" />
-        <path d="M 2 14 Q 34 30 66 22" fill="none" stroke={c.inkFaint} strokeWidth="1" opacity="0.45" />
-        <path d="M 318 14 Q 286 30 254 22" fill="none" stroke={c.inkFaint} strokeWidth="1" opacity="0.45" />
-        {gl.map(([px, py], i) => <path key={"l" + i} d={`M ${px} ${py} L ${px + 4.5} ${py} L ${px + 2.25} ${py + 6} Z`} fill={cols[i]} opacity="0.62" />)}
-        {gr.map(([px, py], i) => <path key={"r" + i} d={`M ${px} ${py} L ${px - 4.5} ${py} L ${px - 2.25} ${py + 6} Z`} fill={cols[i]} opacity="0.62" />)}
+        {firework(40, 24, c.coral, 0, 1)}
+        {firework(63, 37, c.sun, 1.3, 0.68)}
+        {firework(277, 20, c.sea, 0.7, 1)}
+        {firework(255, 35, c.coral, 1.9, 0.62)}
       </g>
     );
     fig = (
-      <g transform="translate(252, 84.4)" style={{ transformOrigin: "252px 84.4px", animation: "vfloat 7s ease-in-out infinite" }}>
+      <g transform="translate(79, 88.1)" style={{ transformOrigin: "79px 88.1px", animation: "vfloat 7s ease-in-out infinite" }}>
         <circle cx="-2.3" cy="-8.7" r="1.5" fill={ink} />
         <path d="M -2.3 -7.2 L -4.4 0 L -0.4 0 Z" fill={ink} />
         <circle cx="2.4" cy="-9.2" r="1.6" fill={ink} />
@@ -1074,7 +1084,7 @@ function Landscape({ type, night }) {
       </g>
     );
     fig = (
-      <g transform="translate(110, 92) rotate(-7)" style={{ transformOrigin: "110px 92px", animation: "vsway 10s ease-in-out infinite alternate" }}>
+      <g transform="translate(86, 92) rotate(-7)" style={{ transformOrigin: "86px 92px", animation: "vsway 10s ease-in-out infinite alternate" }}>
         <path d="M -7.4 -7.2 A 7.4 7.4 0 0 1 7.4 -7.2 Z" fill={ink} />
         <path d="M 0 -7.2 L 0 0.6" stroke={ink} strokeWidth="1.15" strokeLinecap="round" />
         <rect x="3.2" y="-0.6" width="6.4" height="1.25" rx="0.62" fill={ink} />
@@ -1095,10 +1105,21 @@ function Landscape({ type, night }) {
       </g>
     );
     fig = (
-      <g transform="translate(110, 92)">
-        <rect x="-5.2" y="-4.6" width="10.4" height="4.6" rx="1.2" fill={ink} />
-        <path d="M 0 -4.6 L 0 -7.4" stroke={ink} strokeWidth="1.15" strokeLinecap="round" />
-        <circle cx="0" cy="-8.4" r="1" fill={ink} style={{ transformOrigin: "110px 83.6px", animation: "vtwinkle 2.4s ease-in-out infinite" }} />
+      <g>
+        <rect x="224" y="85.2" width="16" height="1.5" rx="0.75" fill={ink} />
+        <path d="M 227 86.7 L 226 92 M 237 86.7 L 238 92" stroke={ink} strokeWidth="1.15" strokeLinecap="round" />
+        <rect x="228.9" y="81.6" width="6.6" height="3.6" rx="1" fill={ink} />
+        <path d="M 232.2 81.6 L 232.2 79.3" stroke={ink} strokeWidth="1" strokeLinecap="round" />
+        <circle cx="232.2" cy="78.5" r="0.85" fill={ink} style={{ transformOrigin: "232.2px 78.5px", animation: "vtwinkle 2.4s ease-in-out infinite" }} />
+        <g style={{ transformOrigin: "219px 88px", animation: "vfloat 5.5s ease-in-out infinite" }}>
+          <circle cx="219" cy="81.4" r="1.6" fill={ink} />
+          <path d="M 217.6 79.9 L 219 76.8 L 220.4 79.9 Z" fill={ink} />
+          <rect x="217.9" y="82.9" width="2.2" height="6" rx="1.1" fill={ink} />
+          <rect x="218" y="88.7" width="0.95" height="3.4" rx="0.47" fill={ink} />
+          <rect x="219.15" y="88.7" width="0.95" height="3.4" rx="0.47" fill={ink} />
+          <rect x="215.9" y="79.5" width="1" height="3.8" rx="0.5" fill={ink} transform="rotate(-40 216.4 81)" />
+          <rect x="220.9" y="79.5" width="1" height="3.8" rx="0.5" fill={ink} transform="rotate(40 221.4 81.4)" />
+        </g>
       </g>
     );
   } else {
