@@ -2472,7 +2472,7 @@ function GamesSheet({ photos, messages, quizUnlocked, onOpenBingo, onOpenQuiz, o
   return <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{tiles}</div>;
 }
 
-function PhotoOfDay({ photo, onOpen, onLike }) {
+function PhotoOfDay({ photo, onOpen, onLike, noLabel }) {
   if (!photo || !photo.url) return null;
   const poster = photo.who ? person(photo.who) : null;
   let isToday = false;
@@ -2487,7 +2487,7 @@ function PhotoOfDay({ photo, onOpen, onLike }) {
         <img src={photo.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(6,14,18,0.62) 0%, rgba(6,14,18,0) 46%)" }} />
       </button>
-      <div style={{ position: "absolute", left: 12, top: 12, background: "rgba(6,14,18,0.5)", color: "#fff", borderRadius: T.r.pill, padding: "4px 10px", fontFamily: fD, fontWeight: 700, fontSize: 11.5, display: "inline-flex", alignItems: "center", gap: 6, pointerEvents: "none" }}><Images size={13} /> {label}</div>
+      {!noLabel && <div style={{ position: "absolute", left: 12, top: 12, background: "rgba(6,14,18,0.5)", color: "#fff", borderRadius: T.r.pill, padding: "4px 10px", fontFamily: fD, fontWeight: 700, fontSize: 11.5, display: "inline-flex", alignItems: "center", gap: 6, pointerEvents: "none" }}><Images size={13} /> {label}</div>}
       {poster && (
         <div style={{ position: "absolute", left: 12, bottom: 11, display: "flex", alignItems: "center", gap: 8, pointerEvents: "none" }}>
           <Avatar id={photo.who} size={26} />
@@ -2503,16 +2503,16 @@ function PhotoOfDay({ photo, onOpen, onLike }) {
     </div>
   );
 }
-function PhotoStrip({ photos, onOpen, onLike }) {
+function PhotoStrip({ photos, onOpen, onLike, noLabel }) {
   const list = [...(photos || [])].filter((p) => p.url).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 12);
   const [idx, setIdx] = useState(0);
   if (list.length === 0) return null;
-  if (list.length === 1) return <PhotoOfDay photo={list[0]} onOpen={onOpen} onLike={onLike} />;
+  if (list.length === 1) return <PhotoOfDay photo={list[0]} onOpen={onOpen} onLike={onLike} noLabel={noLabel} />;
   return (
     <div>
       <div onScroll={(e) => { const el = e.currentTarget; setIdx(clamp(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)), 0, list.length - 1)); }}
         style={{ display: "flex", gap: 12, overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", borderRadius: T.r.lg }}>
-        {list.map((p) => <PhotoOfDay key={p.id} photo={p} onOpen={onOpen} onLike={onLike} />)}
+        {list.map((p) => <PhotoOfDay key={p.id} photo={p} onOpen={onOpen} onLike={onLike} noLabel={noLabel} />)}
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 7 }}>
         {list.map((p, i) => <span key={p.id} style={{ width: i === idx ? 14 : 5, height: 5, borderRadius: T.r.pill, background: i === idx ? T.c.sea : T.c.line, transition: "width .2s ease" }} />)}
@@ -2610,7 +2610,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
           <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 13.5, marginTop: 5 }}>{periode} · {DAYS.length} jours à {nActifs}</div>
         </div>
         <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} />
-        <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} />
+        <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel />
         {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
       </div>
     );
