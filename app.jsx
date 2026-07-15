@@ -2119,34 +2119,43 @@ function CapsuleCard({ now, onSave, onDelete }) {
     const all = [];
     ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => all.push({ pid: p.id, ...e })));
     all.sort((a, b) => (a.at || 0) - (b.at || 0));
+    const tilt = (id) => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997; return ((h % 5) - 2) * 0.4; };
     return (
       <div style={wrap}>
         {seam}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 16 }}>📖</span>
-          <span style={{ fontFamily: fD, fontWeight: 700, color: inkPaper, fontSize: 15 }}>Le livre d'or du séjour</span>
+        <div style={{ textAlign: "center", marginBottom: 6 }}>
+          <div style={{ fontFamily: fH, fontWeight: 600, fontSize: 27, color: inkPaper, lineHeight: 1.1 }}>Le livre d'or</div>
+          <div style={{ fontFamily: fB, fontSize: 11, color: inkFaintPaper, marginTop: 3, letterSpacing: 0.5 }}>{SETTINGS.name || SETTINGS.place || ""}</div>
+          <div style={{ width: 30, height: 1, background: paperLine, margin: "10px auto 0" }} />
         </div>
-        <div style={{ fontFamily: fB, color: inkFaintPaper, fontSize: 12, marginBottom: 10 }}>{all.length > 0 ? "Les mots déposés en secret pendant le séjour." : "Le livre est ouvert. Écrivez le premier mot."}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-          {all.map((e) => (
-            <div key={e.pid + e.id} style={{ borderBottom: `1px dashed ${paperLine}`, paddingBottom: 10 }}>
-              <div style={{ fontFamily: fH, fontWeight: 500, fontSize: 20, lineHeight: 1.35, color: inkPaper }}>« {renderMentions(e.text)} »</div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 5 }}>
-                {e.open && <span style={{ fontFamily: fB, fontSize: 10, color: inkFaintPaper, border: `1px solid ${paperLine}`, borderRadius: T.r.pill, padding: "1px 7px", marginRight: 2 }}>à livre ouvert</span>}
-                <Avatar id={e.pid} size={18} />
-                <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 16, color: inkFaintPaper }}>{person(e.pid).name}</span>
-                {e.pid === ME && <button onClick={() => onDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: "none", background: "transparent", color: inkFaintPaper, padding: "2px", flex: "0 0 auto" }}><X size={13} /></button>}
+        {all.length === 0 && (
+          <div style={{ fontFamily: fH, fontSize: 18, color: inkFaintPaper, textAlign: "center", margin: "8px 0 4px" }}>Le livre est ouvert. Écrivez le premier mot.</div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {all.map((e, i) => (
+            <div key={e.pid + e.id}>
+              {i > 0 && <div style={{ width: 26, height: 1, background: paperLine, margin: "14px auto" }} />}
+              <div style={{ transform: `rotate(${tilt(e.id)}deg)` }}>
+                <div style={{ fontFamily: fH, fontWeight: 500, fontSize: 20, lineHeight: 1.35, color: inkPaper }}>{renderMentions(e.text)}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
+                  <Avatar id={e.pid} size={16} />
+                  <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 17, color: inkFaintPaper }}>{person(e.pid).name}</span>
+                  {e.pid === ME && <button onClick={() => onDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: "none", background: "transparent", color: inkFaintPaper, opacity: 0.5, padding: "2px 0 2px 4px", flex: "0 0 auto" }}><X size={12} /></button>}
+                </div>
+                {e.open && <div style={{ textAlign: "right", fontFamily: fB, fontSize: 9.5, color: inkFaintPaper, opacity: 0.85, marginTop: 1 }}>écrit à livre ouvert</div>}
               </div>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: all.length > 0 ? 12 : 2 }}>
-          <textarea ref={taRef} value={text} onChange={onType} rows={2} placeholder="Un mot de plus pour le livre..." style={linedArea} />
+        <div style={{ marginTop: all.length > 0 ? 18 : 6 }}>
+          <textarea ref={taRef} value={text} onChange={onType} rows={2} placeholder="Votre mot..." style={linedArea} />
           {mentionBar}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 9, flexWrap: "wrap" }}>
-            {atBtn}
-            <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: text.trim() ? T.c.sea : paperLine, color: text.trim() ? "#fff" : inkFaintPaper, borderRadius: T.r.md, padding: "9px 16px", fontFamily: fD, fontWeight: 700, fontSize: 13 }}>Ajouter au livre</button>
-            <span style={{ fontFamily: fB, fontSize: 11, color: inkFaintPaper }}>Le livre est ouvert : ce mot sera visible immédiatement.</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
+            <span style={{ fontFamily: fB, fontSize: 10.5, color: inkFaintPaper, flex: 1, minWidth: 0 }}>Livre ouvert : visible immédiatement.</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+              {atBtn}
+              <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: "transparent", color: text.trim() ? T.c.seaDeep : inkFaintPaper, fontFamily: fH, fontWeight: 600, fontSize: 19, padding: "2px 2px" }}>Signer le livre ✎</button>
+            </span>
           </div>
         </div>
       </div>
