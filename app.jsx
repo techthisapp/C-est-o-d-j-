@@ -7,7 +7,7 @@ import {
   Cloud, CloudRain, CloudSnow, CloudFog, CloudDrizzle, CloudLightning, Sunrise, Sunset, Wind, Umbrella, Thermometer, Heart,
   CalendarDays, Rewind, Clock, UserMinus, UserPlus, MessageCircle,
   Send, ImagePlus, Images, Navigation, CornerDownRight, LogIn, LogOut,
-  Settings, RotateCcw, User, RefreshCw, Phone, Mail, Trash2, BarChart3, Star, SmilePlus
+  Settings, RotateCcw, User, RefreshCw, Phone, Mail, Trash2, BarChart3, Star, SmilePlus, Map as MapIcon, Share2, HelpCircle
 } from "lucide-react";
 
 /* =========================================================================
@@ -2064,6 +2064,11 @@ function CapsuleCard({ now, onSave, onDelete }) {
   const linedArea = { fontFamily: fH, fontSize: 19, lineHeight: "28px", color: inkPaper, width: "100%", boxSizing: "border-box", padding: "0 2px", border: "none", outline: "none", resize: "none", background: `repeating-linear-gradient(transparent, transparent 27px, ${paperLine} 27px, ${paperLine} 28px)`, minHeight: 56 };
   const taRef = useRef(null);
   const [mq, setMq] = useState(null);
+  const [armed, setArmed] = useState(null);
+  const pressRef = useRef(null);
+  const holdStart = (id) => { if (pressRef.current) clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setArmed(id), 550); };
+  const holdEnd = () => { if (pressRef.current) { clearTimeout(pressRef.current); pressRef.current = null; } };
+  const askDelete = (id) => { if (typeof window !== "undefined" && window.confirm && !window.confirm("Retirer ce mot du livre d\u2019or ?")) return; setArmed(null); onDelete(id); };
   const normA = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const mentionables = ROSTER.filter((p) => p.active && p.id !== ME);
   const sugg = mq == null ? [] : mentionables.filter((p) => normA(person(p.id).name).startsWith(normA(mq))).slice(0, 5);
@@ -2134,16 +2139,17 @@ function CapsuleCard({ now, onSave, onDelete }) {
         <div style={{ display: "flex", flexDirection: "column" }}>
           {all.map((e, i) => (
             <div key={e.pid + e.id}>
-              {i > 0 && <div style={{ width: 26, height: 1, background: paperLine, margin: "14px auto" }} />}
-              <div style={{ transform: `rotate(${tilt(e.id)}deg)` }}>
+              <div style={{ transform: `rotate(${tilt(e.id)}deg)` }}
+                onTouchStart={e.pid === ME ? () => holdStart(e.id) : undefined} onTouchEnd={e.pid === ME ? holdEnd : undefined} onTouchMove={e.pid === ME ? holdEnd : undefined}
+                onMouseDown={e.pid === ME ? () => holdStart(e.id) : undefined} onMouseUp={e.pid === ME ? holdEnd : undefined} onMouseLeave={e.pid === ME ? holdEnd : undefined}>
                 <div style={{ fontFamily: fH, fontWeight: 500, fontSize: 20, lineHeight: 1.35, color: inkPaper }}>{renderMentions(e.text)}</div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
                   <Avatar id={e.pid} size={16} />
                   <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 17, color: inkFaintPaper }}>{person(e.pid).name}</span>
-                  {e.pid === ME && <button onClick={() => onDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: "none", background: "transparent", color: inkFaintPaper, opacity: 0.5, padding: "2px 0 2px 4px", flex: "0 0 auto" }}><X size={12} /></button>}
+                  {e.pid === ME && armed === e.id && <button onClick={() => askDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: `1px solid ${paperLine}`, background: "transparent", color: inkFaintPaper, borderRadius: T.r.pill, minWidth: 44, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: fB, fontSize: 10.5, padding: "0 8px", flex: "0 0 auto" }}><X size={11} /> Retirer</button>}
                 </div>
-                {e.open && <div style={{ textAlign: "right", fontFamily: fB, fontSize: 9.5, color: inkFaintPaper, opacity: 0.85, marginTop: 1 }}>écrit à livre ouvert</div>}
               </div>
+              {i < all.length - 1 && <div style={{ width: 26, height: 1, background: paperLine, margin: "14px auto" }} />}
             </div>
           ))}
         </div>
@@ -2508,12 +2514,14 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
   const [idx, setIdx] = useState(0);
   if (list.length === 0) return null;
   if (variant === "polaroid") {
+    const full = [...(photos || [])].filter((p) => p.url).sort((a, b) => (b.at || 0) - (a.at || 0));
     const tiltP = (id) => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997; return (h % 2 === 0 ? -1 : 1) * (1 + (h % 3) * 0.6); };
     return (
       <div>
-        <div onScroll={(e) => { const el = e.currentTarget; setIdx(clamp(Math.round(el.scrollLeft / Math.max(1, el.clientWidth * 0.74)), 0, list.length - 1)); }}
+        <div onScroll={(e) => { const el = e.currentTarget; setIdx(clamp(Math.round(el.scrollLeft / Math.max(1, el.clientWidth * 0.74)), 0, full.length - 1)); }}
           style={{ display: "flex", gap: 14, overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", padding: "10px 4px 14px" }}>
-          {list.map((p) => {
+          {full.map((p, i) => {
+            const showWho = p.who && (i === 0 || full[i - 1].who !== p.who);
             const liked = ((p.reactions || {})[ME] || []).includes("❤️");
             let hearts = 0; Object.keys(p.reactions || {}).forEach((pid) => { if (((p.reactions || {})[pid] || []).includes("❤️")) hearts += 1; });
             return (
@@ -2524,7 +2532,7 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
                   </button>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 7, padding: "0 2px" }}>
                     <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 17, color: "#40525B", display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                      {p.who ? <Avatar id={p.who} size={17} /> : null} {p.who ? person(p.who).name : ""}
+                      {showWho ? <Avatar id={p.who} size={17} /> : null}{showWho ? " " + person(p.who).name : ""}
                     </span>
                     {onLike && (
                       <button onClick={() => onLike(p.id)} aria-label={liked ? "Retirer mon j'aime" : "J'aime cette photo"} style={{ cursor: "pointer", border: "none", background: "transparent", padding: 2, display: "inline-flex", alignItems: "center", gap: 4, fontFamily: fD, fontWeight: 700, fontSize: 12, color: "#8A97A0", flex: "0 0 auto" }}>
@@ -2537,10 +2545,8 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
             );
           })}
         </div>
-        {list.length > 1 && (
-          <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 2 }}>
-            {list.map((p, i) => <span key={p.id} style={{ width: i === idx ? 14 : 5, height: 5, borderRadius: T.r.pill, background: i === idx ? T.c.sea : T.c.line, transition: "width .2s ease" }} />)}
-          </div>
+        {full.length > 1 && (
+          <div style={{ textAlign: "center", marginTop: 2, fontFamily: fD, fontWeight: 700, fontSize: 12.5, color: T.c.inkFaint, fontVariantNumeric: "tabular-nums" }}>{Math.min(idx + 1, full.length)} / {full.length}</div>
         )}
       </div>
     );
@@ -2554,6 +2560,120 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 7 }}>
         {list.map((p, i) => <span key={p.id} style={{ width: i === idx ? 14 : 5, height: 5, borderRadius: T.r.pill, background: i === idx ? T.c.sea : T.c.line, transition: "width .2s ease" }} />)}
+      </div>
+    </div>
+  );
+}
+const heartsOf = (p) => Object.keys(p.reactions || {}).filter((pid) => ((p.reactions || {})[pid] || []).includes("❤️")).length;
+const reactsOf = (p) => Object.keys(p.reactions || {}).reduce((n, pid) => n + ((p.reactions || {})[pid] || []).length, 0);
+function pickStar(photos, faces) {
+  const list = (photos || []).filter((p) => p.url);
+  if (!list.length) return null;
+  const seuil = Math.max(1, Math.ceil(ROSTER.filter((p) => p.active).length / 2));
+  let elu = null;
+  list.forEach((p) => { const h = heartsOf(p); if (h >= seuil && (!elu || h > heartsOf(elu))) elu = p; });
+  if (elu) return { photo: elu, label: "Votre photo élue", n: heartsOf(elu) };
+  if (faces) {
+    let bf = null, bs = 0;
+    list.forEach((p) => { const f = faces[p.id]; if (f && f.n > 0 && f.score > bs) { bs = f.score; bf = p; } });
+    if (bf) return { photo: bf, label: "La photo de groupe", n: heartsOf(bf) };
+  }
+  let br = null, brn = -1;
+  list.forEach((p) => { const r = reactsOf(p); if (r > brn) { brn = r; br = p; } });
+  return br ? { photo: br, label: "La photo du séjour", n: heartsOf(br) } : null;
+}
+function ShareSheet({ onDone }) {
+  const [msg, setMsg] = useState(null);
+  const url = typeof window !== "undefined" ? window.location.href : "";
+  const partager = async () => {
+    const data = { title: SETTINGS.name || "Notre séjour", text: `Le film de ${SETTINGS.place || "notre séjour"} et tous nos souvenirs.`, url };
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) { await navigator.share(data); onDone(); return; }
+      if (typeof navigator !== "undefined" && navigator.clipboard) { await navigator.clipboard.writeText(url); setMsg("Lien copié."); return; }
+      setMsg("Copiez le lien depuis la barre d'adresse.");
+    } catch (e) { if (e && e.name !== "AbortError") setMsg("Partage impossible."); }
+  };
+  const row = { display: "flex", alignItems: "center", gap: 12, width: "100%", cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, borderRadius: T.r.lg, padding: "13px 14px", textAlign: "left", minHeight: 44 };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <button onClick={partager} style={row}>
+        <span style={{ width: 38, height: 38, borderRadius: T.r.pill, background: T.c.seaSoft, color: T.c.seaDeep, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><Play size={17} /></span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontFamily: fD, fontWeight: 700, fontSize: 15, color: T.c.ink }}>Partager le film</span>
+          <span style={{ display: "block", fontFamily: fB, fontSize: 12, color: T.c.inkFaint }}>Envoie le lien du séjour, le film s'ouvre dans l'app.</span>
+        </span>
+      </button>
+      <div style={{ ...row, cursor: "default", opacity: 0.55 }}>
+        <span style={{ width: 38, height: 38, borderRadius: T.r.pill, background: T.c.lineSoft, color: T.c.inkFaint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><StickyNote size={17} /></span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontFamily: fD, fontWeight: 700, fontSize: 15, color: T.c.inkSoft }}>Récap PDF</span>
+          <span style={{ display: "block", fontFamily: fB, fontSize: 12, color: T.c.inkFaint }}>Bientôt : une page avec les chiffres, la photo et le livre d'or.</span>
+        </span>
+      </div>
+      {msg && <div style={{ fontFamily: fB, fontSize: 12.5, color: T.c.seaDeep, textAlign: "center" }}>{msg}</div>}
+    </div>
+  );
+}
+function PlacesMap({ places, onClose }) {
+  const pts = (places || []).filter((p) => p.coord);
+  const boxRef = useRef(null);
+  const dragRef = useRef(null);
+  const [box, setBox] = useState({ w: 320, h: 420 });
+  const [z, setZ] = useState(12);
+  const [c, setC] = useState(pts.length ? pts[0].coord : V);
+  const rad = Math.PI / 180;
+  const prj = (co, zz) => { const n = Math.pow(2, zz) * 256; const lr = co.lat * rad; return { x: ((co.lng + 180) / 360) * n, y: ((1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2) * n }; };
+  useEffect(() => {
+    const el = boxRef.current; if (!el || !pts.length) return;
+    const w = el.clientWidth || 320, h = el.clientHeight || 420;
+    setBox({ w, h });
+    const lats = pts.map((p) => p.coord.lat), lngs = pts.map((p) => p.coord.lng);
+    setC({ lat: (Math.min(...lats) + Math.max(...lats)) / 2, lng: (Math.min(...lngs) + Math.max(...lngs)) / 2 });
+    let best = 4;
+    for (let zz = 17; zz >= 3; zz--) {
+      const a = prj({ lat: Math.max(...lats), lng: Math.min(...lngs) }, zz);
+      const b = prj({ lat: Math.min(...lats), lng: Math.max(...lngs) }, zz);
+      if (b.x - a.x < w - 80 && b.y - a.y < h - 120) { best = zz; break; }
+    }
+    setZ(best);
+  }, []);
+  const n = Math.pow(2, z);
+  const ctr = prj(c, z);
+  const px2ll = (px, py) => { const lng = (px / (n * 256)) * 360 - 180; const yn = Math.PI * (1 - 2 * (py / (n * 256))); return { lat: Math.atan(Math.sinh(yn)) / rad, lng }; };
+  const onDown = (e) => { const t = e.touches ? e.touches[0] : e; dragRef.current = { x: t.clientX, y: t.clientY, cx: ctr.x, cy: ctr.y }; };
+  const onMove = (e) => { const d = dragRef.current; if (!d) return; if (e.cancelable) e.preventDefault(); const t = e.touches ? e.touches[0] : e; setC(px2ll(d.cx - (t.clientX - d.x), d.cy - (t.clientY - d.y))); };
+  const onUp = () => { dragRef.current = null; };
+  const x0 = Math.floor((ctr.x - box.w / 2) / 256), x1 = Math.floor((ctr.x + box.w / 2) / 256);
+  const y0 = Math.floor((ctr.y - box.h / 2) / 256), y1 = Math.floor((ctr.y + box.h / 2) / 256);
+  const tiles = [];
+  for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) if (ty >= 0 && ty < n) tiles.push([tx, ty]);
+  const btnZ = { cursor: "pointer", width: 44, height: 44, border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.ink, borderRadius: T.r.md, fontFamily: fD, fontWeight: 700, fontSize: 19, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: T.sh.card };
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, background: T.c.bg, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "calc(10px + env(safe-area-inset-top)) 14px 8px" }}>
+        <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 17 }}>{pts.length} lieu{pts.length > 1 ? "x" : ""} du séjour</span>
+        <button onClick={onClose} aria-label="Fermer" style={{ cursor: "pointer", border: "none", background: T.c.lineSoft, color: T.c.ink, width: 44, height: 44, borderRadius: T.r.pill, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={20} /></button>
+      </div>
+      <div ref={boxRef} onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+        style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", touchAction: "none", background: "#dcecf2" }}>
+        {tiles.map(([tx, ty]) => (
+          <img key={tx + "_" + ty + "_" + z} alt="" draggable={false} src={`https://tile.openstreetmap.org/${z}/${((tx % n) + n) % n}/${ty}.png`}
+            style={{ position: "absolute", left: Math.round(tx * 256 - (ctr.x - box.w / 2)), top: Math.round(ty * 256 - (ctr.y - box.h / 2)), width: 256, height: 256, pointerEvents: "none", userSelect: "none" }} />
+        ))}
+        {pts.map((p, i) => {
+          const q = prj(p.coord, z);
+          return (
+            <span key={i} style={{ position: "absolute", left: Math.round(q.x - (ctr.x - box.w / 2)), top: Math.round(q.y - (ctr.y - box.h / 2)), transform: "translate(-50%, -100%)", pointerEvents: "none", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 10.5, color: T.c.ink, background: "rgba(255,255,255,0.88)", borderRadius: T.r.pill, padding: "1px 6px", marginBottom: 1, whiteSpace: "nowrap", boxShadow: T.sh.card }}>{p.name}</span>
+              <MapPin size={24} color={T.c.coral} fill={T.c.coral} strokeWidth={1.5} />
+            </span>
+          );
+        })}
+        <div style={{ position: "absolute", right: 10, top: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <button onClick={() => setZ((v) => clamp(v + 1, 3, 18))} aria-label="Zoomer" style={btnZ}>+</button>
+          <button onClick={() => setZ((v) => clamp(v - 1, 3, 18))} aria-label="Dézoomer" style={btnZ}>-</button>
+        </div>
+        <span style={{ position: "absolute", right: 6, bottom: 4, fontFamily: fB, fontSize: 9.5, color: "#00000099", background: "#ffffffb0", padding: "1px 5px", borderRadius: 3 }}>© OpenStreetMap</span>
       </div>
     </div>
   );
@@ -2589,7 +2709,7 @@ function SouvenirSky({ periode }) {
     </div>
   );
 }
-function SouvenirCard({ events, photos, messages, onOpenEvent, onOpenPhoto, onFilm, onOpenQuiz }) {
+function SouvenirCard({ events, photos, messages, star, onOpenEvent, onOpenPhoto, onFilm, onOpenQuiz, onMap, onShare }) {
   const past = mainList(events);
   const phs = (photos || []).filter((p) => p.url);
   const msgs = (messages || []).filter((m) => !isVibe(m) && !isLoc(m));
@@ -2597,58 +2717,72 @@ function SouvenirCard({ events, photos, messages, onOpenEvent, onOpenPhoto, onFi
   past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(e.place.name)) { seen.add(e.place.name); lieux += 1; } });
   let best = null, bestN = 0;
   past.forEach((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); const n = v ? vibeTotal(v) : 0; if (n > bestN) { best = e; bestN = n; } });
-  let star = null, starN = 0;
-  phs.forEach((p) => {
-    let h = 0; Object.keys(p.reactions || {}).forEach((pid) => { if (((p.reactions || {})[pid] || []).includes("❤️")) h += 1; });
-    if (h > starN) { star = p; starN = h; }
-  });
+  const nActifs = ROSTER.filter((p) => p.active).length;
+  let dist = 0, prev = null;
+  past.forEach((e) => { if (e.place && e.place.coord) { if (prev) dist += distM(prev, e.place.coord); prev = e.place.coord; } });
+  const km = Math.round(dist / 1000);
   const stats = [
-    [past.length, past.length > 1 ? "activités" : "activité"],
-    [phs.length, phs.length > 1 ? "photos" : "photo"],
-    [msgs.length, "messages"],
-    [lieux, lieux > 1 ? "lieux" : "lieu"],
+    [past.length, past.length > 1 ? "activités" : "activité", null],
+    phs.length >= 3 ? [phs.length, "photos", null] : [nActifs, "personnes", null],
+    msgs.length >= 10 ? [msgs.length, "messages", null] : (km >= 1 ? [km, "km", null] : [DAYS.length, DAYS.length > 1 ? "jours" : "jour", null]),
+    [lieux, lieux > 1 ? "lieux" : "lieu", lieux > 0 ? onMap : null],
   ];
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
-  const btn = { cursor: "pointer", flex: 1, border: "none", borderRadius: T.r.pill, padding: "12px", fontFamily: fD, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 };
+  const actions = [[Play, "Film", onFilm], [HelpCircle, "Quiz", onOpenQuiz], [MapIcon, "Carte", lieux > 0 ? onMap : null], [Share2, "Partager", onShare]].filter((a) => a[2]);
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 4px" }}>
-        {stats.map(([n, l], i) => (
-          <div key={l} style={{ width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, opacity: 0.82, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+        {stats.map(([n, l, act], i) => {
+          const inner = (
             <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 19, color: encres[i], lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{n}</span>
               <span style={{ fontFamily: fB, fontWeight: 700, fontSize: 7.5, letterSpacing: 1.1, color: encres[i], textTransform: "uppercase", marginTop: 2 }}>{l}</span>
             </div>
-          </div>
-        ))}
+          );
+          const st = { width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, opacity: 0.82, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", background: "transparent", padding: 0 };
+          return act
+            ? <button key={l} onClick={act} aria-label={`Voir les ${l} sur la carte`} style={{ ...st, cursor: "pointer" }}>{inner}</button>
+            : <div key={l} style={st}>{inner}</div>;
+        })}
       </div>
-      {best && bestN > 0 && (
+      {actions.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-around", gap: 6, padding: "0 2px" }}>
+          {actions.map(([Icon, label, fn]) => (
+            <button key={label} onClick={fn} style={{ cursor: "pointer", border: "none", background: "transparent", padding: 0, minWidth: 56, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 46, height: 46, borderRadius: "50%", border: `1.4px dashed ${T.c.line}`, display: "flex", alignItems: "center", justifyContent: "center", color: T.c.seaDeep, background: T.c.card }}><Icon size={19} /></span>
+              <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 11, color: T.c.inkSoft }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {best && bestN >= 3 && (
         <button onClick={() => onOpenEvent(best)} style={{ cursor: "pointer", border: "none", background: "#FFF8E9", borderRadius: 10, padding: 0, display: "flex", alignItems: "stretch", transform: "rotate(1.2deg)", boxShadow: T.sh.card, overflow: "hidden", textAlign: "left", width: "96%", alignSelf: "center" }}>
           <span style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "0 13px", fontSize: 23, borderRight: "2px dashed #E3D3AE", flex: "0 0 auto" }}>🤩</span>
           <span style={{ flex: 1, minWidth: 0, padding: "10px 14px" }}>
             <span style={{ display: "block", fontFamily: fB, fontWeight: 700, fontSize: 8.5, letterSpacing: 1.4, color: "#A5822F", textTransform: "uppercase" }}>Le moment préféré du groupe</span>
             <span style={{ display: "block", fontFamily: fH, fontWeight: 600, fontSize: 23, color: "#4A3B23", lineHeight: 1.12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{best.title}</span>
-            <span style={{ display: "block", fontFamily: fB, fontSize: 11, color: "#8A7A55", marginTop: 1 }}>{bestN} réaction{bestN > 1 ? "s" : ""} 🤩</span>
+            <span style={{ display: "block", fontFamily: fB, fontSize: 11, color: "#8A7A55", marginTop: 1 }}>{bestN} réactions 🤩</span>
           </span>
         </button>
       )}
       {star && (
-        <button onClick={() => onOpenPhoto(star)} style={{ cursor: "pointer", alignSelf: "center", width: "88%", border: "none", background: "#ffffff", padding: "11px 11px 12px", borderRadius: 4, boxShadow: "0 10px 26px rgba(31,58,68,0.18)", transform: "rotate(-2deg)", position: "relative", marginTop: 4 }}>
+        <div style={{ alignSelf: "center", width: "88%", background: "#ffffff", padding: "11px 11px 12px", borderRadius: 4, boxShadow: "0 10px 26px rgba(31,58,68,0.18)", transform: "rotate(-2deg)", position: "relative", marginTop: 4 }}>
           <span style={{ position: "absolute", left: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(-38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
           <span style={{ position: "absolute", right: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
-          <img src={star.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }} />
-          <span style={{ display: "block", textAlign: "center", fontFamily: fH, fontWeight: 600, fontSize: 19, color: "#40525B", marginTop: 9 }}>La photo du séjour · ❤ {starN}</span>
-        </button>
+          <button onClick={() => onOpenPhoto(star.photo)} aria-label="Ouvrir la photo" style={{ display: "block", width: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", position: "relative" }}>
+            <img src={star.photo.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }} />
+          </button>
+          <button onClick={onFilm} aria-label="Revoir le film du séjour" style={{ position: "absolute", left: "50%", top: "calc(50% - 6px)", transform: "translate(-50%, -50%)", cursor: "pointer", width: 58, height: 58, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.9)", background: "rgba(6,14,18,0.42)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,0.25)" }}>
+            <Play size={24} fill="#fff" style={{ marginLeft: 3 }} />
+          </button>
+          <span style={{ display: "block", textAlign: "center", fontFamily: fH, fontWeight: 600, fontSize: 19, color: "#40525B", marginTop: 9 }}>{star.label}{star.n >= 3 ? ` · ❤ ${star.n}` : ""}</span>
+        </div>
       )}
-      <div style={{ display: "flex", gap: 9 }}>
-        <button onClick={onFilm} style={{ ...btn, background: T.c.sea, color: "#fff" }}><Play size={16} /> Revoir le film</button>
-        {onOpenQuiz && <button onClick={onOpenQuiz} style={{ ...btn, background: T.c.card, color: T.c.seaDeep, border: `1px solid ${T.c.line}` }}>Rejouer le quiz</button>}
-      </div>
     </>
   );
 }
-function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz }) {
+function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz, onMap, onShare }) {
   const ub = (id) => (unreadByEvent && unreadByEvent[id]) || 0;
   const op = (id) => (openPollsByEvent && openPollsByEvent[id]) || 0;
   const cur = currentEvent(events, now);
@@ -2665,6 +2799,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
   const todayDone = (!cur && !sameDayNext) || nightMorning;
   const after = (!todayDone && sameDayNext) ? upcomingSameDay(events, now, dIdx).filter((e) => e.id !== sameDayNext.id).slice(0, 3) : [];
   const tripOver = dayOfNow(now) >= DAYS.length;
+  const star = tripOver ? pickStar(photos, null) : null;
 
   if (tripOver) {
     const nActifs = ROSTER.filter((p) => p.active).length;
@@ -2676,8 +2811,8 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <SouvenirSky periode={`${periode} · ${DAYS.length} jours à ${nActifs}`} />
-        <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} />
-        <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel variant="polaroid" />
+        <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} star={star} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} onMap={onMap} onShare={onShare} />
+        <PhotoStrip photos={(photos || []).filter((p) => !star || p.id !== star.photo.id)} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel variant="polaroid" />
         {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
       </div>
     );
@@ -4583,6 +4718,7 @@ export default function App() {
     setRev((r) => r + 1);
   };
   const [film, setFilm] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [wx, setWx] = useState(null);
   useEffect(() => {
     if (typeof fetch !== "function") return;
@@ -4808,6 +4944,7 @@ export default function App() {
     : sheet?.mode === "games" ? "Jeux"
     : sheet?.mode === "bingo" ? "Bingo de vacances"
     : sheet?.mode === "quiz" ? "Quiz du séjour"
+    : sheet?.mode === "share" ? "Partager le souvenir"
     : sheet?.mode === "edit" ? (draft?.id ? "Modifier l'activité" : draft?.parallelOf ? "Activité en parallèle" : "Nouvelle activité")
       : "Détail";
 
@@ -4872,7 +5009,7 @@ export default function App() {
         </div>
 
         <div key={tab} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", WebkitOverflowScrolling: "touch", overflowY: tab === "talk" ? "hidden" : "auto", padding: tab === "talk" ? "16px 16px 10px" : "18px 18px 24px", animation: "vfade .25s ease" }}>
-          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
+          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} onMap={() => setMapOpen(true)} onShare={() => setSheet({ mode: "share" })} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "program" && <ScreenProgram events={events} now={now} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onOpenEvent={openDetail} onEditEvent={openEdit} onAdd={openAdd} onDelete={deleteEvent} canEdit={canEdit} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "talk" && <ScreenTalk messages={messages} onSend={sendMessage} pollHandlers={pollHandlers} />}
           {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onFilm={() => setFilm(true)} />}
@@ -4894,10 +5031,16 @@ export default function App() {
           {sheet?.mode === "games" && <GamesSheet photos={visiblePhotos} messages={messages} quizUnlocked={quizUnlocked} onOpenBingo={openBingo} onOpenQuiz={openQuiz} onGoTalk={() => { setSheet(null); setTab("talk"); }} onCreateGuess={createGuess} />}
           {sheet?.mode === "bingo" && <BingoSheet onToggle={toggleBingoCase} rev={rev} />}
           {sheet?.mode === "quiz" && <QuizSheet events={events} messages={messages} photos={visiblePhotos} onFinish={saveQuizScore} />}
+          {sheet?.mode === "share" && <ShareSheet onDone={() => setSheet(null)} />}
         </Sheet>
 
         <PhotoViewer photos={visiblePhotos} startId={photoView} onClose={() => setPhotoView(null)} onToggleTag={toggleTag} onReact={togglePhotoReaction} onDelete={deletePhoto} />
         {film && <FilmOverlay photos={visiblePhotos} onClose={() => setFilm(false)} />}
+        {mapOpen && (() => {
+          const seenM = new Set(); const pl = [];
+          mainList(events).forEach((e) => { if (e.place && e.place.coord && e.place.name && e.place.name !== "À définir" && !seenM.has(e.place.name)) { seenM.add(e.place.name); pl.push(e.place); } });
+          return <PlacesMap places={pl} onClose={() => setMapOpen(false)} />;
+        })()}
       </div>
     </div>
   );
