@@ -2117,7 +2117,7 @@ function CapsuleCard({ now, onSave, onDelete }) {
     </div>
   ) : null;
   const atBtn = (
-    <button onClick={startMention} aria-label="Mentionner quelqu'un" style={{ cursor: "pointer", border: `1px solid ${paperLine}`, background: "transparent", color: inkFaintPaper, borderRadius: T.r.md, width: 34, height: 34, fontFamily: fD, fontWeight: 700, fontSize: 15, flex: "0 0 auto" }}>@</button>
+    <button onClick={startMention} aria-label="Mentionner quelqu'un" style={{ cursor: "pointer", border: `1px solid ${paperLine}`, background: "transparent", color: inkFaintPaper, borderRadius: T.r.md, width: 44, height: 44, fontFamily: fD, fontWeight: 700, fontSize: 16, flex: "0 0 auto" }}>@</button>
   );
   const deposit = () => { const t = text.trim(); if (!t) return; onSave(t); setText(""); setMq(null); };
   if (reveal) {
@@ -2146,7 +2146,9 @@ function CapsuleCard({ now, onSave, onDelete }) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
                   <Avatar id={e.pid} size={16} />
                   <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 17, color: inkFaintPaper }}>{person(e.pid).name}</span>
-                  {e.pid === ME && armed === e.id && <button onClick={() => askDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: `1px solid ${paperLine}`, background: "transparent", color: inkFaintPaper, borderRadius: T.r.pill, minWidth: 44, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: fB, fontSize: 10.5, padding: "0 8px", flex: "0 0 auto" }}><X size={11} /> Retirer</button>}
+                  {e.pid === ME && armed === e.id && <button onClick={() => askDelete(e.id)} aria-label="Retirer ce mot" style={{ cursor: "pointer", border: "none", background: "transparent", padding: "9px 0 9px 6px", minHeight: 44, display: "inline-flex", alignItems: "center", flex: "0 0 auto" }}>
+                    <span style={{ border: `1px solid ${paperLine}`, color: inkFaintPaper, borderRadius: T.r.pill, minWidth: 44, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: fB, fontSize: 10.5, padding: "0 8px" }}><X size={11} /> Retirer</span>
+                  </button>}
                 </div>
               </div>
               {i < all.length - 1 && <div style={{ width: 26, height: 1, background: paperLine, margin: "14px auto" }} />}
@@ -2160,7 +2162,7 @@ function CapsuleCard({ now, onSave, onDelete }) {
             <span style={{ fontFamily: fB, fontSize: 10.5, color: inkFaintPaper, flex: 1, minWidth: 0 }}>Livre ouvert : visible immédiatement.</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
               {atBtn}
-              <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: "transparent", color: text.trim() ? T.c.seaDeep : inkFaintPaper, fontFamily: fH, fontWeight: 600, fontSize: 19, padding: "2px 2px" }}>Signer le livre ✎</button>
+              <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: "transparent", color: text.trim() ? T.c.seaDeep : inkFaintPaper, fontFamily: fH, fontWeight: 600, fontSize: 19, padding: "9px 4px", minHeight: 44, display: "inline-flex", alignItems: "center" }}>Signer le livre ✎</button>
             </span>
           </div>
         </div>
@@ -2535,7 +2537,7 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel, variant, faces }) {
                       {showWho ? <Avatar id={p.who} size={17} /> : null}{showWho ? " " + person(p.who).name : ""}
                     </span>
                     {onLike && (
-                      <button onClick={() => onLike(p.id)} aria-label={liked ? "Retirer mon j'aime" : "J'aime cette photo"} style={{ cursor: "pointer", border: "none", background: "transparent", padding: 2, display: "inline-flex", alignItems: "center", gap: 4, fontFamily: fD, fontWeight: 700, fontSize: 12, color: "#8A97A0", flex: "0 0 auto" }}>
+                      <button onClick={() => onLike(p.id)} aria-label={liked ? "Retirer mon j'aime" : "J'aime cette photo"} style={{ cursor: "pointer", border: "none", background: "transparent", padding: "4px 2px 4px 12px", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 4, fontFamily: fD, fontWeight: 700, fontSize: 12, color: "#8A97A0", flex: "0 0 auto" }}>
                         <Heart size={15} color={liked ? T.c.coral : "#8A97A0"} fill={liked ? T.c.coral : "none"} />{hearts > 0 ? hearts : ""}
                       </button>
                     )}

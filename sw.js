@@ -1,4 +1,4 @@
-const CACHE = "vacances-v86";
+const CACHE = "vacances-v87";
 self.addEventListener("install", (e) => { self.skipWaiting(); });
 self.addEventListener("activate", (e) => { self.clients.claim(); });
 
