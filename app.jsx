@@ -2509,7 +2509,7 @@ function PhotoOfDay({ photo, onOpen, onLike, noLabel }) {
     </div>
   );
 }
-function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
+function PhotoStrip({ photos, onOpen, onLike, noLabel, variant, faces }) {
   const list = [...(photos || [])].filter((p) => p.url).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 12);
   const [idx, setIdx] = useState(0);
   if (list.length === 0) return null;
@@ -2528,7 +2528,7 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
               <div key={p.id} style={{ flex: "0 0 74%", minWidth: 0, scrollSnapAlign: "center", transform: `rotate(${tiltP(p.id)}deg)` }}>
                 <div style={{ background: "#ffffff", padding: "9px 9px 10px", borderRadius: 4, boxShadow: "0 8px 20px rgba(31,58,68,0.16)" }}>
                   <button onClick={() => onOpen(p)} aria-label="Ouvrir la photo" style={{ display: "block", width: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer" }}>
-                    <img src={p.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }} />
+                    <img src={p.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", objectPosition: faceCrop(faces, p), display: "block" }} />
                   </button>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 7, padding: "0 2px" }}>
                     <span style={{ fontFamily: fH, fontWeight: 600, fontSize: 17, color: "#40525B", display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
@@ -2564,6 +2564,151 @@ function PhotoStrip({ photos, onOpen, onLike, noLabel, variant }) {
     </div>
   );
 }
+const FACES_KEY = "vacances_faces_v1";
+const loadFaces = () => { try { return JSON.parse(localStorage.getItem(FACES_KEY) || "{}"); } catch (e) { return {}; } };
+const saveFaces = (m) => { try { localStorage.setItem(FACES_KEY, JSON.stringify(m)); } catch (e) {} };
+const loadScriptOnce = (src) => new Promise((res, rej) => {
+  if (typeof document === "undefined") { rej(new Error("sans dom")); return; }
+  const ex = document.querySelector(`script[data-lib="${src}"]`);
+  if (ex) {
+    if (ex.getAttribute("data-ok") === "1") { res(); return; }
+    ex.addEventListener("load", () => res());
+    ex.addEventListener("error", () => rej(new Error("chargement")));
+    return;
+  }
+  const s = document.createElement("script");
+  s.src = src; s.async = true; s.setAttribute("data-lib", src);
+  s.onload = () => { s.setAttribute("data-ok", "1"); res(); };
+  s.onerror = () => rej(new Error("chargement " + src));
+  document.head.appendChild(s);
+});
+const imgOf = (url) => new Promise((res, rej) => {
+  const im = new Image();
+  im.crossOrigin = "anonymous";
+  im.onload = () => res(im);
+  im.onerror = () => rej(new Error("image"));
+  im.src = url;
+});
+async function detectFacesFor(photos, onProgress) {
+  const cache = loadFaces();
+  const todo = (photos || []).filter((p) => p.url && !cache[p.id]);
+  if (!todo.length) return cache;
+  await loadScriptOnce("vendor/face-api.min.js");
+  const fa = typeof window !== "undefined" ? window.faceapi : null;
+  if (!fa) throw new Error("face-api indisponible");
+  await fa.nets.tinyFaceDetector.loadFromUri("models");
+  const opts = new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+  let done = 0;
+  for (const p of todo) {
+    try {
+      const im = await imgOf(p.url);
+      const dets = await fa.detectAllFaces(im, opts);
+      const w = im.naturalWidth || im.width || 0, h = im.naturalHeight || im.height || 0;
+      if (!w || !h) throw new Error("dimensions inconnues");
+      const area = w * h;
+      let sum = 0, cx = 0, cy = 0;
+      dets.forEach((d) => { const b = d.box; sum += b.width * b.height; cx += b.x + b.width / 2; cy += b.y + b.height / 2; });
+      const n = dets.length;
+      cache[p.id] = n ? { n, score: n * ((sum / n) / area), cx: (cx / n) / w, cy: (cy / n) / h } : { n: 0, score: 0 };
+      saveFaces(cache);
+    } catch (e) { /* photo illisible : pas de mise en cache, nouvelle tentative plus tard */ }
+    done += 1;
+    if (onProgress) onProgress(done, todo.length);
+  }
+  return cache;
+}
+const faceCrop = (faces, p) => {
+  const f = faces && faces[p.id];
+  return f && f.n > 0 && f.cx != null ? `${Math.round(clamp(f.cx, 0.1, 0.9) * 100)}% ${Math.round(clamp(f.cy, 0.1, 0.9) * 100)}%` : "50% 33%";
+};
+function souvenirPeriode() {
+  const dEnd = new Date(isoPlusDays(SETTINGS.startISO, DAYS.length - 1) + "T12:00:00");
+  const dStart = new Date(SETTINGS.startISO + "T12:00:00");
+  const p = dStart.getMonth() === dEnd.getMonth()
+    ? `Du ${dStart.getDate()} au ${dEnd.getDate()} ${MO[dEnd.getMonth()]}`
+    : `Du ${dStart.getDate()} ${MO[dStart.getMonth()]} au ${dEnd.getDate()} ${MO[dEnd.getMonth()]}`;
+  return `${p} · ${DAYS.length} jours à ${ROSTER.filter((x) => x.active).length}`;
+}
+function souvenirStats(events, photos, messages) {
+  const past = mainList(events);
+  const phs = (photos || []).filter((p) => p.url);
+  const msgs = (messages || []).filter((m) => !isVibe(m) && !isLoc(m));
+  const seen = new Set(); let lieux = 0;
+  past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(e.place.name)) { seen.add(e.place.name); lieux += 1; } });
+  const nActifs = ROSTER.filter((p) => p.active).length;
+  let dist = 0, prev = null;
+  past.forEach((e) => { if (e.place && e.place.coord) { if (prev) dist += distM(prev, e.place.coord); prev = e.place.coord; } });
+  const km = Math.round(dist / 1000);
+  return [
+    [past.length, past.length > 1 ? "activités" : "activité", null],
+    phs.length >= 3 ? [phs.length, "photos", null] : [nActifs, "personnes", null],
+    msgs.length >= 10 ? [msgs.length, "messages", null] : (km >= 1 ? [km, "km", null] : [DAYS.length, DAYS.length > 1 ? "jours" : "jour", null]),
+    [lieux, lieux > 1 ? "lieux" : "lieu", "map"],
+  ];
+}
+async function makeRecapPdf({ events, photos, messages, periode }) {
+  await loadScriptOnce("vendor/jspdf.umd.min.js");
+  const JS = typeof window !== "undefined" && window.jspdf ? window.jspdf.jsPDF : null;
+  if (!JS) throw new Error("jsPDF indisponible");
+  const doc = new JS({ unit: "mm", format: "a4" });
+  const W = 210, M = 20;
+  const stats = souvenirStats(events, photos, messages);
+  const star = pickStar(photos, loadFaces());
+  doc.setFillColor(255, 252, 246); doc.rect(0, 0, W, 297, "F");
+  doc.setTextColor(35, 59, 69); doc.setFont("helvetica", "bold"); doc.setFontSize(26);
+  doc.text(`C'était ${SETTINGS.place || SETTINGS.name || "le séjour"}`, M, 30);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(120, 110, 92);
+  doc.text(periode || "", M, 38);
+  doc.setDrawColor(220, 205, 175); doc.setLineWidth(0.3); doc.line(M, 44, W - M, 44);
+  const cw = (W - 2 * M) / 4;
+  stats.forEach(([n, l], i) => {
+    const cx = M + cw * i + cw / 2;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(21); doc.setTextColor(31, 58, 68);
+    doc.text(String(n), cx, 56, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(140, 130, 112);
+    doc.text(String(l).toUpperCase(), cx, 61, { align: "center" });
+  });
+  let y = 72;
+  if (star) {
+    try {
+      const im = await imgOf(star.photo.url);
+      const cv = document.createElement("canvas");
+      const sc = Math.min(1, 1400 / (im.naturalWidth || im.width || 1400));
+      cv.width = Math.round((im.naturalWidth || im.width) * sc);
+      cv.height = Math.round((im.naturalHeight || im.height) * sc);
+      cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
+      const data = cv.toDataURL("image/jpeg", 0.82);
+      const iw = W - 2 * M;
+      const ih = Math.min(115, (cv.height / cv.width) * iw);
+      doc.setFillColor(255, 255, 255); doc.rect(M - 2, y - 2, iw + 4, ih + 12, "F");
+      doc.addImage(data, "JPEG", M, y, iw, ih);
+      doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(120, 110, 92);
+      doc.text(star.label + (star.n >= 3 ? ` · ${star.n} coeurs` : ""), M + iw / 2, y + ih + 6, { align: "center" });
+      y += ih + 18;
+    } catch (e) { y += 2; }
+  }
+  const caps = SETTINGS.capsule || {};
+  const mots = [];
+  ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => mots.push({ pid: p.id, ...e })));
+  mots.sort((a, b) => (a.at || 0) - (b.at || 0));
+  if (mots.length) {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
+    doc.text("Le livre d'or", M, y); y += 7;
+    doc.setFontSize(10);
+    for (const m of mots) {
+      if (y > 268) break;
+      doc.setFont("helvetica", "italic"); doc.setTextColor(60, 60, 55);
+      const lignes = doc.splitTextToSize("« " + m.text + " »", W - 2 * M - 30);
+      doc.text(lignes, M, y);
+      doc.setFont("helvetica", "normal"); doc.setTextColor(140, 130, 112);
+      doc.text(person(m.pid).name, W - M, y, { align: "right" });
+      y += lignes.length * 5 + 5;
+    }
+  }
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(170, 160, 145);
+  doc.text("C où déjà ?", W / 2, 288, { align: "center" });
+  return doc.output("blob");
+}
 const heartsOf = (p) => Object.keys(p.reactions || {}).filter((pid) => ((p.reactions || {})[pid] || []).includes("❤️")).length;
 const reactsOf = (p) => Object.keys(p.reactions || {}).reduce((n, pid) => n + ((p.reactions || {})[pid] || []).length, 0);
 function pickStar(photos, faces) {
@@ -2582,8 +2727,31 @@ function pickStar(photos, faces) {
   list.forEach((p) => { const r = reactsOf(p); if (r > brn) { brn = r; br = p; } });
   return br ? { photo: br, label: "La photo du séjour", n: heartsOf(br) } : null;
 }
-function ShareSheet({ onDone }) {
+function ShareSheet({ events, photos, messages, periode, onDone }) {
   const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const pdf = async () => {
+    if (busy) return;
+    setBusy(true); setMsg("Préparation du récap...");
+    try {
+      const blob = await makeRecapPdf({ events, photos, messages, periode });
+      const nom = `Souvenirs ${SETTINGS.place || SETTINGS.name || ""}`.trim() + ".pdf";
+      const file = typeof File !== "undefined" ? new File([blob], nom, { type: "application/pdf" }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: nom });
+        setMsg(null); onDone(); return;
+      }
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u; a.download = nom; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(u), 60000);
+      setMsg("Récap enregistré.");
+    } catch (e) {
+      setMsg(e && e.name === "AbortError" ? null : "Récap indisponible hors connexion.");
+    }
+    setBusy(false);
+  };
   const url = typeof window !== "undefined" ? window.location.href : "";
   const partager = async () => {
     const data = { title: SETTINGS.name || "Notre séjour", text: `Le film de ${SETTINGS.place || "notre séjour"} et tous nos souvenirs.`, url };
@@ -2603,13 +2771,13 @@ function ShareSheet({ onDone }) {
           <span style={{ display: "block", fontFamily: fB, fontSize: 12, color: T.c.inkFaint }}>Envoie le lien du séjour, le film s'ouvre dans l'app.</span>
         </span>
       </button>
-      <div style={{ ...row, cursor: "default", opacity: 0.55 }}>
-        <span style={{ width: 38, height: 38, borderRadius: T.r.pill, background: T.c.lineSoft, color: T.c.inkFaint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><StickyNote size={17} /></span>
+      <button onClick={pdf} disabled={busy} style={{ ...row, opacity: busy ? 0.6 : 1 }}>
+        <span style={{ width: 38, height: 38, borderRadius: T.r.pill, background: T.c.sunSoft, color: "#A5822F", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><StickyNote size={17} /></span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontFamily: fD, fontWeight: 700, fontSize: 15, color: T.c.inkSoft }}>Récap PDF</span>
-          <span style={{ display: "block", fontFamily: fB, fontSize: 12, color: T.c.inkFaint }}>Bientôt : une page avec les chiffres, la photo et le livre d'or.</span>
+          <span style={{ display: "block", fontFamily: fD, fontWeight: 700, fontSize: 15, color: T.c.ink }}>Récap PDF</span>
+          <span style={{ display: "block", fontFamily: fB, fontSize: 12, color: T.c.inkFaint }}>Une page : les chiffres, la photo du séjour et le livre d'or.</span>
         </span>
-      </div>
+      </button>
       {msg && <div style={{ fontFamily: fB, fontSize: 12.5, color: T.c.seaDeep, textAlign: "center" }}>{msg}</div>}
     </div>
   );
@@ -2709,7 +2877,7 @@ function SouvenirSky({ periode }) {
     </div>
   );
 }
-function SouvenirCard({ events, photos, messages, star, onOpenEvent, onOpenPhoto, onFilm, onOpenQuiz, onMap, onShare }) {
+function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOpenPhoto, onFilm, onOpenQuiz, onMap, onShare }) {
   const past = mainList(events);
   const phs = (photos || []).filter((p) => p.url);
   const msgs = (messages || []).filter((m) => !isVibe(m) && !isLoc(m));
@@ -2717,16 +2885,7 @@ function SouvenirCard({ events, photos, messages, star, onOpenEvent, onOpenPhoto
   past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(e.place.name)) { seen.add(e.place.name); lieux += 1; } });
   let best = null, bestN = 0;
   past.forEach((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); const n = v ? vibeTotal(v) : 0; if (n > bestN) { best = e; bestN = n; } });
-  const nActifs = ROSTER.filter((p) => p.active).length;
-  let dist = 0, prev = null;
-  past.forEach((e) => { if (e.place && e.place.coord) { if (prev) dist += distM(prev, e.place.coord); prev = e.place.coord; } });
-  const km = Math.round(dist / 1000);
-  const stats = [
-    [past.length, past.length > 1 ? "activités" : "activité", null],
-    phs.length >= 3 ? [phs.length, "photos", null] : [nActifs, "personnes", null],
-    msgs.length >= 10 ? [msgs.length, "messages", null] : (km >= 1 ? [km, "km", null] : [DAYS.length, DAYS.length > 1 ? "jours" : "jour", null]),
-    [lieux, lieux > 1 ? "lieux" : "lieu", lieux > 0 ? onMap : null],
-  ];
+  const stats = souvenirStats(events, photos, messages).map(([n, l, a]) => [n, l, a === "map" && lieux > 0 ? onMap : null]);
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
   const actions = [[Play, "Film", onFilm], [HelpCircle, "Quiz", onOpenQuiz], [MapIcon, "Carte", lieux > 0 ? onMap : null], [Share2, "Partager", onShare]].filter((a) => a[2]);
@@ -2771,7 +2930,7 @@ function SouvenirCard({ events, photos, messages, star, onOpenEvent, onOpenPhoto
           <span style={{ position: "absolute", left: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(-38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
           <span style={{ position: "absolute", right: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
           <button onClick={() => onOpenPhoto(star.photo)} aria-label="Ouvrir la photo" style={{ display: "block", width: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", position: "relative" }}>
-            <img src={star.photo.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }} />
+            <img src={star.photo.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", objectPosition: faceCrop(faces, star.photo), display: "block" }} />
           </button>
           <button onClick={onFilm} aria-label="Revoir le film du séjour" style={{ position: "absolute", left: "50%", top: "calc(50% - 6px)", transform: "translate(-50%, -50%)", cursor: "pointer", width: 58, height: 58, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.9)", background: "rgba(6,14,18,0.42)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,0.25)" }}>
             <Play size={24} fill="#fff" style={{ marginLeft: 3 }} />
@@ -2783,6 +2942,25 @@ function SouvenirCard({ events, photos, messages, star, onOpenEvent, onOpenPhoto
   );
 }
 function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz, onMap, onShare }) {
+  const tripOver = dayOfNow(now) >= DAYS.length;
+  const [faces, setFaces] = useState(() => loadFaces());
+  const [scan, setScan] = useState(null);
+  const scanRef = useRef(false);
+  const nPhotos = (photos || []).filter((p) => p.url).length;
+  useEffect(() => {
+    if (!tripOver || scanRef.current || !nPhotos) return;
+    const list = (photos || []).filter((p) => p.url);
+    const cache = loadFaces();
+    const reste = list.filter((p) => !cache[p.id]);
+    if (!reste.length) { setFaces(cache); return; }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    scanRef.current = true;
+    const lent = setTimeout(() => setScan({ done: 0, total: reste.length }), 2000);
+    detectFacesFor(list, (done, total) => setScan((s) => (s ? { done, total } : s)))
+      .then((m) => setFaces({ ...m }))
+      .catch(() => {})
+      .then(() => { clearTimeout(lent); setScan(null); });
+  }, [tripOver, nPhotos]);
   const ub = (id) => (unreadByEvent && unreadByEvent[id]) || 0;
   const op = (id) => (openPollsByEvent && openPollsByEvent[id]) || 0;
   const cur = currentEvent(events, now);
@@ -2798,8 +2976,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
   const nightMorning = !cur && mid < morningCutoff;
   const todayDone = (!cur && !sameDayNext) || nightMorning;
   const after = (!todayDone && sameDayNext) ? upcomingSameDay(events, now, dIdx).filter((e) => e.id !== sameDayNext.id).slice(0, 3) : [];
-  const tripOver = dayOfNow(now) >= DAYS.length;
-  const star = tripOver ? pickStar(photos, null) : null;
+  const star = tripOver ? pickStar(photos, faces) : null;
 
   if (tripOver) {
     const nActifs = ROSTER.filter((p) => p.active).length;
@@ -2811,8 +2988,9 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <SouvenirSky periode={`${periode} · ${DAYS.length} jours à ${nActifs}`} />
-        <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} star={star} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} onMap={onMap} onShare={onShare} />
-        <PhotoStrip photos={(photos || []).filter((p) => !star || p.id !== star.photo.id)} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel variant="polaroid" />
+        <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} star={star} faces={faces} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} onMap={onMap} onShare={onShare} />
+        {scan && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: fB, fontSize: 11.5, color: T.c.inkFaint }}><RefreshCw size={12} style={{ animation: "vspin 1.1s linear infinite" }} /> Analyse des photos... {scan.done}/{scan.total}</div>}
+        <PhotoStrip photos={(photos || []).filter((p) => !star || p.id !== star.photo.id)} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel variant="polaroid" faces={faces} />
         {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
       </div>
     );
@@ -4967,6 +5145,7 @@ export default function App() {
         input[type="date"], input[type="time"] { -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; }
         @keyframes vbreath { 0%, 100% { transform: scale(1); opacity: 0.20; } 50% { transform: scale(1.45); opacity: 0.34; } }
         @keyframes vfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+        @keyframes vspin { to { transform: rotate(360deg); } }
         @keyframes vtwinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.85; } }
         @keyframes vpop { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes vdrift { from { transform: translateX(-5px); } to { transform: translateX(5px); } }
@@ -5031,7 +5210,7 @@ export default function App() {
           {sheet?.mode === "games" && <GamesSheet photos={visiblePhotos} messages={messages} quizUnlocked={quizUnlocked} onOpenBingo={openBingo} onOpenQuiz={openQuiz} onGoTalk={() => { setSheet(null); setTab("talk"); }} onCreateGuess={createGuess} />}
           {sheet?.mode === "bingo" && <BingoSheet onToggle={toggleBingoCase} rev={rev} />}
           {sheet?.mode === "quiz" && <QuizSheet events={events} messages={messages} photos={visiblePhotos} onFinish={saveQuizScore} />}
-          {sheet?.mode === "share" && <ShareSheet onDone={() => setSheet(null)} />}
+          {sheet?.mode === "share" && <ShareSheet events={events} photos={visiblePhotos} messages={messages} periode={souvenirPeriode()} onDone={() => setSheet(null)} />}
         </Sheet>
 
         <PhotoViewer photos={visiblePhotos} startId={photoView} onClose={() => setPhotoView(null)} onToggleTag={toggleTag} onReact={togglePhotoReaction} onDelete={deletePhoto} />
