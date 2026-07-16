@@ -2650,65 +2650,162 @@ function souvenirStats(events, photos, messages) {
 }
 async function makeRecapPdf({ events, photos, messages, periode }) {
   await loadScriptOnce("vendor/jspdf.umd.min.js");
-  const JS = typeof window !== "undefined" && window.jspdf ? window.jspdf.jsPDF : null;
-  if (!JS) throw new Error("jsPDF indisponible");
-  const doc = new JS({ unit: "mm", format: "a4" });
-  const W = 210, M = 20;
+  const JSP = typeof window !== "undefined" && window.jspdf ? window.jspdf : null;
+  if (!JSP || !JSP.jsPDF) throw new Error("jsPDF indisponible");
+  const doc = new JSP.jsPDF({ unit: "mm", format: "a4" });
+  const W = 210, M = 16;
+  const faces = loadFaces();
   const stats = souvenirStats(events, photos, messages);
-  const star = pickStar(photos, loadFaces());
-  doc.setFillColor(255, 252, 246); doc.rect(0, 0, W, 297, "F");
-  doc.setTextColor(35, 59, 69); doc.setFont("helvetica", "bold"); doc.setFontSize(26);
-  doc.text(`C'était ${SETTINGS.place || SETTINGS.name || "le séjour"}`, M, 30);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(120, 110, 92);
-  doc.text(periode || "", M, 38);
-  doc.setDrawColor(220, 205, 175); doc.setLineWidth(0.3); doc.line(M, 44, W - M, 44);
-  const cw = (W - 2 * M) / 4;
+  const star = pickStar(photos, faces);
+  const setOpacity = (o) => { try { if (JSP.GState) doc.setGState(new JSP.GState({ opacity: o })); } catch (e) {} };
+  const poly = (pts, fill) => {
+    const segs = [];
+    for (let i = 1; i < pts.length; i++) segs.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
+    doc.lines(segs, pts[0][0], pts[0][1], [1, 1], fill ? "F" : "S", true);
+  };
+  const tape = (cx, cy, ang) => {
+    const tw = 15, th = 5.2, ca = Math.cos(ang), sa = Math.sin(ang);
+    const c = [[-tw / 2, -th / 2], [tw / 2, -th / 2], [tw / 2, th / 2], [-tw / 2, th / 2]].map(([x, y]) => [cx + x * ca - y * sa, cy + x * sa + y * ca]);
+    doc.setFillColor(250, 230, 160);
+    setOpacity(0.55); poly(c, true); setOpacity(1);
+  };
+  const toJpegCrop = async (url, cw, ch, center) => {
+    const im = await imgOf(url);
+    const iw = im.naturalWidth || im.width || 0, ih = im.naturalHeight || im.height || 0;
+    if (!iw || !ih) throw new Error("dimensions");
+    const ratio = cw / ch;
+    let sw = iw, sh = Math.round(iw / ratio);
+    if (sh > ih) { sh = ih; sw = Math.round(ih * ratio); }
+    const ccx = clamp((center && center.cx != null ? center.cx : 0.5) * iw, sw / 2, iw - sw / 2);
+    const ccy = clamp((center && center.cy != null ? center.cy : 0.42) * ih, sh / 2, ih - sh / 2);
+    const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+    cv.getContext("2d").drawImage(im, Math.round(ccx - sw / 2), Math.round(ccy - sh / 2), sw, sh, 0, 0, cw, ch);
+    return cv.toDataURL("image/jpeg", 0.82);
+  };
+  /* fond */
+  doc.setFillColor(255, 252, 244); doc.rect(0, 0, W, 297, "F");
+  /* bandeau ciel : degrade en bandes */
+  const c1 = [255, 245, 224], c2 = [255, 216, 186], BH = 46, NB = 26;
+  for (let i = 0; i < NB; i++) {
+    const t = i / (NB - 1);
+    doc.setFillColor(Math.round(c1[0] + (c2[0] - c1[0]) * t), Math.round(c1[1] + (c2[1] - c1[1]) * t), Math.round(c1[2] + (c2[2] - c1[2]) * t));
+    doc.rect(0, (BH / NB) * i, W, BH / NB + 0.3, "F");
+  }
+  setOpacity(0.45); doc.setFillColor(247, 196, 96); doc.circle(184, 29, 11, "F"); setOpacity(1);
+  doc.setFillColor(243, 175, 66); doc.circle(184, 29, 5.6, "F");
+  doc.setDrawColor(176, 138, 90); doc.setLineWidth(0.4); doc.line(0, 40, W, 40);
+  doc.setFillColor(64, 82, 91);
+  poly([[168, 38.6], [168, 30.8], [162.6, 38.6]], true);
+  poly([[169.8, 38.6], [169.8, 32.4], [174.4, 38.6]], true);
+  poly([[161.4, 39.4], [175.6, 39.4], [173.4, 41.6], [163.6, 41.6]], true);
+  doc.setTextColor(35, 59, 69); doc.setFont("helvetica", "bold"); doc.setFontSize(27);
+  doc.text(`C'était ${SETTINGS.place || SETTINGS.name || "le séjour"}`, M, 23);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(110, 96, 70);
+  doc.text(periode || "", M, 31);
+  /* tampons */
+  const encres = [[46, 107, 128], [222, 90, 70], [165, 130, 47], [126, 93, 184]];
+  const rots = [-6, 3, -3, 5];
+  const cwq = (W - 2 * M) / 4;
   stats.forEach(([n, l], i) => {
-    const cx = M + cw * i + cw / 2;
-    doc.setFont("helvetica", "bold"); doc.setFontSize(21); doc.setTextColor(31, 58, 68);
-    doc.text(String(n), cx, 56, { align: "center" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(140, 130, 112);
-    doc.text(String(l).toUpperCase(), cx, 61, { align: "center" });
+    const cx = M + cwq * i + cwq / 2, cy = 69;
+    const [r, g, b] = encres[i];
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(0.75); doc.setLineDashPattern([], 0); doc.circle(cx, cy, 13.4, "S");
+    doc.setLineWidth(0.32); doc.setLineDashPattern([1.1, 1.3], 0); doc.circle(cx, cy, 11, "S");
+    doc.setLineDashPattern([], 0);
+    doc.setTextColor(r, g, b);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+    doc.text(String(n), cx, cy + 1.2, { align: "center", angle: rots[i] });
+    doc.setFontSize(6.3);
+    doc.text(String(l).toUpperCase(), cx, cy + 6.6, { align: "center", angle: rots[i], charSpace: 0.5 });
   });
-  let y = 72;
+  /* polaroid heros */
+  const PX = 18, PY = 92, PW = 104, IH = 74;
   if (star) {
     try {
-      const im = await imgOf(star.photo.url);
-      const cv = document.createElement("canvas");
-      const sc = Math.min(1, 1400 / (im.naturalWidth || im.width || 1400));
-      cv.width = Math.round((im.naturalWidth || im.width) * sc);
-      cv.height = Math.round((im.naturalHeight || im.height) * sc);
-      cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
-      const data = cv.toDataURL("image/jpeg", 0.82);
-      const iw = W - 2 * M;
-      const ih = Math.min(115, (cv.height / cv.width) * iw);
-      doc.setFillColor(255, 255, 255); doc.rect(M - 2, y - 2, iw + 4, ih + 12, "F");
-      doc.addImage(data, "JPEG", M, y, iw, ih);
-      doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(120, 110, 92);
-      doc.text(star.label + (star.n >= 3 ? ` · ${star.n} coeurs` : ""), M + iw / 2, y + ih + 6, { align: "center" });
-      y += ih + 18;
-    } catch (e) { y += 2; }
+      const data = await toJpegCrop(star.photo.url, 1200, 900, faces[star.photo.id]);
+      doc.setFillColor(224, 219, 209); doc.rect(PX + 1.6, PY + 1.8, PW + 8, IH + 17, "F");
+      doc.setFillColor(255, 255, 255); doc.rect(PX, PY, PW + 8, IH + 17, "F");
+      doc.addImage(data, "JPEG", PX + 4, PY + 4, PW, IH);
+      doc.setFont("helvetica", "italic"); doc.setFontSize(9.5); doc.setTextColor(80, 96, 106);
+      doc.text(star.label + (star.n >= 3 ? ` · ${star.n} coeurs` : ""), PX + (PW + 8) / 2, PY + IH + 11.5, { align: "center" });
+      tape(PX + 5, PY + 1, -0.62); tape(PX + PW + 3, PY + 1, 0.62);
+    } catch (e) {}
   }
+  /* colonne droite : la bande, moment, lieux */
+  const CX = 136, CW2 = W - M - CX;
+  let cy2 = 98;
+  const noms = ROSTER.filter((p) => p.active).map((p) => p.name).filter(Boolean);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(35, 59, 69);
+  doc.text("La bande", CX, cy2); cy2 += 5.4;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(96, 88, 72);
+  doc.splitTextToSize(noms.join(", "), CW2).slice(0, 3).forEach((ln) => { doc.text(ln, CX, cy2); cy2 += 4.6; });
+  cy2 += 4;
+  let best = null, bestN = 0;
+  mainList(events).forEach((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); const n = v ? vibeTotal(v) : 0; if (n > bestN) { best = e; bestN = n; } });
+  if (best && bestN >= 3) {
+    doc.setFillColor(255, 248, 233); doc.roundedRect(CX, cy2, CW2, 21, 2, 2, "F");
+    doc.setDrawColor(227, 211, 174); doc.setLineWidth(0.35); doc.setLineDashPattern([1.2, 1.2], 0);
+    doc.line(CX + 8.5, cy2 + 2.5, CX + 8.5, cy2 + 18.5); doc.setLineDashPattern([], 0);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(5.9); doc.setTextColor(165, 130, 47);
+    doc.text("LE MOMENT PRÉFÉRÉ", CX + 12, cy2 + 6, { charSpace: 0.5 });
+    doc.setFont("times", "italic"); doc.setFontSize(12.5); doc.setTextColor(74, 59, 35);
+    doc.text(doc.splitTextToSize(best.title, CW2 - 15)[0] || "", CX + 12, cy2 + 12.4);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(138, 122, 85);
+    doc.text(`${bestN} réactions du groupe`, CX + 12, cy2 + 17.2);
+    cy2 += 27;
+  }
+  const seenL = new Set(); const lieuxN = [];
+  mainList(events).forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seenL.has(e.place.name)) { seenL.add(e.place.name); lieuxN.push(e.place.name); } });
+  if (lieuxN.length && cy2 < 168) {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(35, 59, 69);
+    doc.text("Nos lieux", CX, cy2); cy2 += 5.2;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.4); doc.setTextColor(96, 88, 72);
+    doc.splitTextToSize(lieuxN.slice(0, 12).join(" · "), CW2).slice(0, 6).forEach((ln) => { if (cy2 < 186) { doc.text(ln, CX, cy2); cy2 += 4.2; } });
+  }
+  /* livre d'or */
+  let y = 196;
   const caps = SETTINGS.capsule || {};
   const mots = [];
   ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => mots.push({ pid: p.id, ...e })));
   mots.sort((a, b) => (a.at || 0) - (b.at || 0));
   if (mots.length) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
-    doc.text("Le livre d'or", M, y); y += 7;
-    doc.setFontSize(10);
-    for (const m of mots) {
-      if (y > 268) break;
-      doc.setFont("helvetica", "italic"); doc.setTextColor(60, 60, 55);
-      const lignes = doc.splitTextToSize("« " + m.text + " »", W - 2 * M - 30);
+    doc.text("Le livre d'or", M, y);
+    doc.setDrawColor(224, 208, 176); doc.setLineWidth(0.3); doc.line(M + 30, y - 1.4, W - M, y - 1.4);
+    y += 7.5;
+    let omis = 0;
+    for (const mo of mots) {
+      const lignes = doc.splitTextToSize("«\u00A0" + mo.text + "\u00A0»", W - 2 * M - 26);
+      if (y + lignes.length * 4.9 > 250) { omis += 1; continue; }
+      doc.setFont("times", "italic"); doc.setFontSize(11); doc.setTextColor(58, 55, 48);
       doc.text(lignes, M, y);
-      doc.setFont("helvetica", "normal"); doc.setTextColor(140, 130, 112);
-      doc.text(person(m.pid).name, W - M, y, { align: "right" });
-      y += lignes.length * 5 + 5;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.6); doc.setTextColor(148, 136, 112);
+      doc.text(person(mo.pid).name, W - M, y, { align: "right" });
+      y += lignes.length * 4.9 + 3.6;
+    }
+    if (omis > 0) {
+      doc.setFont("helvetica", "italic"); doc.setFontSize(8.4); doc.setTextColor(148, 136, 112);
+      doc.text(`et ${omis} autre${omis > 1 ? "s" : ""} mot${omis > 1 ? "s" : ""} dans l'app`, M, Math.min(y, 252));
     }
   }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(170, 160, 145);
-  doc.text("C où déjà ?", W / 2, 288, { align: "center" });
+  /* mosaique */
+  const autres = (photos || []).filter((p) => p.url && (!star || p.id !== star.photo.id))
+    .sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((b.at || 0) - (a.at || 0))).slice(0, 4);
+  if (autres.length >= 2) {
+    const mw = 41, mh = 33, gap = (W - 2 * M - autres.length * mw) / Math.max(1, autres.length - 1);
+    for (let i = 0; i < autres.length; i++) {
+      const x = M + i * (mw + gap), yy = 256;
+      try {
+        const data = await toJpegCrop(autres[i].url, 560, 420, faces[autres[i].id]);
+        doc.setFillColor(226, 221, 211); doc.rect(x + 1, yy + 1.2, mw, mh, "F");
+        doc.setFillColor(255, 255, 255); doc.rect(x, yy, mw, mh, "F");
+        doc.addImage(data, "JPEG", x + 1.8, yy + 1.8, mw - 3.6, mh - 6.6);
+      } catch (e) {}
+    }
+  }
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(172, 160, 140);
+  doc.text(`C où déjà ? · ${SETTINGS.name || ""}`.trim(), W / 2, 290, { align: "center" });
   return doc.output("blob");
 }
 const heartsOf = (p) => Object.keys(p.reactions || {}).filter((pid) => ((p.reactions || {})[pid] || []).includes("❤️")).length;
