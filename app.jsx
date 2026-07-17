@@ -2669,11 +2669,17 @@ const dayLabel = (i) => {
   return dt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 };
 const fmtDur = (e) => {
-  if (!e.start || !e.end) return "";
+  if (!e.start || !e.end || e.end === "23:59") return "";
   const [h1, m1] = e.start.split(":").map(Number), [h2, m2] = e.end.split(":").map(Number);
   let d = h2 * 60 + m2 - (h1 * 60 + m1); if (d <= 0) d += 1440;
   if (d >= 60) { const h = Math.floor(d / 60), m = d % 60; return m ? `${h} h ${String(m).padStart(2, "0")}` : `${h} h`; }
   return `${d} min`;
+};
+const titreDe = (e) => {
+  const t = (e.title || "").trim();
+  if (t && t.toLowerCase() !== "sans titre") return t;
+  if (e.place && e.place.name && e.place.name !== "À définir") return e.place.name;
+  return (TYPES[e.type || "activite"] || TYPES.activite).label;
 };
 const vibeOfEvent = (e, messages) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); return v ? vibeTotal(v) : 0; };
 const avisLabel = (n) => (n >= 5 ? "Adoré" : n >= 3 ? "Apprécié" : "");
@@ -2773,7 +2779,7 @@ async function pdfSetup(doc, JSP) {
     return cv.toDataURL("image/jpeg", 0.82);
   };
   const polaroidTilt = async (cx, cy, w, ihh, angle, photo, faces, legend) => {
-    const fw = w + 8, fh = ihh + 17;
+    const fw = w + 8, fh = ihh + (legend ? 17 : 9);
     const rad = (angle * Math.PI) / 180, ca = Math.cos(rad), sa = Math.sin(rad);
     const rot = (dx, dy) => [cx + dx * ca - dy * sa, cy + dx * sa + dy * ca];
     let data = null;
@@ -2814,21 +2820,27 @@ async function makeSouvenirPdf({ events, photos, messages }) {
     doc.setFillColor(Math.round(c1[0] + (c2[0] - c1[0]) * t), Math.round(c1[1] + (c2[1] - c1[1]) * t), Math.round(c1[2] + (c2[2] - c1[2]) * t));
     doc.rect(0, (H / NB) * i, W, H / NB + 0.4, "F");
   }
-  P.setOpacity(0.4); doc.setFillColor(247, 196, 96); doc.circle(168, 58, 26, "F"); P.setOpacity(1);
-  doc.setFillColor(243, 175, 66); doc.circle(168, 58, 12, "F");
-  [[30, 30], [70, 48], [120, 24], [185, 30], [48, 80], [150, 66]].forEach(([sx, sy]) => { doc.setFillColor(226, 162, 68); doc.circle(sx, sy, 0.75, "F"); });
-  doc.setDrawColor(176, 138, 90); doc.setLineWidth(0.4); doc.line(0, 96, W, 96);
-  doc.setFillColor(64, 82, 91);
-  P.poly([[48, 94], [48, 78], [37, 94]], true);
-  P.poly([[51.5, 94], [51.5, 81], [61, 94]], true);
-  P.poly([[35, 95.6], [63, 95.6], [58.5, 100], [39.5, 100]], true);
+  P.setOpacity(0.35); doc.setFillColor(247, 196, 96); doc.circle(178, 72, 17, "F"); P.setOpacity(1);
+  doc.setFillColor(243, 175, 66); doc.circle(178, 72, 9, "F");
+  [[26, 62], [58, 70], [96, 58], [136, 68], [40, 84]].forEach(([sx, sy], i) => {
+    doc.setFillColor(226, 162, 68); doc.circle(sx, sy, i % 2 ? 0.65 : 0.85, "F");
+  });
+  doc.setDrawColor(140, 122, 96); doc.setLineWidth(0.5);
+  doc.lines([[3, -2.6, 6, 0, 6, 0]], 70, 80, [1, 1], "S", false);
+  doc.lines([[2.6, -2.2, 5.2, 0, 5.2, 0]], 118, 74, [1, 1], "S", false);
   const titre = `C'était ${SETTINGS.place || SETTINGS.name || "le séjour"}`;
-  doc.setFont(...P.hand(titre, true)); doc.setFontSize(46); doc.setTextColor(35, 59, 69);
-  doc.text(P.clean(titre), 24, 38, { angle: -2 });
+  doc.setFont(...P.hand(titre, true)); doc.setFontSize(50); doc.setTextColor(35, 59, 69);
+  doc.text(P.clean(titre), W / 2, 36, { align: "center", angle: -1.5 });
   const noms = ROSTER.filter((p) => p.active).map((p) => p.name).filter(Boolean);
-  doc.setFont(...P.F.n); doc.setFontSize(11.5); doc.setTextColor(110, 96, 70);
-  doc.text(P.clean(`${souvenirPeriode().split(" · ")[0]} 2026 · ${noms.join(", ")}`).slice(0, 90), 25, 47);
-  if (star) await P.polaroidTilt(105, 166, 122, 92, -2.4, star.photo, faces, star.label);
+  doc.setFont(...P.F.n); doc.setFontSize(11); doc.setTextColor(110, 96, 70);
+  const per = doc.splitTextToSize(P.clean(`${souvenirPeriode().split(" · ")[0]} 2026 · ${noms.join(", ")}`), 168);
+  per.slice(0, 2).forEach((ln, i) => doc.text(ln, W / 2, 47 + i * 6, { align: "center" }));
+  doc.setDrawColor(176, 138, 90); doc.setLineWidth(0.4); doc.line(0, 108, W, 108);
+  doc.setFillColor(64, 82, 91);
+  P.poly([[42, 106], [42, 90], [31, 106]], true);
+  P.poly([[45.5, 106], [45.5, 93], [55, 106]], true);
+  P.poly([[29, 107.6], [57, 107.6], [52.5, 112], [33.5, 112]], true);
+  if (star) await P.polaroidTilt(107, 176, 126, 94, -3, star.photo, faces, star.label);
   const pastN = mainList(events).length;
   let dist = 0, prev = null;
   mainList(events).forEach((e) => { if (e.place && e.place.coord) { if (prev) dist += distM(prev, e.place.coord); prev = e.place.coord; } });
@@ -2836,89 +2848,100 @@ async function makeSouvenirPdf({ events, photos, messages }) {
   const tampons = [[DAYS.length, DAYS.length > 1 ? "jours" : "jour"], [ph.length, ph.length > 1 ? "photos" : "photo"], [buildPlaces(events).length, "lieux"], km >= 1 ? [km, "km"] : [pastN, "activités"]];
   const encres = [[46, 107, 128], [222, 90, 70], [165, 130, 47], [126, 93, 184]];
   tampons.forEach(([n, l], i) => {
-    const cx = [36, 88, 140, 186][i], cy = [248, 244, 250, 244][i], rot = [-7, 4, -3, 6][i];
+    const cx = [38, 90, 142, 188][i], cy = [256, 252, 258, 252][i], rot = [-7, 4, -3, 6][i];
     const [r, g, b] = encres[i];
     doc.setDrawColor(r, g, b); doc.setLineWidth(0.75); doc.setLineDashPattern([], 0); doc.circle(cx, cy, 11.6, "S");
     doc.setLineWidth(0.32); doc.setLineDashPattern([1.1, 1.2], 0); doc.circle(cx, cy, 9.4, "S"); doc.setLineDashPattern([], 0);
     doc.setTextColor(r, g, b); doc.setFont(...P.F.b); doc.setFontSize(13.5);
     doc.text(String(n), cx, cy + 1.1, { align: "center", angle: rot });
-    doc.setFontSize(5.7); doc.text(P.clean(l).toUpperCase(), cx, cy + 6, { align: "center", angle: rot, charSpace: 0.5 });
+    doc.setFontSize(5.7); doc.text(P.clean(l).toUpperCase(), cx, cy + 6, { align: "center", angle: rot, charSpace: 0.3 });
   });
   doc.setFont(...P.F.n); doc.setFontSize(8); doc.setTextColor(150, 132, 106);
   doc.text("C où déjà ?", W / 2, 289, { align: "center" });
-  /* ---- pages jours ---- */
+  /* ---- journées en flux ---- */
+  let y = 300;
+  const newPage = () => { doc.addPage(); fondCreme(); y = 12; };
+  const ensureS = (h) => { if (y + h > 283) newPage(); };
   for (let d = 0; d < DAYS.length; d++) {
     const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
     const pj = ph.filter((p) => dayOfTs(p.at || 0) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
-    doc.addPage(); fondCreme();
-    doc.setFillColor(255, 236, 214); doc.rect(0, 0, W, 30, "F");
+    if (!evs.length && !pj.length) continue;
+    ensureS(21 + (evs.length ? 32 : 4) + (pj.length ? 62 : 0));
+    doc.setFillColor(255, 236, 214); doc.rect(0, y, W, 15, "F");
     const tj = `Jour ${d + 1} · ${dayLabel(d)}`;
-    doc.setFont(...P.hand(tj, true)); doc.setFontSize(25); doc.setTextColor(35, 59, 69);
-    doc.text(P.clean(tj), 16, 19, { angle: -1.2 });
-    let y = 40;
+    doc.setFont(...P.hand(tj, true)); doc.setFontSize(20); doc.setTextColor(35, 59, 69);
+    doc.text(P.clean(tj), 16, y + 10.5, { angle: -1 });
+    y += 22;
     if (evs.length) {
-      const steps = evs.slice(0, 5).map((e) => ({ hh: e.start ? e.start.replace(":", "h") : "", nom: (e.place && e.place.name && e.place.name !== "À définir" ? e.place.name : e.title) }));
-      const x0 = 34, x1 = 176, n = steps.length;
+      const steps = evs.slice(0, 5).map((e) => ({ hh: e.start ? e.start.replace(":", "h") : "", nom: titreDe(e) }));
+      const x0 = 32, x1 = 178, n = steps.length;
       const xs = n === 1 ? [(x0 + x1) / 2] : steps.map((_, i) => x0 + ((x1 - x0) * i) / (n - 1));
-      const ys = xs.map((_, i) => y + 8 + (i % 2 ? 5 : -3));
+      const ys = xs.map((_, i) => y + 6 + (i % 2 ? 5 : -2));
       doc.setDrawColor(240, 96, 74); doc.setLineWidth(0.5); doc.setLineDashPattern([0.1, 2.2], 0);
-      try { doc.setLineCap(1); } catch (e) {}
+      try { doc.setLineCap(1); } catch (e2) {}
       for (let i = 0; i < n - 1; i++) {
         const span = xs[i + 1] - xs[i], dy = ys[i + 1] - ys[i];
-        doc.lines([[span * 0.4, -9, span * 0.6, dy + 9, span, dy]], xs[i], ys[i], [1, 1], "S", false);
+        doc.lines([[span * 0.4, -8, span * 0.6, dy + 8, span, dy]], xs[i], ys[i], [1, 1], "S", false);
       }
       doc.setLineDashPattern([], 0);
-      try { doc.setLineCap(0); } catch (e) {}
+      try { doc.setLineCap(0); } catch (e2) {}
+      const colW = (x1 - x0) / Math.max(1, n - 1) + 4;
       steps.forEach((s, i) => {
-        doc.setFillColor(255, 252, 244); doc.circle(xs[i], ys[i], 4.6, "F");
-        doc.setDrawColor(240, 96, 74); doc.setLineWidth(0.4); doc.circle(xs[i], ys[i], 3.6, "S");
-        doc.setTextColor(240, 96, 74); doc.setFont(...P.F.b); doc.setFontSize(9);
-        doc.text(String(i + 1), xs[i], ys[i] + 1.1, { align: "center" });
-        doc.setTextColor(35, 59, 69); doc.setFont(...P.F.b); doc.setFontSize(7.6);
-        doc.text(doc.splitTextToSize(P.clean(s.nom), (x1 - x0) / Math.max(1, n - 1) + 6)[0] || "", xs[i], ys[i] + 8.4, { align: "center" });
-        doc.setTextColor(148, 136, 112); doc.setFont(...P.F.n); doc.setFontSize(7);
-        doc.text(s.hh, xs[i], ys[i] + 11.8, { align: "center" });
+        doc.setFillColor(255, 252, 244); doc.circle(xs[i], ys[i], 4.4, "F");
+        doc.setDrawColor(240, 96, 74); doc.setLineWidth(0.4); doc.circle(xs[i], ys[i], 3.5, "S");
+        doc.setTextColor(240, 96, 74); doc.setFont(...P.F.b); doc.setFontSize(8.6);
+        doc.text(String(i + 1), xs[i], ys[i] + 1, { align: "center" });
+        doc.setTextColor(35, 59, 69); doc.setFont(...P.F.b); doc.setFontSize(7.4);
+        doc.text(doc.splitTextToSize(P.clean(s.nom), colW)[0] || "", xs[i], ys[i] + 7.8, { align: "center" });
+        doc.setTextColor(148, 136, 112); doc.setFont(...P.F.n); doc.setFontSize(6.8);
+        doc.text(s.hh, xs[i], ys[i] + 11, { align: "center" });
       });
-      y += 30;
+      y += 28;
     }
     if (pj.length >= 2) {
-      await P.polaroidTilt(59, y + 40, 78, 58, -2.2, pj[0], faces, "");
-      await P.polaroidTilt(151, y + 43, 74, 55, 1.8, pj[1], faces, "");
-      y += 88;
+      ensureS(72);
+      await P.polaroidTilt(60, y + 32, 76, 57, -2.2, pj[0], faces, "");
+      await P.polaroidTilt(150, y + 35, 72, 54, 1.8, pj[1], faces, "");
+      y += 74;
     } else if (pj.length === 1) {
-      await P.polaroidTilt(105, y + 44, 112, 66, -1.6, pj[0], faces, "");
-      y += 96;
+      ensureS(76);
+      await P.polaroidTilt(105, y + 34, 100, 62, -1.8, pj[0], faces, "");
+      y += 78;
     }
     let bestE = null, bestV = 0;
     evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
     if (bestE && bestV >= 3) {
-      doc.setFillColor(255, 248, 233); doc.roundedRect(24, y, 120, 22, 2, 2, "F");
+      ensureS(30);
+      doc.setFillColor(255, 248, 233); doc.roundedRect(43, y, 124, 22, 2, 2, "F");
       doc.setDrawColor(227, 211, 174); doc.setLineWidth(0.35); doc.setLineDashPattern([1.2, 1.2], 0);
-      doc.line(35, y + 3, 35, y + 19); doc.setLineDashPattern([], 0);
+      doc.line(54, y + 3, 54, y + 19); doc.setLineDashPattern([], 0);
       doc.setFont(...P.F.b); doc.setFontSize(6); doc.setTextColor(165, 130, 47);
-      doc.text("LE TEMPS FORT DU JOUR", 39, y + 6.5, { charSpace: 0.5 });
-      doc.setFont(...P.hand(bestE.title)); doc.setFontSize(15); doc.setTextColor(74, 59, 35);
-      doc.text(doc.splitTextToSize(P.clean(bestE.title), 100)[0] || "", 39, y + 14);
+      doc.text("LE TEMPS FORT DU JOUR", 58, y + 6.5, { charSpace: 0.5 });
+      doc.setFont(...P.hand(titreDe(bestE))); doc.setFontSize(15); doc.setTextColor(74, 59, 35);
+      doc.text(doc.splitTextToSize(P.clean(titreDe(bestE)), 102)[0] || "", 58, y + 14);
       doc.setFont(...P.F.n); doc.setFontSize(8); doc.setTextColor(138, 122, 85);
-      doc.text(`${bestV} réactions du groupe`, 39, y + 19);
+      doc.text(`${bestV} réactions du groupe`, 58, y + 19);
       y += 28;
     }
     const mj = (messages || []).filter((m) => dayOfTs(m.at || 0) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
       .map((m) => ({ m, n: reactsOfMsg(m) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
-    if (mj && y < 250) {
+    if (mj) {
       const mtxt = `« ${mj.m.text} »`;
-      doc.setFont(...P.hand(mtxt)); doc.setFontSize(16); doc.setTextColor(58, 55, 48);
-      const lg = doc.splitTextToSize(P.clean(mtxt), 156);
-      doc.text(lg.slice(0, 2), 28, y + 8, { angle: -1 });
-      doc.setFont(...P.hand(person(mj.m.who).name)); doc.setFontSize(12); doc.setTextColor(148, 136, 112);
-      doc.text(P.clean(person(mj.m.who).name), 182, y + 8 + lg.slice(0, 2).length * 7, { align: "right" });
-      y += 16 + lg.slice(0, 2).length * 7;
+      doc.setFont(...P.hand(mtxt)); doc.setFontSize(15);
+      const lg = doc.splitTextToSize(P.clean(mtxt), 152);
+      ensureS(14 + lg.slice(0, 2).length * 7);
+      doc.setTextColor(58, 55, 48);
+      doc.text(lg.slice(0, 2), 29, y + 6, { angle: -1 });
+      doc.setFont(...P.hand(person(mj.m.who).name)); doc.setFontSize(11.5); doc.setTextColor(148, 136, 112);
+      doc.text(P.clean(person(mj.m.who).name), 181, y + 6 + lg.slice(0, 2).length * 7, { align: "right" });
+      y += 13 + lg.slice(0, 2).length * 7;
     }
-    if (pj.length >= 3 && y < 205) {
-      await P.polaroidTilt(105, y + 38, 96, 56, -1.4, pj[2], faces, "");
+    if (pj.length >= 3) {
+      ensureS(74);
+      await P.polaroidTilt(105, y + 32, 88, 54, -1.4, pj[2], faces, "");
+      y += 74;
     }
-    doc.setFont(...P.F.n); doc.setFontSize(8); doc.setTextColor(172, 160, 140);
-    doc.text(String(d + 2), W / 2, 291, { align: "center" });
+    y += 8;
   }
   /* ---- livre d'or ---- */
   const caps = SETTINGS.capsule || {};
@@ -2936,35 +2959,42 @@ async function makeSouvenirPdf({ events, photos, messages }) {
       doc.setFont(...P.F.n); doc.setFontSize(9); doc.setTextColor(148, 136, 112);
       doc.text(P.clean(SETTINGS.name || ""), W / 2, 37, { align: "center" });
       doc.setDrawColor(224, 208, 176); doc.setLineWidth(0.2); doc.line(W / 2 - 14, 41, W / 2 + 14, 41);
-      return 56;
+      return 58;
     }
     return 26;
   };
   let yv = pageLivre(true);
   const tiltOf = (id) => { let h = 0; for (let i = 0; i < String(id).length; i++) h = (h * 31 + String(id).charCodeAt(i)) % 997; return ((h % 5) - 2) * 0.6; };
-  for (const mo of mots) {
+  mots.forEach((mo, mi) => {
     const mt = P.clean(mo.text);
     doc.setFont(...P.hand(mt)); doc.setFontSize(17);
     const lg = doc.splitTextToSize(mt, 150);
-    if (yv + lg.length * 8 + 16 > 268) yv = pageLivre(false);
+    if (yv + lg.length * 8 + 16 > 252) yv = pageLivre(false);
     doc.setTextColor(58, 55, 48);
     doc.text(lg, 26, yv, { angle: tiltOf(mo.id) });
     doc.setFont(...P.hand(person(mo.pid).name)); doc.setFontSize(12); doc.setTextColor(148, 136, 112);
     doc.text(P.clean(person(mo.pid).name), 184, yv + lg.length * 8, { align: "right" });
     yv += lg.length * 8 + 9;
-    if (mots.indexOf(mo) < mots.length - 1) {
+    if (mi < mots.length - 1) {
       doc.setDrawColor(224, 208, 176); doc.setLineWidth(0.15); doc.line(W / 2 - 12, yv - 3, W / 2 + 12, yv - 3);
       yv += 6;
     }
-  }
-  if (yv < 214 && ph.length >= 2) {
+  });
+  if (ph.length >= 2 && yv < 244) {
     const minis = ph.filter((p) => !star || p.id !== star.photo.id).sort((a, b) => heartsOf(b) - heartsOf(a)).slice(0, 4);
+    const ym = Math.min(252, yv + 26);
     for (let i = 0; i < minis.length; i++) {
-      await P.polaroidTilt(38 + i * 45, 244, 34, 27, [-2.5, 1.6, -1.2, 2.2][i], minis[i], faces, "");
+      await P.polaroidTilt(38 + i * 45, ym, 34, 27, [-2.5, 1.6, -1.2, 2.2][i], minis[i], faces, "");
     }
   }
   doc.setFont(...P.F.n); doc.setFontSize(8); doc.setTextColor(172, 160, 140);
   doc.text(P.clean(`C où déjà ? · ${SETTINGS.name || ""}`), W / 2, 289, { align: "center" });
+  const total = doc.getNumberOfPages ? doc.getNumberOfPages() : 0;
+  for (let i = 2; i <= (total || 0); i++) {
+    doc.setPage(i);
+    doc.setFont(...P.F.n); doc.setFontSize(8); doc.setTextColor(172, 160, 140);
+    doc.text(String(i), 194, 291, { align: "right" });
+  }
   return doc.output("blob");
 }
 async function makeProgramPdf({ events, messages }) {
@@ -2979,7 +3009,10 @@ async function makeProgramPdf({ events, messages }) {
   const fond = () => { doc.setFillColor(255, 252, 244); doc.rect(0, 0, W, 297, "F"); };
   fond();
   doc.setFillColor(35, 59, 69); doc.rect(0, 0, W, 40, "F");
-  P.setOpacity(0.14); doc.setFillColor(255, 255, 255); doc.circle(182, 20, 16, "F"); P.setOpacity(1);
+  doc.setFillColor(255, 255, 255);
+  P.poly([[184, 24], [184, 13.4], [176.8, 24]], true);
+  P.poly([[186.3, 24], [186.3, 15.5], [192.6, 24]], true);
+  P.poly([[175.4, 25.1], [193.8, 25.1], [190.8, 28], [178.4, 28]], true);
   doc.setFont(...P.F.b); doc.setFontSize(23); doc.setTextColor(255, 255, 255);
   doc.text(P.clean(`${SETTINGS.place || SETTINGS.name || "Le séjour"} en ${DAYS.length} jours`), 16, 20);
   const mEnd = new Date(isoPlusDays(SETTINGS.startISO, DAYS.length - 1) + "T12:00:00");
@@ -3005,7 +3038,7 @@ async function makeProgramPdf({ events, messages }) {
     tops.forEach(({ e, v }, i) => {
       doc.setFillColor(255, 248, 233); doc.roundedRect(16, y, 178, 10, 1.6, 1.6, "F");
       doc.setFont(...P.F.b); doc.setFontSize(9.5); doc.setTextColor(74, 59, 35);
-      doc.text(P.clean(`${i + 1}. ${e.title}`), 21, y + 6.4);
+      doc.text(P.clean(`${i + 1}. ${titreDe(e)}`), 21, y + 6.4);
       doc.setFont(...P.F.n); doc.setFontSize(8.6); doc.setTextColor(96, 88, 72);
       doc.text(P.clean(e.place && e.place.name !== "À définir" ? e.place.name : `Jour ${e.day + 1}`).slice(0, 34), 92, y + 6.4);
       doc.setFont(...P.F.b); doc.setFontSize(8); doc.setTextColor(222, 90, 70);
@@ -3014,26 +3047,32 @@ async function makeProgramPdf({ events, messages }) {
     });
     y += 5;
   }
-  try {
-    const data = await mapImage(places, 1070, 430);
-    doc.setFont(...P.F.b); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
-    doc.text("La carte du séjour", 16, y); y += 4;
-    doc.addImage(data, "JPEG", 16, y, 178, 71.6);
-    y += 78;
-  } catch (e) {}
   const premiers = [];
   for (let d = 0; d < DAYS.length; d++) {
     const evs = past.filter((e) => e.day === d && e.start).sort((a, b) => a.start.localeCompare(b.start));
     if (evs.length) premiers.push(evs[0].start);
   }
-  if (premiers.length && y < 265) {
+  if (premiers.length) {
     premiers.sort();
     const med = premiers[Math.floor(premiers.length / 2)];
+    const parType = TYPE_ORDER.map((t) => {
+      const nT = past.filter((e) => (e.type || "activite") === t).length;
+      return nT ? `${nT} ${TYPES[t].label.toLowerCase()}${nT > 1 && !/s$/.test(TYPES[t].label) ? "s" : ""}` : null;
+    }).filter(Boolean).slice(0, 4).join(", ");
     doc.setFont(...P.F.b); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
     doc.text("Le rythme", 16, y); y += 6;
     doc.setFont(...P.F.n); doc.setFontSize(9.5); doc.setTextColor(96, 88, 72);
-    doc.text(P.clean(`${rythme} activités par jour en moyenne, premières sorties vers ${med.replace(":", "h")}.`), 16, y);
+    doc.text(P.clean(`${rythme} activités par jour en moyenne, premières sorties vers ${med.replace(":", "h")}.`), 16, y); y += 5.4;
+    if (parType) { doc.text(P.clean(`Au programme : ${parType}.`), 16, y); y += 5.4; }
+    y += 4;
   }
+  try {
+    const data = await mapImage(places, 1070, 555);
+    doc.setFont(...P.F.b); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
+    doc.text("La carte du séjour", 16, y); y += 4;
+    doc.addImage(data, "JPEG", 16, y, 178, 92.3);
+    y += 99;
+  } catch (e) {}
   /* jours en tableau */
   let yT = 300;
   const ensure = (h) => { if (yT + h > 282) { doc.addPage(); fond(); yT = 14; } };
@@ -3055,7 +3094,7 @@ async function makeProgramPdf({ events, messages }) {
       doc.setFont(...P.F.n); doc.setFontSize(8.8); doc.setTextColor(96, 88, 72);
       doc.text(fmtDur(e), 38, yT);
       doc.setFont(...P.F.b); doc.setFontSize(9.8); doc.setTextColor(45, 52, 58);
-      doc.text(doc.splitTextToSize(P.clean(e.title), 92)[0] || "", 60, yT);
+      doc.text(doc.splitTextToSize(P.clean(titreDe(e)), 92)[0] || "", 60, yT);
       const sous = [e.place && e.place.name !== "À définir" ? e.place.name : "", e.note || ""].filter(Boolean).join(" · ");
       if (sous) {
         doc.setFont(...P.F.n); doc.setFontSize(8.2); doc.setTextColor(120, 112, 96);
@@ -3081,9 +3120,9 @@ async function makeProgramPdf({ events, messages }) {
   TYPE_ORDER.forEach((t) => {
     const seenT = new Set(); const items = [];
     past.filter((e) => (e.type || "activite") === t).forEach((e) => {
-      const k = placeKey(e.title);
+      const k = placeKey(titreDe(e));
       if (seenT.has(k)) return; seenT.add(k);
-      items.push({ titre: e.title, v: vibeOfEvent(e, messages) });
+      items.push({ titre: titreDe(e), v: vibeOfEvent(e, messages) });
     });
     if (items.length) groupes.push({ t, items: items.sort((a, b) => b.v - a.v).slice(0, 6) });
   });
@@ -3140,7 +3179,7 @@ function pickStar(photos, faces) {
   if (elu) return { photo: elu, label: "Votre photo élue", n: heartsOf(elu) };
   if (faces) {
     let bf = null, bs = 0;
-    list.forEach((p) => { const f = faces[p.id]; if (f && f.n > 0 && f.score > bs) { bs = f.score; bf = p; } });
+    list.forEach((p) => { const f = faces[p.id]; if (f && f.n >= 2) { const sc = f.n * f.score; if (sc > bs) { bs = sc; bf = p; } } });
     if (bf) return { photo: bf, label: "La photo de groupe", n: heartsOf(bf) };
   }
   let br = null, brn = -1;
