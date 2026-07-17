@@ -2641,7 +2641,7 @@ function buildFilm(events, photos, messages) {
   if (lieuxU.filter((p) => p.coord).length >= 1) sc.push({ t: "voyage", d: 5800, vehicule: detectVehicule(events) });
   for (let d = 0; d < DAYS.length; d++) {
     const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
-    const pj = ph.filter((p) => dayOfTs(p.at || 0) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
+    const pj = ph.filter((p) => dayOfPhoto(p, events) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
     if (!evs.length && !pj.length) continue;
     let bestE = null, bestV = 0;
     evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
@@ -2667,7 +2667,7 @@ function buildFilm(events, photos, messages) {
       pj.slice(0, 3).forEach((p, k) => sc.push({ t: st, d: st === "polaroid" ? 5400 : 5000, day: d, ph: p, leg: legs[k % legs.length] }));
     }
     if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3800, day: d, e: bestE });
-    const mj = (messages || []).filter((m) => dayOfTs(m.at || 0) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
+    const mj = (messages || []).filter((m) => dayOfMsg(m, events) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
       .map((m) => ({ m, n: reactsOfMsg(m) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
     if (mj) sc.push({ t: "mot", d: 4400, day: d, m: mj.m });
   }
@@ -3347,6 +3347,14 @@ const dayOfTs = (at) => {
   const d0 = new Date(SETTINGS.startISO + "T00:00:00").getTime();
   return Math.floor((at - d0) / 86400000);
 };
+const dayDeScope = (scope, events) => {
+  if (!scope || scope === "general") return null;
+  const e = (events || []).find((x) => x.id === scope);
+  return e && typeof e.day === "number" ? e.day : null;
+};
+const dayDansSejour = (at) => { const d = dayOfTs(at || 0); return d >= 0 && d < DAYS.length ? d : null; };
+const dayOfPhoto = (p, events) => { const d = dayDeScope(p.event, events); return d != null ? d : dayDansSejour(p.at); };
+const dayOfMsg = (m, events) => { const d = dayDeScope(m.scope, events); return d != null ? d : dayDansSejour(m.at); };
 const dayLabel = (i) => {
   const dt = new Date(isoPlusDays(SETTINGS.startISO, i) + "T12:00:00");
   return dt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -3755,7 +3763,7 @@ async function makeSouvenirPdf({ events, photos, messages }) {
   const ensureS = (h) => { if (y + h > 283) newPage(); };
   for (let d = 0; d < DAYS.length; d++) {
     const evs = past.filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
-    const pj = ph.filter((p) => dayOfTs(p.at || 0) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
+    const pj = ph.filter((p) => dayOfPhoto(p, events) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
     if (!evs.length && !pj.length) continue;
     const sc = scotchs[d % scotchs.length];
     const ang = anglesJ[d % anglesJ.length];
@@ -3826,7 +3834,7 @@ async function makeSouvenirPdf({ events, photos, messages }) {
       doc.text(`${bestV} réactions du groupe`, 58, y + 19);
       y += 28;
     }
-    const mj = (messages || []).filter((m) => dayOfTs(m.at || 0) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
+    const mj = (messages || []).filter((m) => dayOfMsg(m, events) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
       .map((m) => ({ m, n: reactsOfMsg(m) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
     if (mj) {
       const mtxt = `« ${mj.m.text} »`;
@@ -4333,11 +4341,12 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
     if (!reste.length) { setFaces(cache); return; }
     if (typeof navigator !== "undefined" && navigator.onLine === false) return;
     scanRef.current = true;
+    const relacher = () => { scanRef.current = false; };
     const lent = setTimeout(() => setScan({ done: 0, total: reste.length }), 2000);
     detectFacesFor(list, (done, total) => setScan((s) => (s ? { done, total } : s)))
       .then((m) => setFaces({ ...m }))
       .catch(() => {})
-      .then(() => { clearTimeout(lent); setScan(null); });
+      .then(() => { clearTimeout(lent); setScan(null); relacher(); });
   }, [tripOver, nPhotos]);
   const ub = (id) => (unreadByEvent && unreadByEvent[id]) || 0;
   const op = (id) => (openPollsByEvent && openPollsByEvent[id]) || 0;
