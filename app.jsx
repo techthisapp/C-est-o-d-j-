@@ -7,7 +7,7 @@ import {
   Cloud, CloudRain, CloudSnow, CloudFog, CloudDrizzle, CloudLightning, Sunrise, Sunset, Wind, Umbrella, Thermometer, Heart,
   CalendarDays, Rewind, Clock, UserMinus, UserPlus, MessageCircle,
   Send, ImagePlus, Images, Navigation, CornerDownRight, LogIn, LogOut,
-  Settings, RotateCcw, User, RefreshCw, Phone, Mail, Trash2, BarChart3, Star, SmilePlus, Map as MapIcon, Share2, HelpCircle
+  Settings, RotateCcw, User, RefreshCw, Phone, Mail, Trash2, BarChart3, Star, SmilePlus, Map as MapIcon, Share2, HelpCircle, Volume2, VolumeX
 } from "lucide-react";
 
 /* =========================================================================
@@ -2314,34 +2314,88 @@ function detectVehicule(events) {
   if (/\bvol\b|avion|a[ée]roport|airport|aeroporto|aeropuerto|flughafen|αερολιμ|terminal/.test(txt)) return "avion";
   return "voiture";
 }
-const FETE = {
-  mer: { n: 16, kind: "bulle", cols: ["rgba(255,255,255,0.9)", "rgba(174,224,240,0.95)", "rgba(255,255,255,0.65)"] },
-  ville: { n: 16, kind: "lumiere", cols: ["#FFD98A", "#FFF0C4", "#FFB86B"] },
-  ski: { n: 24, kind: "flocon", cols: ["#FFFFFF", "#E8F3FB"] },
-  rando: { n: 14, kind: "feuille", cols: ["#C9873F", "#A8B25A", "#D8A24A"] },
-  mariage: { n: 18, kind: "petale", cols: ["#F7C9C0", "#FFE3DC", "#FFFFFF"] },
-  detente: { n: 14, kind: "petale", cols: ["#F3D9A4", "#FFE9C7", "#F6C9A8"] },
-  anniversaire: { n: 18, kind: "confetti", cols: ["#F0604A", "#2E6B80", "#E2A244", "#7E5DA8", "#3E8E6C"] },
+const THEMES = {
+  mer: {
+    fam: "ile", ciel: ["#FFF6E4", "#FFD9B4", "#FFC9A0"], astre: "#F3AF42", astreHalo: "rgba(247,196,96,0.35)", etoile: "#E2A244",
+    fond: ["#8FC6CF", "#5FA3B4"], sol: "#EFE3C2", solL: "#C9B189", relief: "#DCCBA0", trait: "#D4553F", point: "#F0604A", encre: "#28414C",
+    bandes: ["#FFECD6", "#FDE8CC", "#E9F3EE", "#F6EFDF", "#FBE9E3", "#EEF0F9"], papier: ["#F7EEDD", "#EFDFC4"], papierTxt: "#54463A",
+    fete: "bulle", feteFond: ["#FFF8E9", "#FFE9CE"], feteTxt: "#4A3B23", feteLabel: "#A5822F",
+    fin: ["#FFEBD4", "#FFC9A6", "#F7B08C"], scrim: "rgba(255,222,190,0.72)", finTxt: "#4A2E18", finTxt2: "#6E4A2E", finPied: "#8A5E3C",
+  },
+  ville: {
+    fam: "ville", ciel: ["#243545", "#3D566B", "#5C7386"], astre: "#FFD98A", astreHalo: "rgba(255,217,138,0.28)", etoile: "#FFE3A8",
+    fond: ["#EDF1F4", "#D6DEE5"], sol: "#C6D0D8", solL: "#9AA9B6", relief: "#AEBAC5", trait: "#E0645A", point: "#E0645A", encre: "#22323E",
+    bandes: ["#E9EEF2", "#F1ECE6", "#E6EAF3", "#F2EDF0", "#E8F0EF", "#EFEFEA"], papier: ["#EEF1F4", "#DFE5EA"], papierTxt: "#3A4650",
+    fete: "lumiere", feteFond: ["#1C2C38", "#33485A"], feteTxt: "#FFFFFF", feteLabel: "#FFD98A",
+    fin: ["#2B3E4E", "#43596B", "#5E7688"], scrim: "rgba(30,44,56,0.7)", finTxt: "#FFF3DE", finTxt2: "#FFD98A", finPied: "#C8D6E0",
+  },
+  ski: {
+    fam: "montagne", ciel: ["#EAF4FB", "#CBE3F4", "#A9CFE8"], astre: "#FFF3D0", astreHalo: "rgba(255,255,255,0.4)", etoile: "#FFFFFF",
+    fond: ["#DCEEFA", "#B4D5EC"], sol: "#FBFDFF", solL: "#9FC0D6", relief: "#CFE3F0", trait: "#2E6B80", point: "#2E6B80", encre: "#254554",
+    bandes: ["#EDF6FC", "#E4F0FA", "#F0F5F9", "#E9F2F8", "#F3F8FC", "#E6EFF7"], papier: ["#F4FAFE", "#E3EFF8"], papierTxt: "#2D4757",
+    fete: "flocon", feteFond: ["#E9F4FB", "#CFE4F2"], feteTxt: "#254554", feteLabel: "#4E7C96",
+    fin: ["#EAF4FB", "#C3DEF1", "#9FC8E4"], scrim: "rgba(226,240,250,0.76)", finTxt: "#20404F", finTxt2: "#42708A", finPied: "#6D95AC",
+  },
+  rando: {
+    fam: "montagne", ciel: ["#FBF3DF", "#E8DCB8", "#CFC392"], astre: "#EBA845", astreHalo: "rgba(235,168,69,0.3)", etoile: "#C79A4A",
+    fond: ["#E6EEDD", "#C3D6AF"], sol: "#D9C79A", solL: "#A98F5F", relief: "#C2AC79", trait: "#B4553A", point: "#C25A38", encre: "#40402A",
+    bandes: ["#F3EEDC", "#EBF0E0", "#F6EFDF", "#E9F0E6", "#F4EADC", "#EDF1E4"], papier: ["#F6F0DD", "#E9E0C4"], papierTxt: "#4A4530",
+    fete: "feuille", feteFond: ["#FBF4E2", "#EFE4C4"], feteTxt: "#40402A", feteLabel: "#8A7A3F",
+    fin: ["#F7EFD9", "#E3D5A8", "#C9B67F"], scrim: "rgba(246,238,214,0.74)", finTxt: "#3F3B22", finTxt2: "#6E6438", finPied: "#8E834F",
+  },
+  mariage: {
+    fam: "campagne", ciel: ["#FFF6F2", "#FBE2DC", "#F4CFC8"], astre: "#F6C9C0", astreHalo: "rgba(246,201,192,0.35)", etoile: "#E8A8A0",
+    fond: ["#F6EFE9", "#E7DCD2"], sol: "#E8DCC8", solL: "#C4AE95", relief: "#DACBB2", trait: "#C4626E", point: "#D0707C", encre: "#4A3138",
+    bandes: ["#FBEFEC", "#F7F0E8", "#F3EEF6", "#FAF0EE", "#F2F0E9", "#F6EDF2"], papier: ["#FDF4F1", "#F2E4DE"], papierTxt: "#4E3A3C",
+    fete: "petale", feteFond: ["#FFF7F4", "#FBE6E0"], feteTxt: "#4A3138", feteLabel: "#B07A80",
+    fin: ["#FEF2EE", "#F7DCD5", "#EDC3BA"], scrim: "rgba(253,238,233,0.76)", finTxt: "#4A2E2E", finTxt2: "#8A5A5C", finPied: "#A87C7C",
+  },
+  detente: {
+    fam: "campagne", ciel: ["#FFF8E8", "#F7E7C2", "#EDD5A0"], astre: "#F0BF5E", astreHalo: "rgba(240,191,94,0.32)", etoile: "#D9AE58",
+    fond: ["#F2F0DF", "#DCDCB8"], sol: "#E6DAB2", solL: "#B9A579", relief: "#D5C593", trait: "#C08A3C", point: "#CE9243", encre: "#4A4331",
+    bandes: ["#FAF3E1", "#F4F1E2", "#EFF3E8", "#F8EFDF", "#F2EFE3", "#F6F2E6"], papier: ["#FCF6E6", "#F0E6CC"], papierTxt: "#4C452F",
+    fete: "petale", feteFond: ["#FDF7E7", "#F5E7C6"], feteTxt: "#4A4331", feteLabel: "#9C8342",
+    fin: ["#FDF6E4", "#F1E0B4", "#E2CB8E"], scrim: "rgba(252,244,224,0.74)", finTxt: "#453F28", finTxt2: "#7A6E42", finPied: "#9A8B58",
+  },
+  anniversaire: {
+    fam: "campagne", ciel: ["#FBF2FF", "#EEDCF8", "#DCC4EE"], astre: "#C79ED6", astreHalo: "rgba(199,158,214,0.32)", etoile: "#B98ACB",
+    fond: ["#F4EFF8", "#E0D4EC"], sol: "#E9DEC6", solL: "#B9A88E", relief: "#DBCDB0", trait: "#7E5DA8", point: "#8A66B4", encre: "#3E3050",
+    bandes: ["#F6EEFA", "#FBEFEA", "#EFF2FA", "#F9EFF4", "#F0F4EE", "#F4EFF8"], papier: ["#FBF5FC", "#EFE4F2"], papierTxt: "#453556",
+    fete: "confetti", feteFond: ["#FDF7FF", "#F0E4FA"], feteTxt: "#3E3050", feteLabel: "#7E5DA8",
+    fin: ["#FBF1FF", "#EBD9F6", "#D8BFEC"], scrim: "rgba(250,240,252,0.74)", finTxt: "#3C2C4E", finTxt2: "#6E5088", finPied: "#8C6EA6",
+  },
 };
-function Celebration({ type }) {
-  const cfg = FETE[type] || FETE.mer;
-  const monte = cfg.kind === "bulle" || cfg.kind === "lumiere";
-  const nom = cfg.kind === "bulle" || cfg.kind === "lumiere" ? "fmRise" : cfg.kind === "flocon" ? "fmSnow" : cfg.kind === "confetti" ? "fmConf" : "fmLeaf";
+const themeDe = () => THEMES[SETTINGS.tripType] || THEMES.mer;
+const FETE_COLS = {
+  bulle: ["rgba(255,255,255,0.9)", "rgba(174,224,240,0.95)", "rgba(255,255,255,0.65)"],
+  lumiere: ["#FFD98A", "#FFF0C4", "#FFB86B"],
+  flocon: ["#FFFFFF", "#E8F3FB"],
+  feuille: ["#C9873F", "#A8B25A", "#D8A24A"],
+  petale: ["#F7C9C0", "#FFE3DC", "#FFFFFF"],
+  confetti: ["#F0604A", "#2E6B80", "#E2A244", "#7E5DA8", "#3E8E6C"],
+};
+function Celebration({ kind, n }) {
+  const cols = FETE_COLS[kind] || FETE_COLS.bulle;
+  const nb = n || (kind === "flocon" ? 24 : kind === "confetti" ? 18 : 16);
+  const monte = kind === "bulle" || kind === "lumiere";
+  const nom = monte ? "fmRise" : kind === "flocon" ? "fmSnow" : kind === "confetti" ? "fmConf" : "fmLeaf";
   return (
     <>
-      {Array.from({ length: cfg.n }, (_, k) => {
-        const col = cfg.cols[k % cfg.cols.length];
-        const sz = cfg.kind === "flocon" ? 4 + (k % 3) * 2 : cfg.kind === "bulle" ? 6 + (k % 4) * 4 : cfg.kind === "lumiere" ? 5 + (k % 3) * 3 : 9;
+      {Array.from({ length: nb }, (_, k) => {
+        const col = cols[k % cols.length];
+        const sz = kind === "flocon" ? 4 + (k % 3) * 2 : kind === "bulle" ? 6 + (k % 4) * 4 : kind === "lumiere" ? 5 + (k % 3) * 3 : 9;
         const st = {
-          position: "absolute", left: `${(k * 37 + 5) % 93}%`, width: cfg.kind === "confetti" ? 8 : cfg.kind === "feuille" || cfg.kind === "petale" ? sz + 4 : sz,
-          height: cfg.kind === "confetti" ? 13 : sz, background: col, animationName: nom, animationDelay: `${((k * 13) % 32) / 10}s`,
-          animationDuration: `${(monte ? 3.4 : 3) + ((k * 7) % 24) / 10}s`, animationTimingFunction: monte ? "ease-out" : "linear", animationIterationCount: "infinite", pointerEvents: "none",
+          position: "absolute", left: `${(k * 37 + 5) % 93}%`,
+          width: kind === "confetti" ? 8 : kind === "feuille" || kind === "petale" ? sz + 4 : sz,
+          height: kind === "confetti" ? 13 : sz, background: col, animationName: nom,
+          animationDelay: `${((k * 13) % 32) / 10}s`, animationDuration: `${(monte ? 3.4 : 3) + ((k * 7) % 24) / 10}s`,
+          animationTimingFunction: monte ? "ease-out" : "linear", animationIterationCount: "infinite", pointerEvents: "none",
           ...(monte ? { bottom: -24 } : { top: -24 }),
-          ...(cfg.kind === "bulle" ? { borderRadius: "50%", border: "1px solid rgba(255,255,255,0.75)" } : {}),
-          ...(cfg.kind === "lumiere" ? { borderRadius: "50%", filter: "blur(1.6px)" } : {}),
-          ...(cfg.kind === "flocon" ? { borderRadius: "50%", boxShadow: "0 0 6px rgba(255,255,255,0.9)" } : {}),
-          ...(cfg.kind === "feuille" || cfg.kind === "petale" ? { borderRadius: "60% 0 60% 0" } : {}),
-          ...(cfg.kind === "confetti" ? { borderRadius: 2 } : {}),
+          ...(kind === "bulle" ? { borderRadius: "50%", border: "1px solid rgba(255,255,255,0.75)" } : {}),
+          ...(kind === "lumiere" ? { borderRadius: "50%", filter: "blur(1.6px)" } : {}),
+          ...(kind === "flocon" ? { borderRadius: "50%", boxShadow: "0 0 6px rgba(255,255,255,0.9)" } : {}),
+          ...(kind === "feuille" || kind === "petale" ? { borderRadius: "60% 0 60% 0" } : {}),
+          ...(kind === "confetti" ? { borderRadius: 2 } : {}),
         };
         return <span key={k} style={st} />;
       })}
@@ -2358,7 +2412,19 @@ function hullDe(pts) {
   for (let i = P2.length - 1; i >= 0; i--) { const p = P2[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
   return lo.slice(0, -1).concat(up.slice(0, -1));
 }
-function IleStylisee({ lieux, sequence }) {
+function pathDe(el) {
+  if (!el || el.length < 3) return "";
+  let d = "";
+  for (let i = 0; i < el.length; i++) {
+    const a = el[i], b = el[(i + 1) % el.length];
+    if (i === 0) d += `M ${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2} `;
+    const c = el[(i + 1) % el.length], nn = el[(i + 2) % el.length];
+    d += `Q ${c[0]} ${c[1]} ${(c[0] + nn[0]) / 2} ${(c[1] + nn[1]) / 2} `;
+  }
+  return d + "Z";
+}
+function CarteStylisee({ lieux, sequence, th }) {
+  const uid = useMemo(() => "cs" + Math.random().toString(36).slice(2, 8), []);
   const pts = (lieux || []).filter((p) => p.coord);
   if (!pts.length) return null;
   const seq = (sequence || []).filter((s) => s.coord);
@@ -2368,44 +2434,71 @@ function IleStylisee({ lieux, sequence }) {
   const nx = (lng) => 14 + ((lng - lo0) / Math.max(0.0004, lo1 - lo0)) * 72;
   const ny = (lat) => 46 - ((lat - la0) / Math.max(0.0004, la1 - la0)) * 34;
   const xy = pts.map((p) => [nx(p.coord.lng), ny(p.coord.lat)]);
-  const cx0 = xy.reduce((s, p) => s + p[0], 0) / Math.max(1, xy.length), cy0 = xy.reduce((s, p) => s + p[1], 0) / Math.max(1, xy.length);
-  let ile = null;
+  const cx0 = xy.reduce((s, p) => s + p[0], 0) / Math.max(1, xy.length);
+  const cy0 = xy.reduce((s, p) => s + p[1], 0) / Math.max(1, xy.length);
   const h = hullDe(xy);
-  if (h) {
-    const el = h.map(([x, y]) => [cx0 + (x - cx0) * 1.55, cy0 + (y - cy0) * 1.7]).map(([x, y]) => [clamp(x, 6, 94), clamp(y, 6, 54)]);
-    let d = "";
-    for (let i = 0; i < el.length; i++) {
-      const a = el[i], b = el[(i + 1) % el.length];
-      if (i === 0) d += `M ${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2} `;
-      const c = el[(i + 1) % el.length], nn = el[(i + 2) % el.length];
-      d += `Q ${c[0]} ${c[1]} ${(c[0] + nn[0]) / 2} ${(c[1] + nn[1]) / 2} `;
-    }
-    ile = d + "Z";
-  }
+  const gonfle = (f) => (h || []).map(([x, y]) => [clamp(cx0 + (x - cx0) * f * 1.55, 4, 96), clamp(cy0 + (y - cy0) * f * 1.7, 4, 56)]);
+  const masse = h ? pathDe(gonfle(1)) : "";
+  const contours = h ? [0.74, 0.5, 0.28].map((f) => pathDe(gonfle(f))) : [];
   const pas = 1.15;
+  const alea = (k, s) => { const x = Math.sin((k + 1) * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); };
   return (
     <svg viewBox="0 0 100 62" style={{ width: "100%", height: "100%", display: "block" }} preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="fmMer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#8FC6CF" /><stop offset="1" stopColor="#5FA3B4" /></linearGradient>
+        <linearGradient id={uid + "f"} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={th.fond[0]} /><stop offset="1" stopColor={th.fond[1]} />
+        </linearGradient>
+        {masse && <clipPath id={uid + "c"}><path d={masse} /></clipPath>}
       </defs>
-      <rect x="0" y="0" width="100" height="62" fill="url(#fmMer)" />
-      {[[10, 12], [70, 8], [26, 54], [82, 50]].map(([wx, wy], i) => (
+      <rect x="0" y="0" width="100" height="62" fill={`url(#${uid}f)`} />
+      {th.fam === "ile" && [[10, 12], [70, 8], [26, 54], [82, 50]].map(([wx, wy], i) => (
         <path key={i} d={`M ${wx} ${wy} q 2.5 -1.6 5 0 t 5 0`} fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="0.7" strokeLinecap="round" style={{ animation: `vdrift ${5 + i}s ease-in-out infinite alternate` }} />
       ))}
-      {ile && <path d={ile} fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="2.6" />}
-      {ile && <path d={ile} fill="#EFE3C2" stroke="#C9B189" strokeWidth="0.9" />}
-      {seq.length === 0 && xy.map(([x, y], i) => (
-        <g key={i}>
-          <circle cx={x} cy={y} r="0" fill="#F0604A" stroke="#fff" strokeWidth="0.8">
-            <animate attributeName="r" values="0;2.9;2.1" keyTimes="0;0.7;1" begin={`${0.5 + i * 0.16}s`} dur="0.5s" fill="freeze" />
-          </circle>
+      {th.fam === "ville" && Array.from({ length: 9 }, (_, i) => (
+        <line key={i} x1={i * 12 + 2} y1="0" x2={i * 12 - 6} y2="62" stroke={th.solL} strokeOpacity="0.18" strokeWidth="0.5" />
+      ))}
+      {th.fam === "montagne" && Array.from({ length: 5 }, (_, i) => (
+        <path key={i} d={`M ${i * 24 - 6} 62 L ${i * 24 + 8} ${34 - (i % 2) * 7} L ${i * 24 + 22} 62 Z`} fill={th.relief} opacity="0.35" />
+      ))}
+      {th.fam === "campagne" && Array.from({ length: 3 }, (_, i) => (
+        <path key={i} d={`M -6 ${52 + i * 4} Q ${28 + i * 12} ${40 + i * 5} ${106} ${50 + i * 4} L 106 62 L -6 62 Z`} fill={th.relief} opacity="0.3" />
+      ))}
+      {masse && th.fam === "ile" && <path d={masse} fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="2.6" />}
+      {masse && <path d={masse} fill={th.sol} stroke={th.solL} strokeWidth="0.9" />}
+      {masse && (
+        <g clipPath={`url(#${uid}c)`}>
+          {th.fam === "montagne" && contours.map((d, i) => <path key={i} d={d} fill="none" stroke={th.solL} strokeOpacity={0.45 - i * 0.08} strokeWidth="0.5" />)}
+          {th.fam === "montagne" && Array.from({ length: 6 }, (_, i) => {
+            const x = 10 + alea(i, 1) * 80, y = 8 + alea(i, 2) * 46, w = 5 + alea(i, 3) * 5;
+            return <path key={"p" + i} d={`M ${x - w} ${y + w} L ${x} ${y - w * 0.9} L ${x + w} ${y + w} Z`} fill={th.relief} stroke={th.solL} strokeWidth="0.4" opacity="0.85" />;
+          })}
+          {th.fam === "ville" && Array.from({ length: 22 }, (_, i) => {
+            const x = 8 + alea(i, 4) * 84, y = 8 + alea(i, 5) * 44, w = 2 + alea(i, 6) * 3.4, hh = 2 + alea(i, 7) * 5;
+            return <rect key={"b" + i} x={x} y={y} width={w} height={hh} fill={th.relief} stroke={th.solL} strokeWidth="0.25" opacity="0.9" />;
+          })}
+          {th.fam === "ville" && Array.from({ length: 5 }, (_, i) => (
+            <line key={"r" + i} x1="-6" y1={10 + i * 10} x2="106" y2={6 + i * 10} stroke="#ffffff" strokeOpacity="0.5" strokeWidth="0.9" />
+          ))}
+          {th.fam === "campagne" && Array.from({ length: 16 }, (_, i) => {
+            const x = 8 + alea(i, 8) * 84, y = 8 + alea(i, 9) * 44;
+            return <circle key={"t" + i} cx={x} cy={y} r={1 + alea(i, 10) * 1.4} fill={th.relief} opacity="0.75" />;
+          })}
+          {th.fam === "ile" && Array.from({ length: 10 }, (_, i) => {
+            const x = 10 + alea(i, 11) * 80, y = 10 + alea(i, 12) * 40;
+            return <circle key={"s" + i} cx={x} cy={y} r={0.9 + alea(i, 13) * 1.1} fill={th.relief} opacity="0.6" />;
+          })}
         </g>
+      )}
+      {seq.length === 0 && xy.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="0" fill={th.point} stroke="#fff" strokeWidth="0.8">
+          <animate attributeName="r" values="0;2.9;2.1" keyTimes="0;0.7;1" begin={`${0.5 + i * 0.16}s`} dur="0.5s" fill="freeze" />
+        </circle>
       ))}
       {seq.length > 1 && seq.slice(1).map((s, i) => {
         const a = seq[i];
         const t0 = 0.5 + i * pas + 0.45;
         return (
-          <path key={"s" + i} d={`M ${nx(a.coord.lng)} ${ny(a.coord.lat)} L ${nx(s.coord.lng)} ${ny(s.coord.lat)}`} pathLength="1" fill="none" stroke="#D4553F" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="1" strokeDashoffset="1">
+          <path key={"s" + i} d={`M ${nx(a.coord.lng)} ${ny(a.coord.lat)} L ${nx(s.coord.lng)} ${ny(s.coord.lat)}`} pathLength="1" fill="none" stroke={th.trait} strokeWidth="1.2" strokeLinecap="round" strokeDasharray="1" strokeDashoffset="1">
             <animate attributeName="stroke-dashoffset" from="1" to="0" begin={`${t0}s`} dur="0.62s" fill="freeze" />
             <animate attributeName="stroke-opacity" values="1;0.45;1" begin={`${t0 + 0.62}s`} dur="1.5s" repeatCount="indefinite" />
             <animate attributeName="stroke-width" values="1.2;1.7;1.2" begin={`${t0 + 0.62}s`} dur="1.5s" repeatCount="indefinite" />
@@ -2417,14 +2510,14 @@ function IleStylisee({ lieux, sequence }) {
         const t0 = 0.5 + i * pas;
         return (
           <g key={"p" + i}>
-            <circle cx={x} cy={y} r="2" fill="none" stroke="#D4553F" strokeWidth="0.6" opacity="0">
+            <circle cx={x} cy={y} r="2" fill="none" stroke={th.trait} strokeWidth="0.6" opacity="0">
               <animate attributeName="r" from="2" to="9" begin={`${t0}s`} dur="1s" fill="freeze" />
               <animate attributeName="opacity" from="0.85" to="0" begin={`${t0}s`} dur="1s" fill="freeze" />
             </circle>
-            <circle cx={x} cy={y} r="0" fill="#F0604A" stroke="#fff" strokeWidth="0.9">
+            <circle cx={x} cy={y} r="0" fill={th.point} stroke="#fff" strokeWidth="0.9">
               <animate attributeName="r" values="0;4.4;3.2" keyTimes="0;0.66;1" begin={`${t0}s`} dur="0.52s" fill="freeze" />
             </circle>
-            <text x={x} y={y - 5.2} textAnchor="middle" fontSize="3.1" fontWeight="700" fill="#28414C" fontFamily="sans-serif" paintOrder="stroke" stroke="#ffffff" strokeWidth="1" opacity="0">
+            <text x={x} y={y - 5.2} textAnchor="middle" fontSize="3.1" fontWeight="700" fill={th.encre} fontFamily="sans-serif" paintOrder="stroke" stroke="#ffffff" strokeWidth="1" opacity="0">
               <animate attributeName="opacity" from="0" to="1" begin={`${t0 + 0.12}s`} dur="0.4s" fill="freeze" />
               {String(s.nom || "").slice(0, 22)}
             </text>
@@ -2462,6 +2555,67 @@ function VehiculeSVG({ kind }) {
       <path d="M -6 0 L -8.4 -2.6 L -7 -2.8 L -4.6 -0.4 Z" />
     </g>
   );
+}
+const MUS = {
+  mer: { root: 220, bpm: 66, pad: "triangle", pluck: "sine", vol: 0.17, prog: [[0, 4, 7, 11], [-3, 0, 4, 7], [-5, -1, 2, 7], [2, 5, 9, 12]] },
+  ville: { root: 174.61, bpm: 98, pad: "triangle", pluck: "square", vol: 0.1, prog: [[0, 3, 7, 10], [-2, 1, 5, 8], [-4, 0, 3, 7], [-5, -1, 2, 7]] },
+  ski: { root: 261.63, bpm: 58, pad: "sine", pluck: "triangle", vol: 0.15, prog: [[0, 4, 7, 11], [2, 5, 9, 12], [-3, 0, 4, 9], [-5, 0, 4, 7]] },
+  rando: { root: 196, bpm: 78, pad: "triangle", pluck: "triangle", vol: 0.16, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [-3, 2, 7, 9], [-5, 0, 4, 7]] },
+  mariage: { root: 233.08, bpm: 62, pad: "sine", pluck: "sine", vol: 0.16, prog: [[0, 4, 7, 11], [-5, -1, 4, 7], [-3, 0, 4, 9], [2, 5, 9, 11]] },
+  detente: { root: 207.65, bpm: 56, pad: "sine", pluck: "sine", vol: 0.15, prog: [[0, 4, 7, 11], [-2, 2, 5, 9], [-4, 0, 3, 7], [-5, -1, 2, 7]] },
+  anniversaire: { root: 261.63, bpm: 106, pad: "triangle", pluck: "square", vol: 0.11, prog: [[0, 4, 7, 12], [5, 9, 12, 17], [7, 11, 14, 19], [0, 4, 9, 12]] },
+};
+function useMusique(type, actif) {
+  useEffect(() => {
+    if (!actif || typeof window === "undefined") return undefined;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return undefined;
+    let ctx = null;
+    try { ctx = new AC(); } catch (e) { return undefined; }
+    const cfg = MUS[type] || MUS.mer;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, ctx.currentTime);
+    master.connect(ctx.destination);
+    try { master.gain.linearRampToValueAtTime(cfg.vol, ctx.currentTime + 3); } catch (e) {}
+    const dly = ctx.createDelay(1);
+    dly.delayTime.value = 60 / cfg.bpm / 2;
+    const fb = ctx.createGain(); fb.gain.value = 0.3;
+    const wet = ctx.createGain(); wet.gain.value = 0.28;
+    dly.connect(fb); fb.connect(dly); dly.connect(wet); wet.connect(master);
+    const f = (semi) => cfg.root * Math.pow(2, semi / 12);
+    const note = (freq, t, dur, wave, g, echo) => {
+      const o = ctx.createOscillator(); o.type = wave;
+      o.frequency.setValueAtTime(freq, t);
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.linearRampToValueAtTime(g, t + Math.min(0.25, dur * 0.2));
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(gn); gn.connect(master);
+      if (echo) gn.connect(dly);
+      o.start(t); o.stop(t + dur + 0.06);
+    };
+    const spb = 60 / cfg.bpm;
+    let step = 0, next = ctx.currentTime + 0.2;
+    const tick = () => {
+      if (!ctx || ctx.state === "closed") return;
+      while (next < ctx.currentTime + 0.35) {
+        const acc = cfg.prog[Math.floor(step / 8) % cfg.prog.length];
+        if (step % 8 === 0) acc.forEach((s, j) => note(f(s - 12), next, spb * 4.4, cfg.pad, j === 0 ? 0.055 : 0.035, false));
+        const oct = step % 8 === 5 ? 12 : step % 8 === 3 ? 12 : 0;
+        note(f(acc[(step * 3) % acc.length] + oct), next, spb * 1.5, cfg.pluck, 0.075, true);
+        next += spb / 2;
+        step += 1;
+      }
+    };
+    tick();
+    const id = setInterval(tick, 60);
+    ctx.resume().catch(() => {});
+    return () => {
+      clearInterval(id);
+      try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(master.gain.value, ctx.currentTime); master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.35); } catch (e) {}
+      setTimeout(() => { try { ctx.close(); } catch (e) {} }, 500);
+    };
+  }, [actif, type]);
 }
 const momentLabel = (hh) => {
   const h = Number(String(hh || "").slice(0, 2));
@@ -2534,10 +2688,12 @@ function buildFilm(events, photos, messages) {
 function FilmOverlay({ events, photos, messages, onClose }) {
   const scenes = useMemo(() => buildFilm(events, photos, messages), []);
   const [i, setI] = useState(0);
+  const [son, setSon] = useState(true);
   const faces = useMemo(() => loadFaces(), []);
   const lieuxU = useMemo(() => buildPlaces(events), []);
+  const th = themeDe();
+  useMusique(SETTINGS.tripType || "mer", son);
   const sc = scenes[Math.min(i, scenes.length - 1)];
-  const fete = SETTINGS.tripType || "mer";
   useEffect(() => {
     if (i >= scenes.length - 1 && scenes[scenes.length - 1].t === "fin") return undefined;
     const id = setTimeout(() => setI((x) => Math.min(x + 1, scenes.length - 1)), sc.d);
@@ -2545,9 +2701,9 @@ function FilmOverlay({ events, photos, messages, onClose }) {
   }, [i]);
   const next = () => setI((x) => Math.min(x + 1, scenes.length - 1));
   const prev = () => setI((x) => Math.max(x - 1, 0));
-  const bandes = ["#FFECD6", "#FDE8CC", "#E9F3EE", "#F6EFDF", "#FBE9E3", "#EEF0F9"];
   const posOf = (p) => { const f = faces[p.id]; return f && f.cx != null ? `${Math.round(f.cx * 100)}% ${Math.round(clamp(f.cy, 0.2, 0.8) * 100)}%` : "50% 42%"; };
   const jourTitre = (d) => `Jour ${d + 1} · ${dayLabel(d)}`;
+  const alea = (k, s) => { const x = Math.sin((k + 1) * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); };
   const chipJour = (d) => (
     <div style={{ position: "absolute", top: "calc(30px + env(safe-area-inset-top))", left: 14, zIndex: 3 }}>
       <span style={{ display: "inline-flex", alignItems: "center", background: "rgba(8,18,24,0.5)", color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 12.5, borderRadius: T.r.pill, padding: "6px 12px", backdropFilter: "blur(4px)" }}>{jourTitre(d)}</span>
@@ -2555,57 +2711,57 @@ function FilmOverlay({ events, photos, messages, onClose }) {
   );
   const legende = (leg, sombre) => leg && (leg.l1 || leg.l2) ? (
     <div style={{ position: "absolute", left: 18, right: 18, bottom: "calc(24px + env(safe-area-inset-bottom))", zIndex: 3, animation: "vfade .9s ease both", animationDelay: ".5s" }}>
-      <div style={{ fontFamily: fH, fontSize: "clamp(24px, 6.6vw, 36px)", color: sombre ? "#fff" : "#3A3730", textShadow: sombre ? "0 2px 12px rgba(0,0,0,0.45)" : "none", lineHeight: 1.15 }}>{leg.l1}</div>
-      {leg.l2 && <div style={{ fontFamily: fB, fontSize: 14, color: sombre ? "#ffffffcc" : "#7A6E5A", marginTop: 4 }}>{leg.l2}</div>}
+      <div style={{ fontFamily: fH, fontSize: "clamp(24px, 6.6vw, 36px)", color: sombre ? "#fff" : th.papierTxt, textShadow: sombre ? "0 2px 12px rgba(0,0,0,0.45)" : "none", lineHeight: 1.15 }}>{leg.l1}</div>
+      {leg.l2 && <div style={{ fontFamily: fB, fontSize: 14, color: sombre ? "#ffffffcc" : th.encre, opacity: sombre ? 1 : 0.65, marginTop: 4 }}>{leg.l2}</div>}
     </div>
   ) : null;
   let inner = null;
   if (sc.t === "titre") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #FFF6E4 0%, #FFD9B4 62%, #FFC9A0 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: "12%", right: "14%", width: 92, height: 92, borderRadius: "50%", background: "#F3AF42", boxShadow: "0 0 0 26px rgba(247,196,96,0.35), 0 0 0 52px rgba(247,196,96,0.16)", animation: "vbreath 5s ease-in-out infinite" }} />
+      <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${th.ciel[0]} 0%, ${th.ciel[1]} 62%, ${th.ciel[2]} 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "12%", right: "14%", width: 92, height: 92, borderRadius: "50%", background: th.astre, boxShadow: `0 0 0 26px ${th.astreHalo}, 0 0 0 52px ${th.astreHalo}`, animation: "vbreath 5s ease-in-out infinite" }} />
         {[["16%", "10%"], ["26%", "78%"], ["8%", "42%"], ["34%", "30%"], ["18%", "58%"]].map(([tp, lf], k) => (
-          <span key={k} style={{ position: "absolute", top: tp, left: lf, width: 5, height: 5, borderRadius: "50%", background: "#E2A244", animation: `vtwinkle ${2 + k * 0.5}s ease-in-out infinite` }} />
+          <span key={k} style={{ position: "absolute", top: tp, left: lf, width: 5, height: 5, borderRadius: "50%", background: th.etoile, animation: `vtwinkle ${2 + k * 0.5}s ease-in-out infinite` }} />
         ))}
-        <div style={{ fontFamily: fB, fontSize: 13, letterSpacing: 3, color: "#A5822F", textTransform: "uppercase", animation: "vfade .8s ease both" }}>Le film du séjour</div>
-        <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(44px, 13vw, 78px)", color: T.c.ink, transform: "rotate(-2deg)", margin: "10px 0 6px", animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".25s", textAlign: "center", lineHeight: 1.05 }}>{`C'était ${SETTINGS.place || SETTINGS.name || "nous"}`}</div>
-        <div style={{ fontFamily: fB, fontSize: 15, color: "#6E6046", animation: "vfade 1s ease both", animationDelay: ".9s" }}>{`${souvenirPeriode().split(" · ")[0]} ${new Date(SETTINGS.startISO + "T12:00:00").getFullYear()}`}</div>
+        <div style={{ fontFamily: fB, fontSize: 13, letterSpacing: 3, color: th.feteLabel, textTransform: "uppercase", animation: "vfade .8s ease both" }}>Le film du séjour</div>
+        <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(44px, 13vw, 78px)", color: th.fam === "ville" ? "#FFF3DE" : T.c.ink, transform: "rotate(-2deg)", margin: "10px 0 6px", animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".25s", textAlign: "center", lineHeight: 1.05 }}>{`C'était ${SETTINGS.place || SETTINGS.name || "nous"}`}</div>
+        <div style={{ fontFamily: fB, fontSize: 15, color: th.fam === "ville" ? "#ffffffbb" : "#6E6046", animation: "vfade 1s ease both", animationDelay: ".9s" }}>{`${souvenirPeriode().split(" · ")[0]} ${new Date(SETTINGS.startISO + "T12:00:00").getFullYear()}`}</div>
       </div>
     );
   } else if (sc.t === "voyage") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4" }}>
-        <IleStylisee key="ile-voyage" lieux={lieuxU} />
+      <div style={{ position: "absolute", inset: 0, background: th.fond[1] }}>
+        <CarteStylisee key="carte-voyage" lieux={lieuxU} th={th} />
         <svg viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-          <path d="M -8 8 C 22 2, 34 18, 50 26" fill="none" stroke="#ffffff" strokeWidth="0.9" strokeDasharray="2 2" strokeLinecap="round" pathLength="100" style={{ animation: "fmDash 3.6s ease-in-out both" }} />
+          <path d="M -8 8 C 22 2, 34 18, 50 26" fill="none" stroke={th.fam === "ville" || th.fam === "campagne" ? th.encre : "#ffffff"} strokeOpacity="0.75" strokeWidth="0.9" strokeDasharray="2 2" strokeLinecap="round" pathLength="100" style={{ animation: "fmDash 3.6s ease-in-out both" }} />
           <g>
             <animateMotion dur="3.6s" fill="freeze" rotate="auto" path="M -8 8 C 22 2, 34 18, 50 26" />
             <VehiculeSVG kind={sc.vehicule} />
           </g>
         </svg>
         <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(26px + env(safe-area-inset-bottom))", textAlign: "center" }}>
-          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: 34, color: "#fff", textShadow: "0 2px 10px rgba(10,30,40,0.35)", animation: "vfade 1s ease both", animationDelay: "1.6s" }}>{`Direction ${SETTINGS.place || "l'aventure"}`}</div>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: 34, color: "#fff", textShadow: "0 2px 10px rgba(10,30,40,0.45)", animation: "vfade 1s ease both", animationDelay: "1.6s" }}>{`Direction ${SETTINGS.place || "l'aventure"}`}</div>
         </div>
       </div>
     );
   } else if (sc.t === "jour") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: bandes[sc.day % bandes.length], overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "absolute", inset: 0, background: th.bandes[sc.day % th.bandes.length], overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.45)", transformOrigin: "left", animation: "fmWipe 0.9s cubic-bezier(.7,0,.2,1) both" }} />
         <div style={{ textAlign: "center", padding: "0 26px", maxWidth: 620 }}>
-          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(52px, 17vw, 92px)", color: T.c.ink, transform: "rotate(-1.5deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".2s", lineHeight: 1 }}>{`Jour ${sc.day + 1}`}</div>
-          <div style={{ fontFamily: fB, fontSize: 16, color: "#6E6046", marginTop: 8, animation: "vfade .8s ease both", animationDelay: ".6s" }}>{dayLabel(sc.day)}</div>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(52px, 17vw, 92px)", color: th.encre, transform: "rotate(-1.5deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".2s", lineHeight: 1 }}>{`Jour ${sc.day + 1}`}</div>
+          <div style={{ fontFamily: fB, fontSize: 16, color: th.papierTxt, opacity: 0.75, marginTop: 8, animation: "vfade .8s ease both", animationDelay: ".6s" }}>{dayLabel(sc.day)}</div>
           {sc.recit && (
-            <div style={{ fontFamily: fH, fontSize: "clamp(20px, 5.4vw, 27px)", color: "#54463A", marginTop: 18, lineHeight: 1.35, animation: "vfade 1s ease both", animationDelay: "1s" }}>{sc.recit}</div>
+            <div style={{ fontFamily: fH, fontSize: "clamp(20px, 5.4vw, 27px)", color: th.papierTxt, marginTop: 18, lineHeight: 1.35, animation: "vfade 1s ease both", animationDelay: "1s" }}>{sc.recit}</div>
           )}
         </div>
       </div>
     );
   } else if (sc.t === "trajet") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4" }}>
-        <IleStylisee key={`ile-${sc.day}`} lieux={lieuxU} sequence={sc.seq} />
-        <div style={{ position: "absolute", top: "calc(34px + env(safe-area-inset-top))", left: 0, right: 0, textAlign: "center", fontFamily: fH, fontWeight: 700, fontSize: 30, color: "#fff", textShadow: "0 2px 8px rgba(10,30,40,0.3)" }}>{jourTitre(sc.day)}</div>
+      <div style={{ position: "absolute", inset: 0, background: th.fond[1] }}>
+        <CarteStylisee key={`carte-${sc.day}`} lieux={lieuxU} sequence={sc.seq} th={th} />
+        <div style={{ position: "absolute", top: "calc(34px + env(safe-area-inset-top))", left: 0, right: 0, textAlign: "center", fontFamily: fH, fontWeight: 700, fontSize: 30, color: "#fff", textShadow: "0 2px 8px rgba(10,30,40,0.45)" }}>{jourTitre(sc.day)}</div>
       </div>
     );
   } else if (sc.t === "plein") {
@@ -2619,7 +2775,7 @@ function FilmOverlay({ events, photos, messages, onClose }) {
     );
   } else if (sc.t === "polaroid") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #F7EEDD, #EFDFC4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${th.papier[0]}, ${th.papier[1]})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {chipJour(sc.day)}
         <div style={{ width: "min(86vw, 520px)", background: "#fff", borderRadius: 4, padding: "8px 8px 0", boxShadow: "0 18px 44px rgba(10,20,26,0.3)", transform: `rotate(${sc.day % 2 ? 1.6 : -1.8}deg)`, animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", position: "relative", marginBottom: 46 }}>
           <div style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%) rotate(-2deg)", width: 74, height: 19, background: "rgba(250,230,160,0.85)", borderRadius: 2 }} />
@@ -2631,7 +2787,7 @@ function FilmOverlay({ events, photos, messages, onClose }) {
     );
   } else if (sc.t === "tirage") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: bandes[(sc.day + 2) % bandes.length], display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, background: th.bandes[(sc.day + 2) % th.bandes.length], display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {chipJour(sc.day)}
         <div style={{ background: "#fff", padding: 11, boxShadow: "0 16px 40px rgba(30,20,10,0.22)", transform: `rotate(${sc.day % 2 ? -1.2 : 1.2}deg)`, animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", marginBottom: 40 }}>
           <img src={sc.ph.url} alt="" style={{ width: "min(84vw, 560px)", maxHeight: "58vh", aspectRatio: "3 / 2", objectFit: "cover", objectPosition: posOf(sc.ph), display: "block" }} />
@@ -2655,85 +2811,79 @@ function FilmOverlay({ events, photos, messages, onClose }) {
   } else if (sc.t === "fort") {
     const lieu = sc.e.place && sc.e.place.name && sc.e.place.name !== "À définir" ? sc.e.place.name : "";
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: fete === "ski" ? "linear-gradient(180deg, #E9F4FB, #CFE4F2)" : fete === "ville" ? "linear-gradient(180deg, #1C2C38, #33485A)" : "linear-gradient(180deg, #FFF8E9, #FFE9CE)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <Celebration type={fete} />
+      <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${th.feteFond[0]}, ${th.feteFond[1]})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        <Celebration kind={th.fete} />
         <div style={{ textAlign: "center", padding: "0 26px", position: "relative", zIndex: 2, animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".15s" }}>
-          <div style={{ fontFamily: fB, fontWeight: 800, fontSize: 12, letterSpacing: 3, color: fete === "ville" ? "#FFD98A" : "#A5822F" }}>LE TEMPS FORT DU JOUR</div>
-          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(34px, 9.4vw, 56px)", color: fete === "ville" ? "#fff" : "#4A3B23", margin: "14px 0 10px", lineHeight: 1.1 }}>{titreDe(sc.e)}</div>
-          {lieu && <div style={{ fontFamily: fB, fontSize: 15, color: fete === "ville" ? "#ffffffb0" : "#8A7A55" }}>{lieu}</div>}
+          <div style={{ fontFamily: fB, fontWeight: 800, fontSize: 12, letterSpacing: 3, color: th.feteLabel }}>LE TEMPS FORT DU JOUR</div>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(34px, 9.4vw, 56px)", color: th.feteTxt, margin: "14px 0 10px", lineHeight: 1.1 }}>{titreDe(sc.e)}</div>
+          {lieu && <div style={{ fontFamily: fB, fontSize: 15, color: th.feteTxt, opacity: 0.65 }}>{lieu}</div>}
         </div>
       </div>
     );
-  } else if (sc.t === "mot") {
-    const mots = String(sc.m.text || "").split(/\s+/).slice(0, 40);
+  } else if (sc.t === "mot" || sc.t === "livre") {
+    const src2 = sc.t === "mot" ? sc.m : sc.mo;
+    const qui = sc.t === "mot" ? sc.m.who : sc.mo.pid;
+    const mots = String(src2.text || "").split(/\s+/).slice(0, 44);
+    const pas2 = sc.t === "mot" ? 0.09 : 0.11;
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#FFFBF0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: "2px dotted #E0D0B0" }} />
-        <div style={{ maxWidth: 560, padding: "0 34px" }}>
-          <div style={{ fontFamily: fH, fontSize: "clamp(26px, 7.4vw, 42px)", color: "#3A3730", lineHeight: 1.3, transform: "rotate(-1deg)" }}>
-            <span>«&nbsp;</span>
+      <div style={{ position: "absolute", inset: 0, background: th.papier[0], display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: `2px dotted ${th.solL}` }} />
+        <div style={{ maxWidth: 600, padding: "0 34px", width: "100%" }}>
+          <div style={{ fontFamily: fH, fontSize: sc.t === "mot" ? "clamp(26px, 7.4vw, 42px)" : "clamp(28px, 8vw, 46px)", color: th.papierTxt, lineHeight: 1.3, transform: "rotate(-1deg)" }}>
+            {sc.t === "mot" && <span>«&nbsp;</span>}
             {mots.map((w, k) => (
-              <span key={k} style={{ display: "inline-block", animation: "fmWordIn .5s ease both", animationDelay: `${0.25 + k * 0.09}s`, marginRight: "0.28em" }}>{w}</span>
+              <span key={k} style={{ display: "inline-block", animation: "fmWordIn .5s ease both", animationDelay: `${0.28 + k * pas2}s`, marginRight: "0.28em" }}>{w}</span>
             ))}
-            <span style={{ animation: "fmWordIn .5s ease both", animationDelay: `${0.25 + mots.length * 0.09}s`, display: "inline-block" }}>&nbsp;»</span>
+            {sc.t === "mot" && <span style={{ animation: "fmWordIn .5s ease both", animationDelay: `${0.28 + mots.length * pas2}s`, display: "inline-block" }}>&nbsp;»</span>}
           </div>
-          <div style={{ textAlign: "right", marginTop: 18, fontFamily: fH, fontSize: 21, color: "#94886F", animation: "vfade .8s ease both", animationDelay: `${0.5 + mots.length * 0.09}s` }}>{person(sc.m.who).name}</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 9, marginTop: 20, animation: "vfade .9s ease both", animationDelay: `${0.6 + mots.length * pas2}s` }}>
+            {sc.t === "livre" && <Avatar id={qui} size={26} />}
+            <span style={{ fontFamily: fH, fontSize: sc.t === "livre" ? 24 : 21, color: th.encre, opacity: 0.6 }}>{person(qui).name}</span>
+          </div>
         </div>
       </div>
     );
   } else if (sc.t === "livreIntro") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#FFFBF0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: "2px dotted #E0D0B0" }} />
-        <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(40px, 11vw, 62px)", color: T.c.ink, animation: "fmZoomIn 1s cubic-bezier(.2,.8,.2,1) both" }}>Le livre d'or</div>
-        <div style={{ width: 64, height: 1, background: "#E0D0B0", margin: "16px 0" }} />
-        <div style={{ fontFamily: fB, fontSize: 14.5, color: "#94886F", animation: "vfade 1s ease both", animationDelay: ".7s" }}>{SETTINGS.name || ""}</div>
-      </div>
-    );
-  } else if (sc.t === "livre") {
-    const mots = String(sc.mo.text || "").split(/\s+/).slice(0, 44);
-    inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#FFFBF0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: "2px dotted #E0D0B0" }} />
-        <div style={{ maxWidth: 600, padding: "0 34px", width: "100%" }}>
-          <div style={{ fontFamily: fH, fontSize: "clamp(28px, 8vw, 46px)", color: "#3A3730", lineHeight: 1.28, transform: "rotate(-0.8deg)" }}>
-            {mots.map((w, k) => (
-              <span key={k} style={{ display: "inline-block", animation: "fmWordIn .55s ease both", animationDelay: `${0.3 + k * 0.11}s`, marginRight: "0.28em" }}>{w}</span>
-            ))}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 9, marginTop: 22, animation: "vfade 1s ease both", animationDelay: `${0.6 + mots.length * 0.11}s` }}>
-            <Avatar id={sc.mo.pid} size={26} />
-            <span style={{ fontFamily: fH, fontSize: 24, color: "#94886F" }}>{person(sc.mo.pid).name}</span>
-          </div>
-        </div>
+      <div style={{ position: "absolute", inset: 0, background: th.papier[0], display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: `2px dotted ${th.solL}` }} />
+        <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(40px, 11vw, 62px)", color: th.encre, animation: "fmZoomIn 1s cubic-bezier(.2,.8,.2,1) both" }}>Le livre d'or</div>
+        <div style={{ width: 64, height: 1, background: th.solL, margin: "16px 0" }} />
+        <div style={{ fontFamily: fB, fontSize: 14.5, color: th.papierTxt, opacity: 0.7, animation: "vfade 1s ease both", animationDelay: ".7s" }}>{SETTINGS.name || ""}</div>
       </div>
     );
   } else {
-    const minis = (photos || []).filter((p) => p.url).sort((a, b) => heartsOf(b) - heartsOf(a)).slice(0, 10);
+    const minis = (photos || []).filter((p) => p.url && (!sc.star || p.id !== sc.star.photo.id)).sort((a, b) => heartsOf(b) - heartsOf(a)).slice(0, 12);
     const noms = ROSTER.filter((p) => p.active).map((p) => p.name).filter(Boolean);
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #FFEBD4 0%, #FFC9A6 58%, #F7B08C 100%)", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${th.fin[0]} 0%, ${th.fin[1]} 58%, ${th.fin[2]} 100%)`, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         {minis.map((p, k) => (
-          <img key={p.id} src={p.url} alt="" style={{ position: "absolute", top: `${6 + (k * 37) % 74}%`, left: `${4 + (k * 53) % 80}%`, width: 74, aspectRatio: "4/3", objectFit: "cover", border: "4px solid #fff", borderBottomWidth: 14, borderRadius: 2, transform: `rotate(${((k * 47) % 24) - 12}deg)`, boxShadow: "0 8px 18px rgba(60,30,10,0.22)", opacity: 0.85, animation: "fmDrop .9s cubic-bezier(.2,.9,.3,1.15) both", animationDelay: `${k * 0.16}s` }} />
+          <img key={p.id} src={p.url} alt="" style={{
+            position: "absolute", top: `${(alea(k, 2) * 88 - 6).toFixed(1)}%`, left: `${(alea(k, 3) * 90 - 8).toFixed(1)}%`,
+            width: Math.round(60 + alea(k, 1) * 42), aspectRatio: alea(k, 5) > 0.5 ? "4/3" : "3/4", objectFit: "cover",
+            border: "4px solid #fff", borderBottomWidth: 12, borderRadius: 2, transform: `rotate(${(alea(k, 4) * 34 - 17).toFixed(1)}deg)`,
+            boxShadow: "0 10px 22px rgba(30,20,10,0.28)", opacity: 0.72, animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", animationDelay: `${(alea(k, 6) * 1.6).toFixed(2)}s`,
+          }} />
         ))}
+        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${th.scrim} 0%, ${th.scrim} 34%, transparent 78%)`, pointerEvents: "none" }} />
         <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "0 22px" }}>
           {sc.star && (
-            <div style={{ display: "inline-block", background: "#fff", padding: "8px 8px 0", borderRadius: 4, boxShadow: "0 16px 40px rgba(60,30,10,0.35)", transform: "rotate(-2.5deg)", animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", animationDelay: "1.4s" }}>
-              <img src={sc.star.photo.url} alt="" style={{ width: "min(58vw, 300px)", aspectRatio: "4/3", objectFit: "cover", objectPosition: posOf(sc.star.photo), borderRadius: 2, display: "block" }} />
+            <div style={{ display: "inline-block", background: "#fff", padding: "8px 8px 0", borderRadius: 4, boxShadow: "0 18px 44px rgba(30,20,10,0.4)", transform: "rotate(-2.5deg)", animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", animationDelay: "1.7s" }}>
+              <img src={sc.star.photo.url} alt="" style={{ width: "min(56vw, 290px)", aspectRatio: "4/3", objectFit: "cover", objectPosition: posOf(sc.star.photo), borderRadius: 2, display: "block" }} />
               <div style={{ height: 34, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fH, fontSize: 17, color: "#4a5560" }}>{sc.star.label}</div>
             </div>
           )}
-          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(30px, 9vw, 46px)", color: "#4A2E18", marginTop: 20, transform: "rotate(-1.5deg)", animation: "vfade 1s ease both", animationDelay: "2.4s" }}>{`C'était ${SETTINGS.place || "nous"}, et c'était nous.`}</div>
-          <div style={{ fontFamily: fH, fontSize: 20, color: "#6E4A2E", marginTop: 10 }}>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(30px, 9vw, 46px)", color: th.finTxt, marginTop: 20, transform: "rotate(-1.5deg)", animation: "vfade 1s ease both", animationDelay: "2.6s" }}>{`C'était ${SETTINGS.place || "nous"}, et c'était nous.`}</div>
+          <div style={{ fontFamily: fH, fontSize: 20, color: th.finTxt2, marginTop: 10 }}>
             {noms.map((nm, k) => (
-              <span key={k} style={{ display: "inline-block", margin: "0 7px", transform: `rotate(${(k % 2 ? 1 : -1) * 2}deg)`, animation: "vfade .7s ease both", animationDelay: `${3 + k * 0.35}s` }}>{nm}</span>
+              <span key={k} style={{ display: "inline-block", margin: "0 7px", transform: `rotate(${(k % 2 ? 1 : -1) * 2}deg)`, animation: "vfade .7s ease both", animationDelay: `${3.2 + k * 0.35}s` }}>{nm}</span>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, animation: "vfade .8s ease both", animationDelay: `${3.4 + noms.length * 0.35}s` }}>
-            <button onClick={(e) => { e.stopPropagation(); setI(0); }} style={{ cursor: "pointer", minHeight: 44, padding: "10px 18px", borderRadius: T.r.pill, border: "none", background: "rgba(255,255,255,0.92)", color: "#4A2E18", fontFamily: fD, fontWeight: 700, fontSize: 14.5 }}>Revoir</button>
-            <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ cursor: "pointer", minHeight: 44, padding: "10px 18px", borderRadius: T.r.pill, border: "none", background: "rgba(74,46,24,0.85)", color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 14.5 }}>Fermer</button>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, animation: "vfade .8s ease both", animationDelay: `${3.6 + noms.length * 0.35}s` }}>
+            <button onClick={(e) => { e.stopPropagation(); setI(0); }} style={{ cursor: "pointer", minHeight: 44, padding: "10px 18px", borderRadius: T.r.pill, border: "none", background: "rgba(255,255,255,0.92)", color: th.finTxt, fontFamily: fD, fontWeight: 700, fontSize: 14.5 }}>Revoir</button>
+            <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ cursor: "pointer", minHeight: 44, padding: "10px 18px", borderRadius: T.r.pill, border: "none", background: th.finTxt, color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 14.5 }}>Fermer</button>
           </div>
-          <div style={{ fontFamily: fB, fontSize: 11.5, color: "#8A5E3C", marginTop: 16 }}>C où déjà ?</div>
+          <div style={{ fontFamily: fB, fontSize: 11.5, color: th.finPied, marginTop: 16 }}>C où déjà ?</div>
         </div>
       </div>
     );
@@ -2759,13 +2909,14 @@ function FilmOverlay({ events, photos, messages, onClose }) {
         @keyframes fmBar { from { width: 0%; } to { width: 100%; } }
       `}</style>
       {inner}
-      <div style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top))", left: 12, right: 60, display: "flex", gap: 2, zIndex: 4 }}>
+      <div style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top))", left: 12, right: 112, display: "flex", gap: 2, zIndex: 4 }}>
         {scenes.map((s, k) => (
           <span key={k} style={{ flex: 1, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.35)", overflow: "hidden" }}>
             <span style={{ display: "block", height: "100%", background: "#fff", width: k < i ? "100%" : "0%", ...(k === i ? { animation: `fmBar ${s.d}ms linear both` } : {}) }} />
           </span>
         ))}
       </div>
+      <button onClick={() => setSon((v) => !v)} aria-label={son ? "Couper la musique" : "Remettre la musique"} style={{ position: "absolute", top: "calc(18px + env(safe-area-inset-top))", right: 62, width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(8,18,24,0.5)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5 }}>{son ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
       <button onClick={onClose} aria-label="Fermer le film" style={{ position: "absolute", top: "calc(18px + env(safe-area-inset-top))", right: 12, width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(8,18,24,0.5)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5 }}><X size={20} /></button>
       <button onClick={prev} aria-label="Scène précédente" style={{ position: "absolute", top: 70, bottom: 90, left: 0, width: "26%", background: "transparent", border: "none", cursor: "pointer", zIndex: 4 }} />
       <button onClick={next} aria-label="Scène suivante" style={{ position: "absolute", top: 70, bottom: 90, right: 0, width: "34%", background: "transparent", border: "none", cursor: "pointer", zIndex: 4 }} />
