@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -2216,27 +2216,334 @@ function CapsuleCard({ now, onSave, onDelete }) {
 }
 
 /* Film du séjour */
-function FilmOverlay({ photos, onClose }) {
-  const list = [...photos].filter((p) => p.url).sort((a, b) => (a.at || 0) - (b.at || 0));
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setIdx((i) => (i + 1) % Math.max(1, list.length)), 2800);
-    return () => clearInterval(id);
-  }, [list.length]);
-  if (list.length === 0) return null;
-  const ph = list[idx % list.length];
+function detectVehicule(events) {
+  const txt = mainList(events).map((e) => `${e.title || ""} ${e.place && e.place.name || ""} ${e.type || ""}`).join(" ").toLowerCase();
+  if (/ferry|bateau|boat|croisi|voilier/.test(txt)) return "bateau";
+  if (/v[ée]lo|bike|cyclo/.test(txt)) return "velo";
+  if (/vol |avion|a[ée]roport|airport|✈/.test(txt) || /transport/.test(txt)) return "avion";
+  return "avion";
+}
+function hullDe(pts) {
+  if (pts.length < 3) return null;
+  const P2 = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [];
+  for (const p of P2) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  const up = [];
+  for (let i = P2.length - 1; i >= 0; i--) { const p = P2[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+function IleStylisee({ lieux, actifs, route, seq, hauteur }) {
+  const pts = lieux.filter((p) => p.coord);
+  if (!pts.length) return null;
+  const lats = pts.map((p) => p.coord.lat), lngs = pts.map((p) => p.coord.lng);
+  const la0 = Math.min(...lats), la1 = Math.max(...lats), lo0 = Math.min(...lngs), lo1 = Math.max(...lngs);
+  const nx = (lng) => 14 + ((lng - lo0) / Math.max(0.0004, lo1 - lo0)) * 72;
+  const ny = (lat) => 46 - ((lat - la0) / Math.max(0.0004, la1 - la0)) * 34;
+  const xy = pts.map((p) => [nx(p.coord.lng), ny(p.coord.lat)]);
+  const cx0 = xy.reduce((s, p) => s + p[0], 0) / xy.length, cy0 = xy.reduce((s, p) => s + p[1], 0) / xy.length;
+  let ile = null;
+  const h = hullDe(xy);
+  if (h) {
+    const el = h.map(([x, y]) => [cx0 + (x - cx0) * 1.55, cy0 + (y - cy0) * 1.7]).map(([x, y]) => [clamp(x, 6, 94), clamp(y, 6, 54)]);
+    let d = "";
+    for (let i = 0; i < el.length; i++) {
+      const a = el[i], b = el[(i + 1) % el.length];
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      d += i === 0 ? `M ${mx} ${my} ` : "";
+      const c = el[(i + 1) % el.length], nx2 = el[(i + 2) % el.length];
+      const m2x = (c[0] + nx2[0]) / 2, m2y = (c[1] + nx2[1]) / 2;
+      d += `Q ${c[0]} ${c[1]} ${m2x} ${m2y} `;
+    }
+    ile = d + "Z";
+  }
+  const actifSet = new Set((actifs || []).map((p) => placeKey(p.name || "")));
+  const routeD = route && route.length > 1 ? "M " + route.map((co) => `${nx(co.lng)} ${ny(co.lat)}`).join(" L ") : null;
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 70, background: "#060E12", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
-        <img key={ph.id} src={ph.url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: T.r.lg, objectFit: "contain", animation: "vfade .6s ease" }} />
+    <svg viewBox="0 0 100 62" style={{ width: "100%", height: hauteur || "100%", display: "block" }} preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="fmMer" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#8FC6CF" /><stop offset="1" stopColor="#5FA3B4" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="100" height="62" fill="url(#fmMer)" />
+      {[[10, 12], [70, 8], [26, 54], [82, 50]].map(([wx, wy], i) => (
+        <path key={i} d={`M ${wx} ${wy} q 2.5 -1.6 5 0 t 5 0`} fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="0.7" strokeLinecap="round" style={{ animation: `vdrift ${5 + i}s ease-in-out infinite alternate` }} />
+      ))}
+      {ile && <path d={ile} fill="#EFE3C2" stroke="#C9B189" strokeWidth="0.9" />}
+      {ile && <path d={ile} fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="2.2" style={{ transform: "scale(1.02)", transformOrigin: "50% 50%" }} />}
+      {routeD && (
+        <path d={routeD} pathLength="100" fill="none" stroke="#D4553F" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="3 2.4" style={{ strokeDashoffset: 0, animation: "fmDash 2.6s ease-out both" }} />
+      )}
+      {xy.map(([x, y], i) => {
+        const on = !actifs || actifSet.has(placeKey(pts[i].name || ""));
+        const num = seq ? seq[placeKey(pts[i].name || "")] : null;
+        return (
+          <g key={i} style={{ opacity: on ? 1 : 0.28, animation: on ? `vpop .5s ease both` : "none", animationDelay: `${0.4 + i * 0.22}s` }}>
+            <circle cx={x} cy={y} r={num ? 3 : 1.9} fill="#F0604A" stroke="#fff" strokeWidth="0.8" />
+            {num && <text x={x} y={y + 1.1} textAnchor="middle" fontSize="3.2" fontWeight="700" fill="#fff" fontFamily="sans-serif">{num}</text>}
+            {on && <text x={x} y={y - (num ? 4.4 : 3.2)} textAnchor="middle" fontSize="3" fontWeight="700" fill="#28414C" fontFamily="sans-serif" paintOrder="stroke" stroke="#ffffff" strokeWidth="0.9">{String(pts[i].name || "").slice(0, 16)}</text>}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+function VehiculeSVG({ kind }) {
+  if (kind === "bateau") return (
+    <g>
+      <path d="M 0 0 L 0 -7 L -5 0 Z" fill="#2E4550" /><path d="M 1.4 0 L 1.4 -5.6 L 5.6 0 Z" fill="#2E4550" />
+      <path d="M -6 0.8 L 7 0.8 L 5 3 L -4 3 Z" fill="#3A5560" />
+    </g>
+  );
+  if (kind === "velo") return (
+    <g stroke="#2E4550" strokeWidth="0.9" fill="none">
+      <circle cx="-3.4" cy="1.6" r="2.6" /><circle cx="3.4" cy="1.6" r="2.6" />
+      <path d="M -3.4 1.6 L -1 -2.4 L 2.2 -2.4 L 3.4 1.6 M -1 -2.4 L 0.6 1.6 L -3.4 1.6 M 2.2 -2.4 L 1.6 -3.6" />
+    </g>
+  );
+  return (
+    <g fill="#3A5560">
+      <path d="M -6 0 L 6.5 -1.2 L 8.5 0.4 L -6 1.6 Z" />
+      <path d="M -0.5 -0.6 L 2.5 -6 L 4.2 -5.6 L 2.6 -0.8 Z" />
+      <path d="M -0.2 0.9 L 2 4.6 L 3.6 4.2 L 2.4 0.7 Z" />
+      <path d="M -6 0 L -8.4 -2.6 L -7 -2.8 L -4.6 -0.4 Z" />
+    </g>
+  );
+}
+function buildFilm(events, photos, messages) {
+  const ph = (photos || []).filter((p) => p.url);
+  const sc = [{ t: "titre", d: 4200 }];
+  const lieuxU = buildPlaces(events);
+  if (lieuxU.filter((p) => p.coord).length >= 1) sc.push({ t: "voyage", d: 5400, vehicule: detectVehicule(events) });
+  for (let d = 0; d < DAYS.length; d++) {
+    const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+    const pj = ph.filter((p) => dayOfTs(p.at || 0) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
+    if (!evs.length && !pj.length) continue;
+    sc.push({ t: "jour", d: 2500, day: d, evs });
+    const ej = etapesJour(evs);
+    if (ej.points.length >= 2) sc.push({ t: "trajet", d: 3300, day: d, evs, ej });
+    const lieuxJ = Array.from(new Set(evs.map((e) => e.place && e.place.name !== "À définir" ? e.place.name : "").filter(Boolean)));
+    if (pj.length >= 3) { sc.push({ t: "trio", d: 4400, day: d, phs: pj.slice(0, 3), lieuxJ }); }
+    else if (pj.length === 2) { sc.push({ t: "duo", d: 4000, day: d, phs: pj.slice(0, 2), lieuxJ }); }
+    else if (pj.length === 1) { sc.push({ t: "photo", d: 3600, day: d, ph: pj[0], lieuxJ }); }
+    let bestE = null, bestV = 0;
+    evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
+    if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3000, day: d, e: bestE, n: bestV });
+    const mj = (messages || []).filter((m) => dayOfTs(m.at || 0) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
+      .map((m) => ({ m, n: reactsOfMsg(m) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
+    if (mj) sc.push({ t: "mot", d: 3800, day: d, m: mj.m });
+  }
+  sc.push({ t: "fin", d: 9000, star: pickStar(photos, loadFaces()) });
+  return sc;
+}
+function FilmOverlay({ events, photos, messages, onClose }) {
+  const scenes = useMemo(() => buildFilm(events, photos, messages), []);
+  const [i, setI] = useState(0);
+  const faces = useMemo(() => loadFaces(), []);
+  const lieuxU = useMemo(() => buildPlaces(events), []);
+  const sc = scenes[Math.min(i, scenes.length - 1)];
+  useEffect(() => {
+    if (i >= scenes.length - 1 && scenes[scenes.length - 1].t === "fin") return undefined;
+    const id = setTimeout(() => setI((x) => Math.min(x + 1, scenes.length - 1)), sc.d);
+    return () => clearTimeout(id);
+  }, [i]);
+  const next = () => setI((x) => Math.min(x + 1, scenes.length - 1));
+  const prev = () => setI((x) => Math.max(x - 1, 0));
+  const bandes = ["#FFECD6", "#FDE8CC", "#E9F3EE", "#F6EFDF", "#FBE9E3", "#EEF0F9"];
+  const chip = (txt, extra) => (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(8,18,24,0.55)", color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 13, borderRadius: T.r.pill, padding: "7px 12px", backdropFilter: "blur(4px)", ...extra }}>{txt}</span>
+  );
+  const posOf = (p) => { const f = faces[p.id]; return f && f.cx != null ? `${Math.round(f.cx * 100)}% ${Math.round(clamp(f.cy, 0.2, 0.8) * 100)}%` : "50% 42%"; };
+  const polaroid = (p, w, rot, delay, legende) => (
+    <div key={p.id} style={{ width: w, background: "#fff", borderRadius: 4, padding: "6px 6px 0", boxShadow: "0 12px 28px rgba(10,20,26,0.35)", transform: `rotate(${rot}deg)`, animation: "fmDrop .8s cubic-bezier(.2,.9,.3,1.18) both", animationDelay: `${delay}s`, position: "relative" }}>
+      <div style={{ position: "absolute", top: -7, left: "50%", transform: `translateX(-50%) rotate(${-rot * 1.4}deg)`, width: 46, height: 15, background: "rgba(250,230,160,0.85)", borderRadius: 2 }} />
+      <img src={p.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3.1", objectFit: "cover", objectPosition: posOf(p), borderRadius: 2, display: "block" }} />
+      <div style={{ height: 30, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fH, fontSize: 15, color: "#4a5560" }}>{legende || ""}</div>
+    </div>
+  );
+  const jourTitre = (d) => `Jour ${d + 1} · ${dayLabel(d)}`;
+  let inner = null;
+  if (sc.t === "titre") {
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #FFF6E4 0%, #FFD9B4 62%, #FFC9A0 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "12%", right: "14%", width: 92, height: 92, borderRadius: "50%", background: "#F3AF42", boxShadow: "0 0 0 26px rgba(247,196,96,0.35), 0 0 0 52px rgba(247,196,96,0.16)", animation: "vbreath 5s ease-in-out infinite" }} />
+        {[["16%", "10%"], ["26%", "78%"], ["8%", "42%"], ["34%", "30%"], ["18%", "58%"]].map(([tp, lf], k) => (
+          <span key={k} style={{ position: "absolute", top: tp, left: lf, width: 5, height: 5, borderRadius: "50%", background: "#E2A244", animation: `vtwinkle ${2 + k * 0.5}s ease-in-out infinite` }} />
+        ))}
+        <div style={{ fontFamily: fB, fontSize: 13, letterSpacing: 3, color: "#A5822F", textTransform: "uppercase", animation: "vfade .8s ease both" }}>Le film du séjour</div>
+        <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(44px, 13vw, 78px)", color: T.c.ink, transform: "rotate(-2deg)", margin: "10px 0 6px", animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".25s", textAlign: "center", lineHeight: 1.05 }}>{`C'était ${SETTINGS.place || SETTINGS.name || "nous"}`}</div>
+        <div style={{ fontFamily: fB, fontSize: 15, color: "#6E6046", animation: "vfade 1s ease both", animationDelay: ".9s" }}>{souvenirPeriode().split(" · ")[0]} 2026</div>
       </div>
-      <div style={{ padding: "0 18px calc(20px + env(safe-area-inset-bottom))", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          {ph.who && <Avatar id={ph.who} size={24} />}
-          <span style={{ fontFamily: fD, fontWeight: 700, color: "#fff", fontSize: 14 }}>{ph.who ? person(ph.who).name : ""}</span>
-        </span>
-        <span style={{ fontFamily: fB, color: "#ffffff99", fontSize: 12.5 }}>{(idx % list.length) + 1} / {list.length}  ·  toucher pour quitter</span>
+    );
+  } else if (sc.t === "voyage") {
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, position: "relative" }}>
+          <IleStylisee lieux={lieuxU} />
+          <svg viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <path id="fmTraj" d="M -8 8 C 22 2, 34 18, 50 26" fill="none" stroke="#ffffff" strokeWidth="0.9" strokeDasharray="2 2" strokeLinecap="round" pathLength="100" style={{ animation: "fmDash 3.6s ease-in-out both" }} />
+            <g>
+              <animateMotion dur="3.6s" fill="freeze" rotate="auto" path="M -8 8 C 22 2, 34 18, 50 26" />
+              <VehiculeSVG kind={sc.vehicule} />
+            </g>
+          </svg>
+        </div>
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(26px + env(safe-area-inset-bottom))", textAlign: "center" }}>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: 34, color: "#fff", textShadow: "0 2px 10px rgba(10,30,40,0.35)", animation: "vfade 1s ease both", animationDelay: "1.6s" }}>{`Direction ${SETTINGS.place || "l'aventure"}`}</div>
+        </div>
       </div>
+    );
+  } else if (sc.t === "jour") {
+    const bd = bandes[sc.day % bandes.length];
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: bd, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.4)", transformOrigin: "left", animation: "fmWipe 0.9s cubic-bezier(.7,0,.2,1) both" }} />
+        <div style={{ textAlign: "center", padding: "0 20px" }}>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(54px, 18vw, 96px)", color: T.c.ink, transform: "rotate(-1.5deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".2s", lineHeight: 1 }}>{`Jour ${sc.day + 1}`}</div>
+          <div style={{ fontFamily: fB, fontSize: 17, color: "#6E6046", marginTop: 10, animation: "vfade .8s ease both", animationDelay: ".6s" }}>{dayLabel(sc.day)}</div>
+          {sc.evs.length > 0 && (
+            <div style={{ fontFamily: fH, fontSize: 21, color: "#54463A", marginTop: 14, animation: "vfade .8s ease both", animationDelay: ".95s" }}>
+              {sc.evs.slice(0, 3).map((e) => titreDe(e)).join("  ·  ")}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  } else if (sc.t === "trajet") {
+    const seqMap = {};
+    sc.ej.points.forEach((p, k) => { const nm = (sc.evs.find((e) => e.place && e.place.coord && Math.abs(e.place.coord.lat - p.coord.lat) < 0.0005) || {}).place; if (nm) seqMap[placeKey(nm.name || "")] = p.label; });
+    const actifs = sc.evs.filter((e) => e.place && e.place.name !== "À définir").map((e) => e.place);
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: "calc(34px + env(safe-area-inset-top))", left: 0, right: 0, textAlign: "center", fontFamily: fH, fontWeight: 700, fontSize: 30, color: "#fff", textShadow: "0 2px 8px rgba(10,30,40,0.3)" }}>{jourTitre(sc.day)}</div>
+        <IleStylisee lieux={lieuxU} actifs={actifs} route={sc.ej.route} seq={seqMap} />
+      </div>
+    );
+  } else if (sc.t === "photo") {
+    const modes = ["fmIrisIn", "fmSlideIn", "fmZoomIn"];
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#071018", animation: `${modes[sc.day % modes.length]} .9s ease both` }}>
+        <img src={sc.ph.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: posOf(sc.ph), animation: `${sc.day % 2 ? "fmKenA" : "fmKenB"} 5s ease-out both` }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,16,24,0.35) 0%, rgba(7,16,24,0) 26%, rgba(7,16,24,0) 60%, rgba(7,16,24,0.55) 100%)" }} />
+        <div style={{ position: "absolute", top: "calc(30px + env(safe-area-inset-top))", left: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {chip(jourTitre(sc.day))}
+          {sc.lieuxJ.length > 0 && chip(sc.lieuxJ.slice(0, 2).join(" · ") + (sc.lieuxJ.length > 2 ? " …" : ""))}
+        </div>
+        {sc.ph.who && (
+          <div style={{ position: "absolute", left: 14, bottom: "calc(22px + env(safe-area-inset-bottom))", display: "flex", alignItems: "center", gap: 8 }}>
+            <Avatar id={sc.ph.who} size={26} />
+            <span style={{ fontFamily: fD, fontWeight: 700, color: "#fff", fontSize: 14 }}>{person(sc.ph.who).name}</span>
+          </div>
+        )}
+      </div>
+    );
+  } else if (sc.t === "duo" || sc.t === "trio") {
+    const phs = sc.phs;
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #F6ECD9, #EFDFC4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "calc(30px + env(safe-area-inset-top))", left: 14 }}>{chip(jourTitre(sc.day), { background: "rgba(60,48,30,0.6)" })}</div>
+        {sc.t === "duo" ? (
+          <div style={{ display: "flex", gap: "4vw", alignItems: "center" }}>
+            {polaroid(phs[0], "40vw", -4, 0.15, sc.lieuxJ[0] || "")}
+            {polaroid(phs[1], "40vw", 3, 0.5, sc.lieuxJ[1] || "")}
+          </div>
+        ) : (
+          <div style={{ position: "relative", width: "92vw", maxWidth: 520, height: "62vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", transform: "translateX(-30%)" }}>{polaroid(phs[1], "38vw", -8, 0.15, "")}</div>
+            <div style={{ position: "absolute", transform: "translateX(30%)" }}>{polaroid(phs[2], "38vw", 8, 0.45, "")}</div>
+            <div style={{ position: "relative", zIndex: 2 }}>{polaroid(phs[0], "44vw", -1.5, 0.8, sc.lieuxJ[0] || "")}</div>
+          </div>
+        )}
+      </div>
+    );
+  } else if (sc.t === "fort") {
+    const conf = ["#F0604A", "#2E6B80", "#E2A244", "#7E5DA8", "#3E8E6C", "#F0604A", "#E2A244", "#2E6B80"];
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#FFF8E9", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {conf.map((c, k) => (
+          <span key={k} style={{ position: "absolute", top: -20, left: `${8 + k * 12}%`, width: 9, height: 14, background: c, borderRadius: 2, animation: `fmConf ${2.2 + (k % 3) * 0.5}s ease-in ${0.2 + k * 0.14}s both` }} />
+        ))}
+        <div style={{ textAlign: "center", padding: "0 24px", animation: "fmZoomIn .8s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".15s" }}>
+          <div style={{ fontFamily: fB, fontWeight: 800, fontSize: 12, letterSpacing: 3, color: "#A5822F" }}>LE TEMPS FORT DU JOUR</div>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(34px, 9vw, 54px)", color: "#4A3B23", margin: "14px 0 10px", lineHeight: 1.1 }}>{titreDe(sc.e)}</div>
+          <div style={{ fontFamily: fB, fontSize: 15, color: "#8A7A55" }}>{`${sc.n} réactions du groupe · ${jourTitre(sc.day)}`}</div>
+        </div>
+      </div>
+    );
+  } else if (sc.t === "mot") {
+    const mots = String(sc.m.text || "").split(/\s+/).slice(0, 40);
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#FFFBF0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: "2px dotted #E0D0B0" }} />
+        <div style={{ maxWidth: 560, padding: "0 34px" }}>
+          <div style={{ fontFamily: fH, fontSize: "clamp(26px, 7.4vw, 42px)", color: "#3A3730", lineHeight: 1.3, transform: "rotate(-1deg)" }}>
+            <span>«&nbsp;</span>
+            {mots.map((w, k) => (
+              <span key={k} style={{ display: "inline-block", animation: "fmWordIn .5s ease both", animationDelay: `${0.25 + k * 0.09}s`, marginRight: "0.28em" }}>{w}</span>
+            ))}
+            <span style={{ animation: "fmWordIn .5s ease both", animationDelay: `${0.25 + mots.length * 0.09}s`, display: "inline-block" }}>&nbsp;»</span>
+          </div>
+          <div style={{ textAlign: "right", marginTop: 18, fontFamily: fH, fontSize: 21, color: "#94886F", animation: "vfade .8s ease both", animationDelay: `${0.5 + mots.length * 0.09}s` }}>{person(sc.m.who).name}{`, ${jourTitre(sc.day).split(" · ")[0].toLowerCase()}`}</div>
+        </div>
+      </div>
+    );
+  } else {
+    const minis = (photos || []).filter((p) => p.url).sort((a, b) => heartsOf(b) - heartsOf(a)).slice(0, 10);
+    const noms = ROSTER.filter((p) => p.active).map((p) => p.name).filter(Boolean);
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #FFEBD4 0%, #FFC9A6 58%, #F7B08C 100%)", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        {minis.map((p, k) => (
+          <img key={p.id} src={p.url} alt="" style={{ position: "absolute", top: `${6 + (k * 37) % 74}%`, left: `${4 + (k * 53) % 80}%`, width: 74, aspectRatio: "4/3", objectFit: "cover", border: "4px solid #fff", borderBottomWidth: 14, borderRadius: 2, transform: `rotate(${((k * 47) % 24) - 12}deg)`, boxShadow: "0 8px 18px rgba(60,30,10,0.22)", opacity: 0.85, animation: "fmDrop .9s cubic-bezier(.2,.9,.3,1.15) both", animationDelay: `${k * 0.16}s` }} />
+        ))}
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "0 22px" }}>
+          {sc.star && (
+            <div style={{ display: "inline-block", background: "#fff", padding: "8px 8px 0", borderRadius: 4, boxShadow: "0 16px 40px rgba(60,30,10,0.35)", transform: "rotate(-2.5deg)", animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", animationDelay: "1.4s" }}>
+              <img src={sc.star.photo.url} alt="" style={{ width: "min(58vw, 300px)", aspectRatio: "4/3", objectFit: "cover", objectPosition: posOf(sc.star.photo), borderRadius: 2, display: "block" }} />
+              <div style={{ height: 34, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fH, fontSize: 17, color: "#4a5560" }}>{sc.star.label}</div>
+            </div>
+          )}
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(30px, 9vw, 46px)", color: "#4A2E18", marginTop: 20, transform: "rotate(-1.5deg)", animation: "vfade 1s ease both", animationDelay: "2.4s" }}>{`C'était ${SETTINGS.place || "nous"}, et c'était nous.`}</div>
+          <div style={{ fontFamily: fH, fontSize: 20, color: "#6E4A2E", marginTop: 10 }}>
+            {noms.map((n, k) => (
+              <span key={k} style={{ display: "inline-block", margin: "0 7px", transform: `rotate(${(k % 2 ? 1 : -1) * 2}deg)`, animation: "vfade .7s ease both", animationDelay: `${3 + k * 0.35}s` }}>{n}</span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, animation: "vfade .8s ease both", animationDelay: `${3.4 + noms.length * 0.35}s` }}>
+            <button onClick={(e) => { e.stopPropagation(); setI(0); }} style={{ cursor: "pointer", minHeight: 44, padding: "10px 18px", borderRadius: T.r.pill, border: "none", background: "rgba(255,255,255,0.92)", color: "#4A2E18", fontFamily: fD, fontWeight: 700, fontSize: 14.5 }}>Revoir</button>
+            <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ cursor: "pointer", minHeight: 44, padding: "10px 18px", borderRadius: T.r.pill, border: "none", background: "rgba(74,46,24,0.85)", color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 14.5 }}>Fermer</button>
+          </div>
+          <div style={{ fontFamily: fB, fontSize: 11.5, color: "#8A5E3C", marginTop: 16 }}>C où déjà ?</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div data-scene={sc.t} style={{ position: "fixed", inset: 0, zIndex: 70, background: "#071018", overflow: "hidden" }}>
+      <style>{`
+        @keyframes fmZoomIn { 0% { transform: scale(0.75); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes fmWipe { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+        @keyframes fmDash { 0% { stroke-dashoffset: 100; } 100% { stroke-dashoffset: 0; } }
+        @keyframes fmKenA { 0% { transform: scale(1.02); } 100% { transform: scale(1.14) translate(-1.6%, -1.2%); } }
+        @keyframes fmKenB { 0% { transform: scale(1.14) translate(1.4%, 1%); } 100% { transform: scale(1.02); } }
+        @keyframes fmIrisIn { 0% { clip-path: circle(0% at 50% 46%); } 100% { clip-path: circle(150% at 50% 46%); } }
+        @keyframes fmSlideIn { 0% { transform: translateX(9%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+        @keyframes fmDrop { 0% { transform: translateY(-46vh) rotate(0deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: translateY(0) rotate(var(--fr, 0deg)); opacity: 1; } }
+        @keyframes fmConf { 0% { transform: translateY(0) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(105vh) rotate(540deg); opacity: 0.9; } }
+        @keyframes fmWordIn { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+      `}</style>
+      {inner}
+      <div style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top))", left: 12, right: 60, display: "flex", gap: 3 }}>
+        {scenes.map((s, k) => (
+          <span key={k} style={{ flex: 1, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.35)", overflow: "hidden" }}>
+            <span style={{ display: "block", height: "100%", background: "#fff", width: k < i ? "100%" : "0%", ...(k === i ? { animation: `fmBar ${s.d}ms linear both` } : {}) }} />
+          </span>
+        ))}
+      </div>
+      <style>{`@keyframes fmBar { from { width: 0%; } to { width: 100%; } }`}</style>
+      <button onClick={onClose} aria-label="Fermer le film" style={{ position: "absolute", top: "calc(18px + env(safe-area-inset-top))", right: 12, width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(8,18,24,0.5)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5 }}><X size={20} /></button>
+      <button onClick={prev} aria-label="Scène précédente" style={{ position: "absolute", top: 70, bottom: 90, left: 0, width: "28%", background: "transparent", border: "none", cursor: "pointer" }} />
+      <button onClick={next} aria-label="Scène suivante" style={{ position: "absolute", top: 70, bottom: 90, right: 0, width: "38%", background: "transparent", border: "none", cursor: "pointer" }} />
     </div>
   );
 }
@@ -5902,7 +6209,7 @@ export default function App() {
         </Sheet>
 
         <PhotoViewer photos={visiblePhotos} startId={photoView} onClose={() => setPhotoView(null)} onToggleTag={toggleTag} onReact={togglePhotoReaction} onDelete={deletePhoto} />
-        {film && <FilmOverlay photos={visiblePhotos} onClose={() => setFilm(false)} />}
+        {film && <FilmOverlay events={events} photos={visiblePhotos} messages={messages} onClose={() => setFilm(false)} />}
         {mapOpen && (() => {
           const seenM = new Set(); const pl = [];
           mainList(events).forEach((e) => { if (e.place && e.place.coord && e.place.name && e.place.name !== "À définir" && !seenM.has(placeKey(e.place.name))) { seenM.add(placeKey(e.place.name)); pl.push(e.place); } });
