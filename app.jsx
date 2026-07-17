@@ -2623,6 +2623,7 @@ const faceCrop = (faces, p) => {
   const f = faces && faces[p.id];
   return f && f.n > 0 && f.cx != null ? `${Math.round(clamp(f.cx, 0.1, 0.9) * 100)}% ${Math.round(clamp(f.cy, 0.1, 0.9) * 100)}%` : "50% 33%";
 };
+const placeKey = (n) => String(n || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 function souvenirPeriode() {
   const dEnd = new Date(isoPlusDays(SETTINGS.startISO, DAYS.length - 1) + "T12:00:00");
   const dStart = new Date(SETTINGS.startISO + "T12:00:00");
@@ -2636,7 +2637,7 @@ function souvenirStats(events, photos, messages) {
   const phs = (photos || []).filter((p) => p.url);
   const msgs = (messages || []).filter((m) => !isVibe(m) && !isLoc(m));
   const seen = new Set(); let lieux = 0;
-  past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(e.place.name)) { seen.add(e.place.name); lieux += 1; } });
+  past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(placeKey(e.place.name))) { seen.add(placeKey(e.place.name)); lieux += 1; } });
   const nActifs = ROSTER.filter((p) => p.active).length;
   let dist = 0, prev = null;
   past.forEach((e) => { if (e.place && e.place.coord) { if (prev) dist += distM(prev, e.place.coord); prev = e.place.coord; } });
@@ -2648,6 +2649,17 @@ function souvenirStats(events, photos, messages) {
     [lieux, lieux > 1 ? "lieux" : "lieu", "map"],
   ];
 }
+let DEJAVU_P = null;
+const bufB64 = (buf) => { const u = new Uint8Array(buf); let s = ""; const CH = 0x8000; for (let i = 0; i < u.length; i += CH) s += String.fromCharCode.apply(null, u.subarray(i, i + CH)); return btoa(s); };
+const loadDejaVu = () => {
+  if (!DEJAVU_P) {
+    DEJAVU_P = Promise.all(["DejaVuSans.ttf", "DejaVuSans-Bold.ttf", "DejaVuSans-Oblique.ttf"].map((f) =>
+      fetch("vendor/" + f).then((r) => { if (!r.ok) throw new Error("police"); return r.arrayBuffer(); }).then(bufB64)
+    ));
+    DEJAVU_P.catch(() => { DEJAVU_P = null; });
+  }
+  return DEJAVU_P;
+};
 async function makeRecapPdf({ events, photos, messages, periode }) {
   await loadScriptOnce("vendor/jspdf.umd.min.js");
   const JSP = typeof window !== "undefined" && window.jspdf ? window.jspdf : null;
@@ -2657,6 +2669,20 @@ async function makeRecapPdf({ events, photos, messages, periode }) {
   const faces = loadFaces();
   const stats = souvenirStats(events, photos, messages);
   const star = pickStar(photos, faces);
+  /* polices unicode (grec, cyrillique...) chargées à la demande ; repli latin si indisponibles */
+  let F = { n: ["helvetica", "normal"], b: ["helvetica", "bold"], i: ["times", "italic"] };
+  try {
+    const [fn, fb, fo] = await loadDejaVu();
+    doc.addFileToVFS("DejaVuSans.ttf", fn); doc.addFont("DejaVuSans.ttf", "DejaVu", "normal");
+    doc.addFileToVFS("DejaVuSans-Bold.ttf", fb); doc.addFont("DejaVuSans-Bold.ttf", "DejaVu", "bold");
+    doc.addFileToVFS("DejaVuSans-Oblique.ttf", fo); doc.addFont("DejaVuSans-Oblique.ttf", "DejaVu", "italic");
+    F = { n: ["DejaVu", "normal"], b: ["DejaVu", "bold"], i: ["DejaVu", "italic"] };
+  } catch (e) {}
+  const clean = (s) => {
+    let t = String(s == null ? "" : s).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "").replace(/\s+/g, " ").trim();
+    if (F.n[0] === "helvetica") t = t.replace(/[^\x20-\xFF]/g, "").replace(/\s+/g, " ").trim();
+    return t;
+  };
   const setOpacity = (o) => { try { if (JSP.GState) doc.setGState(new JSP.GState({ opacity: o })); } catch (e) {} };
   const poly = (pts, fill) => {
     const segs = [];
@@ -2682,9 +2708,7 @@ async function makeRecapPdf({ events, photos, messages, periode }) {
     cv.getContext("2d").drawImage(im, Math.round(ccx - sw / 2), Math.round(ccy - sh / 2), sw, sh, 0, 0, cw, ch);
     return cv.toDataURL("image/jpeg", 0.82);
   };
-  /* fond */
   doc.setFillColor(255, 252, 244); doc.rect(0, 0, W, 297, "F");
-  /* bandeau ciel : degrade en bandes */
   const c1 = [255, 245, 224], c2 = [255, 216, 186], BH = 46, NB = 26;
   for (let i = 0; i < NB; i++) {
     const t = i / (NB - 1);
@@ -2698,11 +2722,10 @@ async function makeRecapPdf({ events, photos, messages, periode }) {
   poly([[168, 38.6], [168, 30.8], [162.6, 38.6]], true);
   poly([[169.8, 38.6], [169.8, 32.4], [174.4, 38.6]], true);
   poly([[161.4, 39.4], [175.6, 39.4], [173.4, 41.6], [163.6, 41.6]], true);
-  doc.setTextColor(35, 59, 69); doc.setFont("helvetica", "bold"); doc.setFontSize(27);
-  doc.text(`C'était ${SETTINGS.place || SETTINGS.name || "le séjour"}`, M, 23);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(110, 96, 70);
-  doc.text(periode || "", M, 31);
-  /* tampons */
+  doc.setTextColor(35, 59, 69); doc.setFont(...F.b); doc.setFontSize(26);
+  doc.text(clean(`C'était ${SETTINGS.place || SETTINGS.name || "le séjour"}`), M, 23);
+  doc.setFont(...F.n); doc.setFontSize(11); doc.setTextColor(110, 96, 70);
+  doc.text(clean(periode), M, 31);
   const encres = [[46, 107, 128], [222, 90, 70], [165, 130, 47], [126, 93, 184]];
   const rots = [-6, 3, -3, 5];
   const cwq = (W - 2 * M) / 4;
@@ -2714,12 +2737,11 @@ async function makeRecapPdf({ events, photos, messages, periode }) {
     doc.setLineWidth(0.32); doc.setLineDashPattern([1.1, 1.3], 0); doc.circle(cx, cy, 11, "S");
     doc.setLineDashPattern([], 0);
     doc.setTextColor(r, g, b);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+    doc.setFont(...F.b); doc.setFontSize(16);
     doc.text(String(n), cx, cy + 1.2, { align: "center", angle: rots[i] });
     doc.setFontSize(6.3);
-    doc.text(String(l).toUpperCase(), cx, cy + 6.6, { align: "center", angle: rots[i], charSpace: 0.5 });
+    doc.text(clean(l).toUpperCase(), cx, cy + 6.6, { align: "center", angle: rots[i], charSpace: 0.5 });
   });
-  /* polaroid heros */
   const PX = 18, PY = 92, PW = 104, IH = 74;
   if (star) {
     try {
@@ -2727,19 +2749,18 @@ async function makeRecapPdf({ events, photos, messages, periode }) {
       doc.setFillColor(224, 219, 209); doc.rect(PX + 1.6, PY + 1.8, PW + 8, IH + 17, "F");
       doc.setFillColor(255, 255, 255); doc.rect(PX, PY, PW + 8, IH + 17, "F");
       doc.addImage(data, "JPEG", PX + 4, PY + 4, PW, IH);
-      doc.setFont("helvetica", "italic"); doc.setFontSize(9.5); doc.setTextColor(80, 96, 106);
-      doc.text(star.label + (star.n >= 3 ? ` · ${star.n} coeurs` : ""), PX + (PW + 8) / 2, PY + IH + 11.5, { align: "center" });
+      doc.setFont(...F.i); doc.setFontSize(9.5); doc.setTextColor(80, 96, 106);
+      doc.text(clean(star.label + (star.n >= 3 ? ` · ${star.n} coeurs` : "")), PX + (PW + 8) / 2, PY + IH + 11.5, { align: "center" });
       tape(PX + 5, PY + 1, -0.62); tape(PX + PW + 3, PY + 1, 0.62);
     } catch (e) {}
   }
-  /* colonne droite : la bande, moment, lieux */
   const CX = 136, CW2 = W - M - CX;
   let cy2 = 98;
   const noms = ROSTER.filter((p) => p.active).map((p) => p.name).filter(Boolean);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(35, 59, 69);
+  doc.setFont(...F.b); doc.setFontSize(10.5); doc.setTextColor(35, 59, 69);
   doc.text("La bande", CX, cy2); cy2 += 5.4;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(96, 88, 72);
-  doc.splitTextToSize(noms.join(", "), CW2).slice(0, 3).forEach((ln) => { doc.text(ln, CX, cy2); cy2 += 4.6; });
+  doc.setFont(...F.n); doc.setFontSize(9.5); doc.setTextColor(96, 88, 72);
+  doc.splitTextToSize(clean(noms.join(", ")), CW2).slice(0, 3).forEach((ln) => { doc.text(ln, CX, cy2); cy2 += 4.6; });
   cy2 += 4;
   let best = null, bestN = 0;
   mainList(events).forEach((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); const n = v ? vibeTotal(v) : 0; if (n > bestN) { best = e; bestN = n; } });
@@ -2747,65 +2768,63 @@ async function makeRecapPdf({ events, photos, messages, periode }) {
     doc.setFillColor(255, 248, 233); doc.roundedRect(CX, cy2, CW2, 21, 2, 2, "F");
     doc.setDrawColor(227, 211, 174); doc.setLineWidth(0.35); doc.setLineDashPattern([1.2, 1.2], 0);
     doc.line(CX + 8.5, cy2 + 2.5, CX + 8.5, cy2 + 18.5); doc.setLineDashPattern([], 0);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(5.9); doc.setTextColor(165, 130, 47);
+    doc.setFont(...F.b); doc.setFontSize(5.9); doc.setTextColor(165, 130, 47);
     doc.text("LE MOMENT PRÉFÉRÉ", CX + 12, cy2 + 6, { charSpace: 0.5 });
-    doc.setFont("times", "italic"); doc.setFontSize(12.5); doc.setTextColor(74, 59, 35);
-    doc.text(doc.splitTextToSize(best.title, CW2 - 15)[0] || "", CX + 12, cy2 + 12.4);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(138, 122, 85);
+    doc.setFont(...F.i); doc.setFontSize(12); doc.setTextColor(74, 59, 35);
+    doc.text(doc.splitTextToSize(clean(best.title), CW2 - 15)[0] || "", CX + 12, cy2 + 12.4);
+    doc.setFont(...F.n); doc.setFontSize(7.5); doc.setTextColor(138, 122, 85);
     doc.text(`${bestN} réactions du groupe`, CX + 12, cy2 + 17.2);
     cy2 += 27;
   }
   const seenL = new Set(); const lieuxN = [];
-  mainList(events).forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seenL.has(e.place.name)) { seenL.add(e.place.name); lieuxN.push(e.place.name); } });
+  mainList(events).forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seenL.has(placeKey(e.place.name))) { seenL.add(placeKey(e.place.name)); lieuxN.push(e.place.name); } });
   if (lieuxN.length && cy2 < 168) {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(35, 59, 69);
+    doc.setFont(...F.b); doc.setFontSize(10.5); doc.setTextColor(35, 59, 69);
     doc.text("Nos lieux", CX, cy2); cy2 += 5.2;
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8.4); doc.setTextColor(96, 88, 72);
-    doc.splitTextToSize(lieuxN.slice(0, 12).join(" · "), CW2).slice(0, 6).forEach((ln) => { if (cy2 < 186) { doc.text(ln, CX, cy2); cy2 += 4.2; } });
+    doc.setFont(...F.n); doc.setFontSize(8.4); doc.setTextColor(96, 88, 72);
+    doc.splitTextToSize(lieuxN.slice(0, 12).map(clean).filter(Boolean).join(" · "), CW2).slice(0, 6).forEach((ln) => { if (cy2 < 186) { doc.text(ln, CX, cy2); cy2 += 4.2; } });
   }
-  /* livre d'or */
   let y = 196;
   const caps = SETTINGS.capsule || {};
   const mots = [];
   ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => mots.push({ pid: p.id, ...e })));
   mots.sort((a, b) => (a.at || 0) - (b.at || 0));
   if (mots.length) {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
+    doc.setFont(...F.b); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
     doc.text("Le livre d'or", M, y);
     doc.setDrawColor(224, 208, 176); doc.setLineWidth(0.3); doc.line(M + 30, y - 1.4, W - M, y - 1.4);
     y += 7.5;
     let omis = 0;
     for (const mo of mots) {
-      const lignes = doc.splitTextToSize("«\u00A0" + mo.text + "\u00A0»", W - 2 * M - 26);
-      if (y + lignes.length * 4.9 > 250) { omis += 1; continue; }
-      doc.setFont("times", "italic"); doc.setFontSize(11); doc.setTextColor(58, 55, 48);
+      const lignes = doc.splitTextToSize("«\u00A0" + clean(mo.text) + "\u00A0»", W - 2 * M - 26);
+      if (y + lignes.length * 4.9 > 246) { omis += 1; continue; }
+      doc.setFont(...F.i); doc.setFontSize(10.5); doc.setTextColor(58, 55, 48);
       doc.text(lignes, M, y);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8.6); doc.setTextColor(148, 136, 112);
-      doc.text(person(mo.pid).name, W - M, y, { align: "right" });
+      doc.setFont(...F.n); doc.setFontSize(8.6); doc.setTextColor(148, 136, 112);
+      doc.text(clean(person(mo.pid).name), W - M, y, { align: "right" });
       y += lignes.length * 4.9 + 3.6;
     }
     if (omis > 0) {
-      doc.setFont("helvetica", "italic"); doc.setFontSize(8.4); doc.setTextColor(148, 136, 112);
-      doc.text(`et ${omis} autre${omis > 1 ? "s" : ""} mot${omis > 1 ? "s" : ""} dans l'app`, M, Math.min(y, 252));
+      doc.setFont(...F.i); doc.setFontSize(8.4); doc.setTextColor(148, 136, 112);
+      doc.text(`et ${omis} autre${omis > 1 ? "s" : ""} mot${omis > 1 ? "s" : ""} dans l'app`, M, Math.min(y, 248));
     }
   }
-  /* mosaique */
   const autres = (photos || []).filter((p) => p.url && (!star || p.id !== star.photo.id))
     .sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((b.at || 0) - (a.at || 0))).slice(0, 4);
   if (autres.length >= 2) {
-    const mw = 41, mh = 33, gap = (W - 2 * M - autres.length * mw) / Math.max(1, autres.length - 1);
+    const mw = 40, mh = 31, gap = (W - 2 * M - autres.length * mw) / Math.max(1, autres.length - 1);
     for (let i = 0; i < autres.length; i++) {
-      const x = M + i * (mw + gap), yy = 256;
+      const x = M + i * (mw + gap), yy = 252;
       try {
         const data = await toJpegCrop(autres[i].url, 560, 420, faces[autres[i].id]);
         doc.setFillColor(226, 221, 211); doc.rect(x + 1, yy + 1.2, mw, mh, "F");
         doc.setFillColor(255, 255, 255); doc.rect(x, yy, mw, mh, "F");
-        doc.addImage(data, "JPEG", x + 1.8, yy + 1.8, mw - 3.6, mh - 6.6);
+        doc.addImage(data, "JPEG", x + 1.8, yy + 1.8, mw - 3.6, mh - 6.2);
       } catch (e) {}
     }
   }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(172, 160, 140);
-  doc.text(`C où déjà ? · ${SETTINGS.name || ""}`.trim(), W / 2, 290, { align: "center" });
+  doc.setFont(...F.n); doc.setFontSize(8); doc.setTextColor(172, 160, 140);
+  doc.text(clean(`C où déjà ? · ${SETTINGS.name || ""}`), W / 2, 291.5, { align: "center" });
   return doc.output("blob");
 }
 const heartsOf = (p) => Object.keys(p.reactions || {}).filter((pid) => ((p.reactions || {})[pid] || []).includes("❤️")).length;
@@ -2981,7 +3000,7 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
   const phs = (photos || []).filter((p) => p.url);
   const msgs = (messages || []).filter((m) => !isVibe(m) && !isLoc(m));
   const seen = new Set(); let lieux = 0;
-  past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(e.place.name)) { seen.add(e.place.name); lieux += 1; } });
+  past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(placeKey(e.place.name))) { seen.add(placeKey(e.place.name)); lieux += 1; } });
   let best = null, bestN = 0;
   past.forEach((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); const n = v ? vibeTotal(v) : 0; if (n > bestN) { best = e; bestN = n; } });
   const stats = souvenirStats(events, photos, messages).map(([n, l, a]) => [n, l, a === "map" && lieux > 0 ? onMap : null]);
@@ -5316,7 +5335,7 @@ export default function App() {
         {film && <FilmOverlay photos={visiblePhotos} onClose={() => setFilm(false)} />}
         {mapOpen && (() => {
           const seenM = new Set(); const pl = [];
-          mainList(events).forEach((e) => { if (e.place && e.place.coord && e.place.name && e.place.name !== "À définir" && !seenM.has(e.place.name)) { seenM.add(e.place.name); pl.push(e.place); } });
+          mainList(events).forEach((e) => { if (e.place && e.place.coord && e.place.name && e.place.name !== "À définir" && !seenM.has(placeKey(e.place.name))) { seenM.add(placeKey(e.place.name)); pl.push(e.place); } });
           return <PlacesMap places={pl} onClose={() => setMapOpen(false)} />;
         })()}
       </div>
