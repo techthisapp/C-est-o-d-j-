@@ -2215,13 +2215,138 @@ function CapsuleCard({ now, onSave, onDelete }) {
   );
 }
 
+/* Diaporama de la galerie */
+function Diaporama({ photos, onClose, onReact, onToggleTag }) {
+  const list = useMemo(() => [...(photos || [])].filter((p) => p.url).sort((a, b) => (a.at || 0) - (b.at || 0)), [photos]);
+  const [i, setI] = useState(0);
+  const [play, setPlay] = useState(true);
+  const [tagsOn, setTagsOn] = useState(false);
+  const n = list.length;
+  useEffect(() => {
+    if (!play || tagsOn || n < 2) return undefined;
+    const id = setTimeout(() => setI((x) => (x + 1) % n), 3600);
+    return () => clearTimeout(id);
+  }, [i, play, tagsOn, n]);
+  if (!n) return null;
+  const p = list[Math.min(i, n - 1)];
+  const reactions = p.reactions || {};
+  const counts = {}; const mine = new Set(reactions[ME] || []);
+  Object.keys(reactions).forEach((pid) => (reactions[pid] || []).forEach((em) => { counts[em] = (counts[em] || 0) + 1; }));
+  const tags = p.tags || [];
+  const roster = ROSTER.filter((x) => x.active);
+  const go = (dx) => { setI((x) => (x + dx + n) % n); };
+  return (
+    <div data-diapo="1" style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(6,14,18,0.96)", display: "flex", flexDirection: "column" }}>
+      <style>{`@keyframes dpBar { from { width: 0%; } to { width: 100%; } } @keyframes dpFade { from { opacity: 0; } to { opacity: 1; } }`}</style>
+      <div style={{ display: "flex", gap: 3, padding: "calc(10px + env(safe-area-inset-top)) 12px 0" }}>
+        {list.map((x, k) => (
+          <span key={x.id} style={{ flex: 1, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.3)", overflow: "hidden" }}>
+            <span style={{ display: "block", height: "100%", background: "#fff", width: k < i ? "100%" : "0%", ...(k === i && play && !tagsOn ? { animation: "dpBar 3.6s linear both" } : k === i ? { width: "40%" } : {}) }} />
+          </span>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px 4px" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          {p.who && <Avatar id={p.who} size={26} />}
+          <span style={{ fontFamily: fD, fontWeight: 700, color: "#fff", fontSize: 15 }}>{p.who ? person(p.who).name : ""}</span>
+          <span style={{ fontFamily: fB, color: "#ffffff88", fontSize: 12.5 }}>{i + 1} / {n}</span>
+        </span>
+        <span style={{ display: "inline-flex", gap: 8 }}>
+          <button onClick={() => setPlay((v) => !v)} aria-label={play ? "Mettre en pause" : "Reprendre"} style={{ cursor: "pointer", border: "none", background: "#ffffff22", color: "#fff", width: 44, height: 44, borderRadius: T.r.pill, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {play ? <Pause size={19} /> : <Play size={19} />}
+          </button>
+          <button onClick={onClose} aria-label="Fermer le diaporama" style={{ cursor: "pointer", border: "none", background: "#ffffff22", color: "#fff", width: 44, height: 44, borderRadius: T.r.pill, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={20} /></button>
+        </span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", padding: "6px 12px" }}>
+        <img key={p.id} src={p.url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: T.r.lg, animation: "dpFade .5s ease" }} />
+        <button onClick={() => go(-1)} aria-label="Photo précédente" style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "26%", background: "transparent", border: "none", cursor: "pointer" }} />
+        <button onClick={() => go(1)} aria-label="Photo suivante" style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: "26%", background: "transparent", border: "none", cursor: "pointer" }} />
+      </div>
+      <div style={{ padding: "10px 14px calc(16px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 9 }}>
+        {tags.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: fB, fontSize: 12, color: "#ffffff88" }}>Sur la photo</span>
+            {tags.map((pid) => (
+              <span key={pid} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#ffffff1a", borderRadius: T.r.pill, padding: "3px 9px 3px 3px" }}>
+                <Avatar id={pid} size={18} />
+                <span style={{ fontFamily: fB, fontSize: 12, color: "#fff" }}>{person(pid).name}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+          {REACTIONS.map((em) => {
+            const on = mine.has(em); const c = counts[em] || 0;
+            return (
+              <button key={em} onClick={() => { setPlay(false); onReact(p.id, em); }} style={{ cursor: "pointer", minHeight: 40, border: on ? "1px solid #ffffffcc" : "1px solid #ffffff33", background: on ? "#ffffff26" : "#ffffff0d", color: "#fff", borderRadius: T.r.pill, padding: "6px 11px", fontFamily: fD, fontWeight: 600, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 16 }}>{em}</span>{c > 0 ? " " + c : ""}
+              </button>
+            );
+          })}
+          <button onClick={() => { setTagsOn((v) => !v); setPlay(false); }} aria-label="Identifier des personnes" style={{ cursor: "pointer", minHeight: 40, marginLeft: "auto", border: "1px solid #ffffff33", background: tagsOn ? "#ffffff26" : "#ffffff0d", color: "#fff", borderRadius: T.r.pill, padding: "6px 12px", fontFamily: fD, fontWeight: 700, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Users size={16} /> Identifier
+          </button>
+        </div>
+        {tagsOn && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {roster.map((x) => {
+              const on = tags.includes(x.id);
+              return (
+                <button key={x.id} onClick={() => onToggleTag(p.id, x.id)} style={{ cursor: "pointer", minHeight: 40, border: on ? `2px solid ${(META[x.id] && META[x.id].color) || T.c.sea}` : "1px solid #ffffff33", background: on ? "#ffffff1f" : "#ffffff0d", color: "#fff", borderRadius: T.r.pill, padding: "5px 12px 5px 5px", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                  <Avatar id={x.id} size={22} />
+                  <span style={{ fontFamily: fB, fontSize: 13 }}>{person(x.id).name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* Film du séjour */
 function detectVehicule(events) {
   const txt = mainList(events).map((e) => `${e.title || ""} ${e.place && e.place.name || ""}`).join(" ").toLowerCase();
   if (/ferry|bateau|boat|croisi|voilier|travers[ée]e/.test(txt)) return "bateau";
   if (/v[ée]lo|bike|cyclo/.test(txt)) return "velo";
-  if (/vol|avion|a[ée]roport|airport|aeroporto|aeropuerto|flughafen|αερολιμ|terminal/.test(txt)) return "avion";
+  if (/\bvol\b|avion|a[ée]roport|airport|aeroporto|aeropuerto|flughafen|αερολιμ|terminal/.test(txt)) return "avion";
   return "voiture";
+}
+const FETE = {
+  mer: { n: 16, kind: "bulle", cols: ["rgba(255,255,255,0.9)", "rgba(174,224,240,0.95)", "rgba(255,255,255,0.65)"] },
+  ville: { n: 16, kind: "lumiere", cols: ["#FFD98A", "#FFF0C4", "#FFB86B"] },
+  ski: { n: 24, kind: "flocon", cols: ["#FFFFFF", "#E8F3FB"] },
+  rando: { n: 14, kind: "feuille", cols: ["#C9873F", "#A8B25A", "#D8A24A"] },
+  mariage: { n: 18, kind: "petale", cols: ["#F7C9C0", "#FFE3DC", "#FFFFFF"] },
+  detente: { n: 14, kind: "petale", cols: ["#F3D9A4", "#FFE9C7", "#F6C9A8"] },
+  anniversaire: { n: 18, kind: "confetti", cols: ["#F0604A", "#2E6B80", "#E2A244", "#7E5DA8", "#3E8E6C"] },
+};
+function Celebration({ type }) {
+  const cfg = FETE[type] || FETE.mer;
+  const monte = cfg.kind === "bulle" || cfg.kind === "lumiere";
+  const nom = cfg.kind === "bulle" || cfg.kind === "lumiere" ? "fmRise" : cfg.kind === "flocon" ? "fmSnow" : cfg.kind === "confetti" ? "fmConf" : "fmLeaf";
+  return (
+    <>
+      {Array.from({ length: cfg.n }, (_, k) => {
+        const col = cfg.cols[k % cfg.cols.length];
+        const sz = cfg.kind === "flocon" ? 4 + (k % 3) * 2 : cfg.kind === "bulle" ? 6 + (k % 4) * 4 : cfg.kind === "lumiere" ? 5 + (k % 3) * 3 : 9;
+        const st = {
+          position: "absolute", left: `${(k * 37 + 5) % 93}%`, width: cfg.kind === "confetti" ? 8 : cfg.kind === "feuille" || cfg.kind === "petale" ? sz + 4 : sz,
+          height: cfg.kind === "confetti" ? 13 : sz, background: col, animationName: nom, animationDelay: `${((k * 13) % 32) / 10}s`,
+          animationDuration: `${(monte ? 3.4 : 3) + ((k * 7) % 24) / 10}s`, animationTimingFunction: monte ? "ease-out" : "linear", animationIterationCount: "infinite", pointerEvents: "none",
+          ...(monte ? { bottom: -24 } : { top: -24 }),
+          ...(cfg.kind === "bulle" ? { borderRadius: "50%", border: "1px solid rgba(255,255,255,0.75)" } : {}),
+          ...(cfg.kind === "lumiere" ? { borderRadius: "50%", filter: "blur(1.6px)" } : {}),
+          ...(cfg.kind === "flocon" ? { borderRadius: "50%", boxShadow: "0 0 6px rgba(255,255,255,0.9)" } : {}),
+          ...(cfg.kind === "feuille" || cfg.kind === "petale" ? { borderRadius: "60% 0 60% 0" } : {}),
+          ...(cfg.kind === "confetti" ? { borderRadius: 2 } : {}),
+        };
+        return <span key={k} style={st} />;
+      })}
+    </>
+  );
 }
 function hullDe(pts) {
   if (pts.length < 3) return null;
@@ -2233,15 +2358,17 @@ function hullDe(pts) {
   for (let i = P2.length - 1; i >= 0; i--) { const p = P2[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
   return lo.slice(0, -1).concat(up.slice(0, -1));
 }
-function IleStylisee({ lieux, actifs, route, seq, hauteur }) {
-  const pts = lieux.filter((p) => p.coord);
+function IleStylisee({ lieux, sequence }) {
+  const pts = (lieux || []).filter((p) => p.coord);
   if (!pts.length) return null;
-  const lats = pts.map((p) => p.coord.lat), lngs = pts.map((p) => p.coord.lng);
+  const seq = (sequence || []).filter((s) => s.coord);
+  const tous = pts.map((p) => p.coord).concat(seq.map((s) => s.coord));
+  const lats = tous.map((c) => c.lat), lngs = tous.map((c) => c.lng);
   const la0 = Math.min(...lats), la1 = Math.max(...lats), lo0 = Math.min(...lngs), lo1 = Math.max(...lngs);
   const nx = (lng) => 14 + ((lng - lo0) / Math.max(0.0004, lo1 - lo0)) * 72;
   const ny = (lat) => 46 - ((lat - la0) / Math.max(0.0004, la1 - la0)) * 34;
   const xy = pts.map((p) => [nx(p.coord.lng), ny(p.coord.lat)]);
-  const cx0 = xy.reduce((s, p) => s + p[0], 0) / xy.length, cy0 = xy.reduce((s, p) => s + p[1], 0) / xy.length;
+  const cx0 = xy.reduce((s, p) => s + p[0], 0) / Math.max(1, xy.length), cy0 = xy.reduce((s, p) => s + p[1], 0) / Math.max(1, xy.length);
   let ile = null;
   const h = hullDe(xy);
   if (h) {
@@ -2249,40 +2376,58 @@ function IleStylisee({ lieux, actifs, route, seq, hauteur }) {
     let d = "";
     for (let i = 0; i < el.length; i++) {
       const a = el[i], b = el[(i + 1) % el.length];
-      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      d += i === 0 ? `M ${mx} ${my} ` : "";
-      const c = el[(i + 1) % el.length], nx2 = el[(i + 2) % el.length];
-      const m2x = (c[0] + nx2[0]) / 2, m2y = (c[1] + nx2[1]) / 2;
-      d += `Q ${c[0]} ${c[1]} ${m2x} ${m2y} `;
+      if (i === 0) d += `M ${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2} `;
+      const c = el[(i + 1) % el.length], nn = el[(i + 2) % el.length];
+      d += `Q ${c[0]} ${c[1]} ${(c[0] + nn[0]) / 2} ${(c[1] + nn[1]) / 2} `;
     }
     ile = d + "Z";
   }
-  const actifSet = new Set((actifs || []).map((p) => placeKey(p.name || "")));
-  const routeD = route && route.length > 1 ? "M " + route.map((co) => `${nx(co.lng)} ${ny(co.lat)}`).join(" L ") : null;
+  const pas = 1.15;
   return (
-    <svg viewBox="0 0 100 62" style={{ width: "100%", height: hauteur || "100%", display: "block" }} preserveAspectRatio="xMidYMid meet">
+    <svg viewBox="0 0 100 62" style={{ width: "100%", height: "100%", display: "block" }} preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="fmMer" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#8FC6CF" /><stop offset="1" stopColor="#5FA3B4" />
-        </linearGradient>
+        <linearGradient id="fmMer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#8FC6CF" /><stop offset="1" stopColor="#5FA3B4" /></linearGradient>
       </defs>
       <rect x="0" y="0" width="100" height="62" fill="url(#fmMer)" />
       {[[10, 12], [70, 8], [26, 54], [82, 50]].map(([wx, wy], i) => (
         <path key={i} d={`M ${wx} ${wy} q 2.5 -1.6 5 0 t 5 0`} fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="0.7" strokeLinecap="round" style={{ animation: `vdrift ${5 + i}s ease-in-out infinite alternate` }} />
       ))}
+      {ile && <path d={ile} fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="2.6" />}
       {ile && <path d={ile} fill="#EFE3C2" stroke="#C9B189" strokeWidth="0.9" />}
-      {ile && <path d={ile} fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="2.2" style={{ transform: "scale(1.02)", transformOrigin: "50% 50%" }} />}
-      {routeD && (
-        <path d={routeD} pathLength="100" fill="none" stroke="#D4553F" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="3 2.4" style={{ strokeDashoffset: 0, animation: "fmDash 2.6s ease-out both" }} />
-      )}
-      {xy.map(([x, y], i) => {
-        const on = !actifs || actifSet.has(placeKey(pts[i].name || ""));
-        const num = seq ? seq[placeKey(pts[i].name || "")] : null;
+      {seq.length === 0 && xy.map(([x, y], i) => (
+        <g key={i}>
+          <circle cx={x} cy={y} r="0" fill="#F0604A" stroke="#fff" strokeWidth="0.8">
+            <animate attributeName="r" values="0;2.9;2.1" keyTimes="0;0.7;1" begin={`${0.5 + i * 0.16}s`} dur="0.5s" fill="freeze" />
+          </circle>
+        </g>
+      ))}
+      {seq.length > 1 && seq.slice(1).map((s, i) => {
+        const a = seq[i];
+        const t0 = 0.5 + i * pas + 0.45;
         return (
-          <g key={i} style={{ opacity: on ? 1 : 0.28, animation: on ? `vpop .5s ease both` : "none", animationDelay: `${0.4 + i * 0.22}s` }}>
-            <circle cx={x} cy={y} r={num ? 3 : 1.9} fill="#F0604A" stroke="#fff" strokeWidth="0.8" />
-            {num && <text x={x} y={y + 1.1} textAnchor="middle" fontSize="3.2" fontWeight="700" fill="#fff" fontFamily="sans-serif">{num}</text>}
-            {on && <text x={x} y={y - (num ? 4.4 : 3.2)} textAnchor="middle" fontSize="3" fontWeight="700" fill="#28414C" fontFamily="sans-serif" paintOrder="stroke" stroke="#ffffff" strokeWidth="0.9">{String(pts[i].name || "").slice(0, 16)}</text>}
+          <path key={"s" + i} d={`M ${nx(a.coord.lng)} ${ny(a.coord.lat)} L ${nx(s.coord.lng)} ${ny(s.coord.lat)}`} pathLength="1" fill="none" stroke="#D4553F" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="1" strokeDashoffset="1">
+            <animate attributeName="stroke-dashoffset" from="1" to="0" begin={`${t0}s`} dur="0.62s" fill="freeze" />
+            <animate attributeName="stroke-opacity" values="1;0.45;1" begin={`${t0 + 0.62}s`} dur="1.5s" repeatCount="indefinite" />
+            <animate attributeName="stroke-width" values="1.2;1.7;1.2" begin={`${t0 + 0.62}s`} dur="1.5s" repeatCount="indefinite" />
+          </path>
+        );
+      })}
+      {seq.map((s, i) => {
+        const x = nx(s.coord.lng), y = ny(s.coord.lat);
+        const t0 = 0.5 + i * pas;
+        return (
+          <g key={"p" + i}>
+            <circle cx={x} cy={y} r="2" fill="none" stroke="#D4553F" strokeWidth="0.6" opacity="0">
+              <animate attributeName="r" from="2" to="9" begin={`${t0}s`} dur="1s" fill="freeze" />
+              <animate attributeName="opacity" from="0.85" to="0" begin={`${t0}s`} dur="1s" fill="freeze" />
+            </circle>
+            <circle cx={x} cy={y} r="0" fill="#F0604A" stroke="#fff" strokeWidth="0.9">
+              <animate attributeName="r" values="0;4.4;3.2" keyTimes="0;0.66;1" begin={`${t0}s`} dur="0.52s" fill="freeze" />
+            </circle>
+            <text x={x} y={y - 5.2} textAnchor="middle" fontSize="3.1" fontWeight="700" fill="#28414C" fontFamily="sans-serif" paintOrder="stroke" stroke="#ffffff" strokeWidth="1" opacity="0">
+              <animate attributeName="opacity" from="0" to="1" begin={`${t0 + 0.12}s`} dur="0.4s" fill="freeze" />
+              {String(s.nom || "").slice(0, 22)}
+            </text>
           </g>
         );
       })}
@@ -2318,28 +2463,70 @@ function VehiculeSVG({ kind }) {
     </g>
   );
 }
+const momentLabel = (hh) => {
+  const h = Number(String(hh || "").slice(0, 2));
+  if (!hh || Number.isNaN(h)) return "Ce jour-là";
+  if (h < 11) return "Au matin";
+  if (h < 14) return "À midi";
+  if (h < 18) return "L'après-midi";
+  if (h < 22) return "En soirée";
+  return "Dans la nuit";
+};
+function legendesJour(d, evs) {
+  const out = evs.map((e) => {
+    const t = titreDe(e);
+    const lieu = e.place && e.place.name && e.place.name !== "À définir" ? e.place.name : "";
+    return { l1: `${momentLabel(e.start)}, ${t}`, l2: placeKey(lieu) === placeKey(t) ? "" : lieu };
+  });
+  return out.length ? out : [{ l1: dayLabel(d), l2: "" }];
+}
 function buildFilm(events, photos, messages) {
   const ph = (photos || []).filter((p) => p.url);
-  const sc = [{ t: "titre", d: 4200 }];
+  const sc = [{ t: "titre", d: 4600 }];
   const lieuxU = buildPlaces(events);
-  if (lieuxU.filter((p) => p.coord).length >= 1) sc.push({ t: "voyage", d: 5400, vehicule: detectVehicule(events) });
+  if (lieuxU.filter((p) => p.coord).length >= 1) sc.push({ t: "voyage", d: 5800, vehicule: detectVehicule(events) });
   for (let d = 0; d < DAYS.length; d++) {
     const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
     const pj = ph.filter((p) => dayOfTs(p.at || 0) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
     if (!evs.length && !pj.length) continue;
-    sc.push({ t: "jour", d: 2500, day: d, evs });
-    const ej = etapesJour(evs);
-    if (ej.points.length >= 2) sc.push({ t: "trajet", d: 3300, day: d, evs, ej });
-    const lieuxJ = Array.from(new Set(evs.map((e) => e.place && e.place.name !== "À définir" ? e.place.name : "").filter(Boolean)));
-    if (pj.length >= 3) { sc.push({ t: "trio", d: 4400, day: d, phs: pj.slice(0, 3), lieuxJ }); }
-    else if (pj.length === 2) { sc.push({ t: "duo", d: 4000, day: d, phs: pj.slice(0, 2), lieuxJ }); }
-    else if (pj.length === 1) { sc.push({ t: "photo", d: 3600, day: d, ph: pj[0], lieuxJ }); }
     let bestE = null, bestV = 0;
     evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
-    if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3000, day: d, e: bestE, n: bestV });
+    sc.push({ t: "jour", d: 3800, day: d, evs, recit: recitDuJour(d, evs, messages, null, 0, { max: 2 }) });
+    const ej = etapesJour(evs);
+    if (ej.points.length >= 2) {
+      const seq = [];
+      evs.forEach((e) => {
+        if (e.place && e.place.coord && e.place.name !== "À définir") {
+          const k = placeKey(e.place.name);
+          if (!seq.length || seq[seq.length - 1].k !== k) seq.push({ k, coord: e.place.coord, nom: e.place.name });
+        }
+      });
+      sc.push({ t: "trajet", d: 1500 + seq.length * 1150 + 700, day: d, seq });
+    }
+    const legs = legendesJour(d, evs);
+    const style = ["plein", "polaroid", "diptyque", "tirage"][d % 4];
+    if (style === "diptyque" && pj.length >= 2) {
+      sc.push({ t: "diptyque", d: 6400, day: d, phs: pj.slice(0, 2), leg: legs[0] });
+      if (pj[2]) sc.push({ t: "plein", d: 5000, day: d, ph: pj[2], leg: legs[1 % legs.length] });
+    } else {
+      const st = style === "diptyque" ? "plein" : style;
+      pj.slice(0, 3).forEach((p, k) => sc.push({ t: st, d: st === "polaroid" ? 5400 : 5000, day: d, ph: p, leg: legs[k % legs.length] }));
+    }
+    if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3800, day: d, e: bestE });
     const mj = (messages || []).filter((m) => dayOfTs(m.at || 0) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
       .map((m) => ({ m, n: reactsOfMsg(m) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
-    if (mj) sc.push({ t: "mot", d: 3800, day: d, m: mj.m });
+    if (mj) sc.push({ t: "mot", d: 4400, day: d, m: mj.m });
+  }
+  const caps = SETTINGS.capsule || {};
+  const mots = [];
+  ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => mots.push({ pid: p.id, ...e })));
+  mots.sort((a, b) => (a.at || 0) - (b.at || 0));
+  if (mots.length) {
+    sc.push({ t: "livreIntro", d: 3200 });
+    mots.slice(0, 8).forEach((mo) => {
+      const w = String(mo.text || "").split(/\s+/).length;
+      sc.push({ t: "livre", d: Math.min(7000, 2800 + w * 190), mo });
+    });
   }
   sc.push({ t: "fin", d: 9000, star: pickStar(photos, loadFaces()) });
   return sc;
@@ -2350,6 +2537,7 @@ function FilmOverlay({ events, photos, messages, onClose }) {
   const faces = useMemo(() => loadFaces(), []);
   const lieuxU = useMemo(() => buildPlaces(events), []);
   const sc = scenes[Math.min(i, scenes.length - 1)];
+  const fete = SETTINGS.tripType || "mer";
   useEffect(() => {
     if (i >= scenes.length - 1 && scenes[scenes.length - 1].t === "fin") return undefined;
     const id = setTimeout(() => setI((x) => Math.min(x + 1, scenes.length - 1)), sc.d);
@@ -2358,18 +2546,19 @@ function FilmOverlay({ events, photos, messages, onClose }) {
   const next = () => setI((x) => Math.min(x + 1, scenes.length - 1));
   const prev = () => setI((x) => Math.max(x - 1, 0));
   const bandes = ["#FFECD6", "#FDE8CC", "#E9F3EE", "#F6EFDF", "#FBE9E3", "#EEF0F9"];
-  const chip = (txt, extra) => (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(8,18,24,0.55)", color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 13, borderRadius: T.r.pill, padding: "7px 12px", backdropFilter: "blur(4px)", ...extra }}>{txt}</span>
-  );
   const posOf = (p) => { const f = faces[p.id]; return f && f.cx != null ? `${Math.round(f.cx * 100)}% ${Math.round(clamp(f.cy, 0.2, 0.8) * 100)}%` : "50% 42%"; };
-  const polaroid = (p, w, rot, delay, legende) => (
-    <div key={p.id} style={{ width: w, background: "#fff", borderRadius: 4, padding: "6px 6px 0", boxShadow: "0 12px 28px rgba(10,20,26,0.35)", transform: `rotate(${rot}deg)`, animation: "fmDrop .8s cubic-bezier(.2,.9,.3,1.18) both", animationDelay: `${delay}s`, position: "relative" }}>
-      <div style={{ position: "absolute", top: -7, left: "50%", transform: `translateX(-50%) rotate(${-rot * 1.4}deg)`, width: 46, height: 15, background: "rgba(250,230,160,0.85)", borderRadius: 2 }} />
-      <img src={p.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3.1", objectFit: "cover", objectPosition: posOf(p), borderRadius: 2, display: "block" }} />
-      <div style={{ height: 30, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fH, fontSize: 15, color: "#4a5560" }}>{legende || ""}</div>
+  const jourTitre = (d) => `Jour ${d + 1} · ${dayLabel(d)}`;
+  const chipJour = (d) => (
+    <div style={{ position: "absolute", top: "calc(30px + env(safe-area-inset-top))", left: 14, zIndex: 3 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", background: "rgba(8,18,24,0.5)", color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 12.5, borderRadius: T.r.pill, padding: "6px 12px", backdropFilter: "blur(4px)" }}>{jourTitre(d)}</span>
     </div>
   );
-  const jourTitre = (d) => `Jour ${d + 1} · ${dayLabel(d)}`;
+  const legende = (leg, sombre) => leg && (leg.l1 || leg.l2) ? (
+    <div style={{ position: "absolute", left: 18, right: 18, bottom: "calc(24px + env(safe-area-inset-bottom))", zIndex: 3, animation: "vfade .9s ease both", animationDelay: ".5s" }}>
+      <div style={{ fontFamily: fH, fontSize: "clamp(24px, 6.6vw, 36px)", color: sombre ? "#fff" : "#3A3730", textShadow: sombre ? "0 2px 12px rgba(0,0,0,0.45)" : "none", lineHeight: 1.15 }}>{leg.l1}</div>
+      {leg.l2 && <div style={{ fontFamily: fB, fontSize: 14, color: sombre ? "#ffffffcc" : "#7A6E5A", marginTop: 4 }}>{leg.l2}</div>}
+    </div>
+  ) : null;
   let inner = null;
   if (sc.t === "titre") {
     inner = (
@@ -2385,96 +2574,93 @@ function FilmOverlay({ events, photos, messages, onClose }) {
     );
   } else if (sc.t === "voyage") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4", display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, position: "relative" }}>
-          <IleStylisee lieux={lieuxU} />
-          <svg viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-            <path id="fmTraj" d="M -8 8 C 22 2, 34 18, 50 26" fill="none" stroke="#ffffff" strokeWidth="0.9" strokeDasharray="2 2" strokeLinecap="round" pathLength="100" style={{ animation: "fmDash 3.6s ease-in-out both" }} />
-            <g>
-              <animateMotion dur="3.6s" fill="freeze" rotate="auto" path="M -8 8 C 22 2, 34 18, 50 26" />
-              <VehiculeSVG kind={sc.vehicule} />
-            </g>
-          </svg>
-        </div>
+      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4" }}>
+        <IleStylisee key="ile-voyage" lieux={lieuxU} />
+        <svg viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+          <path d="M -8 8 C 22 2, 34 18, 50 26" fill="none" stroke="#ffffff" strokeWidth="0.9" strokeDasharray="2 2" strokeLinecap="round" pathLength="100" style={{ animation: "fmDash 3.6s ease-in-out both" }} />
+          <g>
+            <animateMotion dur="3.6s" fill="freeze" rotate="auto" path="M -8 8 C 22 2, 34 18, 50 26" />
+            <VehiculeSVG kind={sc.vehicule} />
+          </g>
+        </svg>
         <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(26px + env(safe-area-inset-bottom))", textAlign: "center" }}>
           <div style={{ fontFamily: fH, fontWeight: 700, fontSize: 34, color: "#fff", textShadow: "0 2px 10px rgba(10,30,40,0.35)", animation: "vfade 1s ease both", animationDelay: "1.6s" }}>{`Direction ${SETTINGS.place || "l'aventure"}`}</div>
         </div>
       </div>
     );
   } else if (sc.t === "jour") {
-    const bd = bandes[sc.day % bandes.length];
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: bd, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.4)", transformOrigin: "left", animation: "fmWipe 0.9s cubic-bezier(.7,0,.2,1) both" }} />
-        <div style={{ textAlign: "center", padding: "0 20px" }}>
-          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(54px, 18vw, 96px)", color: T.c.ink, transform: "rotate(-1.5deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".2s", lineHeight: 1 }}>{`Jour ${sc.day + 1}`}</div>
-          <div style={{ fontFamily: fB, fontSize: 17, color: "#6E6046", marginTop: 10, animation: "vfade .8s ease both", animationDelay: ".6s" }}>{dayLabel(sc.day)}</div>
-          {sc.evs.length > 0 && (
-            <div style={{ fontFamily: fH, fontSize: 21, color: "#54463A", marginTop: 14, animation: "vfade .8s ease both", animationDelay: ".95s" }}>
-              {sc.evs.slice(0, 3).map((e) => titreDe(e)).join("  ·  ")}
-            </div>
+      <div style={{ position: "absolute", inset: 0, background: bandes[sc.day % bandes.length], overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.45)", transformOrigin: "left", animation: "fmWipe 0.9s cubic-bezier(.7,0,.2,1) both" }} />
+        <div style={{ textAlign: "center", padding: "0 26px", maxWidth: 620 }}>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(52px, 17vw, 92px)", color: T.c.ink, transform: "rotate(-1.5deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".2s", lineHeight: 1 }}>{`Jour ${sc.day + 1}`}</div>
+          <div style={{ fontFamily: fB, fontSize: 16, color: "#6E6046", marginTop: 8, animation: "vfade .8s ease both", animationDelay: ".6s" }}>{dayLabel(sc.day)}</div>
+          {sc.recit && (
+            <div style={{ fontFamily: fH, fontSize: "clamp(20px, 5.4vw, 27px)", color: "#54463A", marginTop: 18, lineHeight: 1.35, animation: "vfade 1s ease both", animationDelay: "1s" }}>{sc.recit}</div>
           )}
         </div>
       </div>
     );
   } else if (sc.t === "trajet") {
-    const seqMap = {};
-    sc.ej.points.forEach((p, k) => { const nm = (sc.evs.find((e) => e.place && e.place.coord && Math.abs(e.place.coord.lat - p.coord.lat) < 0.0005) || {}).place; if (nm) seqMap[placeKey(nm.name || "")] = p.label; });
-    const actifs = sc.evs.filter((e) => e.place && e.place.name !== "À définir").map((e) => e.place);
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <div style={{ position: "absolute", inset: 0, background: "#5FA3B4" }}>
+        <IleStylisee key={`ile-${sc.day}`} lieux={lieuxU} sequence={sc.seq} />
         <div style={{ position: "absolute", top: "calc(34px + env(safe-area-inset-top))", left: 0, right: 0, textAlign: "center", fontFamily: fH, fontWeight: 700, fontSize: 30, color: "#fff", textShadow: "0 2px 8px rgba(10,30,40,0.3)" }}>{jourTitre(sc.day)}</div>
-        <IleStylisee lieux={lieuxU} actifs={actifs} route={sc.ej.route} seq={seqMap} />
       </div>
     );
-  } else if (sc.t === "photo") {
-    const modes = ["fmIrisIn", "fmSlideIn", "fmZoomIn"];
+  } else if (sc.t === "plein") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#071018", animation: `${modes[sc.day % modes.length]} .9s ease both` }}>
-        <img src={sc.ph.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: posOf(sc.ph), animation: `${sc.day % 2 ? "fmKenA" : "fmKenB"} 5s ease-out both` }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,16,24,0.35) 0%, rgba(7,16,24,0) 26%, rgba(7,16,24,0) 60%, rgba(7,16,24,0.55) 100%)" }} />
-        <div style={{ position: "absolute", top: "calc(30px + env(safe-area-inset-top))", left: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {chip(jourTitre(sc.day))}
-          {sc.lieuxJ.length > 0 && chip(sc.lieuxJ.slice(0, 2).join(" · ") + (sc.lieuxJ.length > 2 ? " …" : ""))}
+      <div style={{ position: "absolute", inset: 0, background: "#071018", animation: `${sc.day % 2 ? "fmIrisIn" : "fmFadeIn"} 1s ease both` }}>
+        <img src={sc.ph.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: posOf(sc.ph), animation: `${sc.day % 2 ? "fmKenA" : "fmKenB"} 6.5s ease-out both` }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,16,24,0.4) 0%, rgba(7,16,24,0) 24%, rgba(7,16,24,0) 52%, rgba(7,16,24,0.62) 100%)" }} />
+        {chipJour(sc.day)}
+        {legende(sc.leg, true)}
+      </div>
+    );
+  } else if (sc.t === "polaroid") {
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #F7EEDD, #EFDFC4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {chipJour(sc.day)}
+        <div style={{ width: "min(86vw, 520px)", background: "#fff", borderRadius: 4, padding: "8px 8px 0", boxShadow: "0 18px 44px rgba(10,20,26,0.3)", transform: `rotate(${sc.day % 2 ? 1.6 : -1.8}deg)`, animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", position: "relative", marginBottom: 46 }}>
+          <div style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%) rotate(-2deg)", width: 74, height: 19, background: "rgba(250,230,160,0.85)", borderRadius: 2 }} />
+          <img src={sc.ph.url} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", objectPosition: posOf(sc.ph), borderRadius: 2, display: "block", maxHeight: "58vh" }} />
+          <div style={{ height: 46, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fH, fontSize: 19, color: "#4a5560", padding: "0 10px", textAlign: "center" }}>{sc.leg ? sc.leg.l2 || sc.leg.l1 : ""}</div>
         </div>
-        {sc.ph.who && (
-          <div style={{ position: "absolute", left: 14, bottom: "calc(22px + env(safe-area-inset-bottom))", display: "flex", alignItems: "center", gap: 8 }}>
-            <Avatar id={sc.ph.who} size={26} />
-            <span style={{ fontFamily: fD, fontWeight: 700, color: "#fff", fontSize: 14 }}>{person(sc.ph.who).name}</span>
-          </div>
-        )}
+        {legende({ l1: sc.leg ? sc.leg.l1 : "", l2: "" }, false)}
       </div>
     );
-  } else if (sc.t === "duo" || sc.t === "trio") {
-    const phs = sc.phs;
+  } else if (sc.t === "tirage") {
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #F6ECD9, #EFDFC4)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: "calc(30px + env(safe-area-inset-top))", left: 14 }}>{chip(jourTitre(sc.day), { background: "rgba(60,48,30,0.6)" })}</div>
-        {sc.t === "duo" ? (
-          <div style={{ display: "flex", gap: "4vw", alignItems: "center" }}>
-            {polaroid(phs[0], "40vw", -4, 0.15, sc.lieuxJ[0] || "")}
-            {polaroid(phs[1], "40vw", 3, 0.5, sc.lieuxJ[1] || "")}
+      <div style={{ position: "absolute", inset: 0, background: bandes[(sc.day + 2) % bandes.length], display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {chipJour(sc.day)}
+        <div style={{ background: "#fff", padding: 11, boxShadow: "0 16px 40px rgba(30,20,10,0.22)", transform: `rotate(${sc.day % 2 ? -1.2 : 1.2}deg)`, animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", marginBottom: 40 }}>
+          <img src={sc.ph.url} alt="" style={{ width: "min(84vw, 560px)", maxHeight: "58vh", aspectRatio: "3 / 2", objectFit: "cover", objectPosition: posOf(sc.ph), display: "block" }} />
+        </div>
+        {legende(sc.leg, false)}
+      </div>
+    );
+  } else if (sc.t === "diptyque") {
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#0B1620", display: "flex", overflow: "hidden" }}>
+        {chipJour(sc.day)}
+        {sc.phs.map((p, k) => (
+          <div key={p.id} style={{ flex: 1, minWidth: 0, position: "relative", overflow: "hidden", borderRight: k === 0 ? "3px solid #0B1620" : "none", animation: `${k === 0 ? "fmSlideL" : "fmSlideR"} .9s cubic-bezier(.2,.8,.2,1) both`, animationDelay: `${k * 0.35}s` }}>
+            <img src={p.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: posOf(p), animation: `${k ? "fmKenA" : "fmKenB"} 7s ease-out both` }} />
           </div>
-        ) : (
-          <div style={{ position: "relative", width: "92vw", maxWidth: 520, height: "62vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ position: "absolute", transform: "translateX(-30%)" }}>{polaroid(phs[1], "38vw", -8, 0.15, "")}</div>
-            <div style={{ position: "absolute", transform: "translateX(30%)" }}>{polaroid(phs[2], "38vw", 8, 0.45, "")}</div>
-            <div style={{ position: "relative", zIndex: 2 }}>{polaroid(phs[0], "44vw", -1.5, 0.8, sc.lieuxJ[0] || "")}</div>
-          </div>
-        )}
+        ))}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,16,24,0.4) 0%, rgba(7,16,24,0) 26%, rgba(7,16,24,0) 54%, rgba(7,16,24,0.6) 100%)", pointerEvents: "none" }} />
+        {legende(sc.leg, true)}
       </div>
     );
   } else if (sc.t === "fort") {
-    const conf = ["#F0604A", "#2E6B80", "#E2A244", "#7E5DA8", "#3E8E6C", "#F0604A", "#E2A244", "#2E6B80"];
+    const lieu = sc.e.place && sc.e.place.name && sc.e.place.name !== "À définir" ? sc.e.place.name : "";
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#FFF8E9", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        {conf.map((c, k) => (
-          <span key={k} style={{ position: "absolute", top: -20, left: `${8 + k * 12}%`, width: 9, height: 14, background: c, borderRadius: 2, animation: `fmConf ${2.2 + (k % 3) * 0.5}s ease-in ${0.2 + k * 0.14}s both` }} />
-        ))}
-        <div style={{ textAlign: "center", padding: "0 24px", animation: "fmZoomIn .8s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".15s" }}>
-          <div style={{ fontFamily: fB, fontWeight: 800, fontSize: 12, letterSpacing: 3, color: "#A5822F" }}>LE TEMPS FORT DU JOUR</div>
-          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(34px, 9vw, 54px)", color: "#4A3B23", margin: "14px 0 10px", lineHeight: 1.1 }}>{titreDe(sc.e)}</div>
-          <div style={{ fontFamily: fB, fontSize: 15, color: "#8A7A55" }}>{`${sc.n} réactions du groupe · ${jourTitre(sc.day)}`}</div>
+      <div style={{ position: "absolute", inset: 0, background: fete === "ski" ? "linear-gradient(180deg, #E9F4FB, #CFE4F2)" : fete === "ville" ? "linear-gradient(180deg, #1C2C38, #33485A)" : "linear-gradient(180deg, #FFF8E9, #FFE9CE)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        <Celebration type={fete} />
+        <div style={{ textAlign: "center", padding: "0 26px", position: "relative", zIndex: 2, animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".15s" }}>
+          <div style={{ fontFamily: fB, fontWeight: 800, fontSize: 12, letterSpacing: 3, color: fete === "ville" ? "#FFD98A" : "#A5822F" }}>LE TEMPS FORT DU JOUR</div>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(34px, 9.4vw, 56px)", color: fete === "ville" ? "#fff" : "#4A3B23", margin: "14px 0 10px", lineHeight: 1.1 }}>{titreDe(sc.e)}</div>
+          {lieu && <div style={{ fontFamily: fB, fontSize: 15, color: fete === "ville" ? "#ffffffb0" : "#8A7A55" }}>{lieu}</div>}
         </div>
       </div>
     );
@@ -2491,7 +2677,34 @@ function FilmOverlay({ events, photos, messages, onClose }) {
             ))}
             <span style={{ animation: "fmWordIn .5s ease both", animationDelay: `${0.25 + mots.length * 0.09}s`, display: "inline-block" }}>&nbsp;»</span>
           </div>
-          <div style={{ textAlign: "right", marginTop: 18, fontFamily: fH, fontSize: 21, color: "#94886F", animation: "vfade .8s ease both", animationDelay: `${0.5 + mots.length * 0.09}s` }}>{person(sc.m.who).name}{`, ${jourTitre(sc.day).split(" · ")[0].toLowerCase()}`}</div>
+          <div style={{ textAlign: "right", marginTop: 18, fontFamily: fH, fontSize: 21, color: "#94886F", animation: "vfade .8s ease both", animationDelay: `${0.5 + mots.length * 0.09}s` }}>{person(sc.m.who).name}</div>
+        </div>
+      </div>
+    );
+  } else if (sc.t === "livreIntro") {
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#FFFBF0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: "2px dotted #E0D0B0" }} />
+        <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(40px, 11vw, 62px)", color: T.c.ink, animation: "fmZoomIn 1s cubic-bezier(.2,.8,.2,1) both" }}>Le livre d'or</div>
+        <div style={{ width: 64, height: 1, background: "#E0D0B0", margin: "16px 0" }} />
+        <div style={{ fontFamily: fB, fontSize: 14.5, color: "#94886F", animation: "vfade 1s ease both", animationDelay: ".7s" }}>{SETTINGS.name || ""}</div>
+      </div>
+    );
+  } else if (sc.t === "livre") {
+    const mots = String(sc.mo.text || "").split(/\s+/).slice(0, 44);
+    inner = (
+      <div style={{ position: "absolute", inset: 0, background: "#FFFBF0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: "2px dotted #E0D0B0" }} />
+        <div style={{ maxWidth: 600, padding: "0 34px", width: "100%" }}>
+          <div style={{ fontFamily: fH, fontSize: "clamp(28px, 8vw, 46px)", color: "#3A3730", lineHeight: 1.28, transform: "rotate(-0.8deg)" }}>
+            {mots.map((w, k) => (
+              <span key={k} style={{ display: "inline-block", animation: "fmWordIn .55s ease both", animationDelay: `${0.3 + k * 0.11}s`, marginRight: "0.28em" }}>{w}</span>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 9, marginTop: 22, animation: "vfade 1s ease both", animationDelay: `${0.6 + mots.length * 0.11}s` }}>
+            <Avatar id={sc.mo.pid} size={26} />
+            <span style={{ fontFamily: fH, fontSize: 24, color: "#94886F" }}>{person(sc.mo.pid).name}</span>
+          </div>
         </div>
       </div>
     );
@@ -2512,8 +2725,8 @@ function FilmOverlay({ events, photos, messages, onClose }) {
           )}
           <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(30px, 9vw, 46px)", color: "#4A2E18", marginTop: 20, transform: "rotate(-1.5deg)", animation: "vfade 1s ease both", animationDelay: "2.4s" }}>{`C'était ${SETTINGS.place || "nous"}, et c'était nous.`}</div>
           <div style={{ fontFamily: fH, fontSize: 20, color: "#6E4A2E", marginTop: 10 }}>
-            {noms.map((n, k) => (
-              <span key={k} style={{ display: "inline-block", margin: "0 7px", transform: `rotate(${(k % 2 ? 1 : -1) * 2}deg)`, animation: "vfade .7s ease both", animationDelay: `${3 + k * 0.35}s` }}>{n}</span>
+            {noms.map((nm, k) => (
+              <span key={k} style={{ display: "inline-block", margin: "0 7px", transform: `rotate(${(k % 2 ? 1 : -1) * 2}deg)`, animation: "vfade .7s ease both", animationDelay: `${3 + k * 0.35}s` }}>{nm}</span>
             ))}
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, animation: "vfade .8s ease both", animationDelay: `${3.4 + noms.length * 0.35}s` }}>
@@ -2529,28 +2742,33 @@ function FilmOverlay({ events, photos, messages, onClose }) {
     <div data-scene={sc.t} style={{ position: "fixed", inset: 0, zIndex: 70, background: "#071018", overflow: "hidden" }}>
       <style>{`
         @keyframes fmZoomIn { 0% { transform: scale(0.75); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes fmFadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
         @keyframes fmWipe { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
         @keyframes fmDash { 0% { stroke-dashoffset: 100; } 100% { stroke-dashoffset: 0; } }
-        @keyframes fmKenA { 0% { transform: scale(1.02); } 100% { transform: scale(1.14) translate(-1.6%, -1.2%); } }
-        @keyframes fmKenB { 0% { transform: scale(1.14) translate(1.4%, 1%); } 100% { transform: scale(1.02); } }
+        @keyframes fmKenA { 0% { transform: scale(1.02); } 100% { transform: scale(1.16) translate(-1.8%, -1.4%); } }
+        @keyframes fmKenB { 0% { transform: scale(1.16) translate(1.6%, 1.2%); } 100% { transform: scale(1.02); } }
         @keyframes fmIrisIn { 0% { clip-path: circle(0% at 50% 46%); } 100% { clip-path: circle(150% at 50% 46%); } }
-        @keyframes fmSlideIn { 0% { transform: translateX(9%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+        @keyframes fmSlideL { 0% { transform: translateX(-102%); } 100% { transform: translateX(0); } }
+        @keyframes fmSlideR { 0% { transform: translateX(102%); } 100% { transform: translateX(0); } }
         @keyframes fmDrop { 0% { transform: translateY(-46vh) rotate(0deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: translateY(0) rotate(var(--fr, 0deg)); opacity: 1; } }
         @keyframes fmConf { 0% { transform: translateY(0) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(105vh) rotate(540deg); opacity: 0.9; } }
-        @keyframes fmWordIn { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes fmRise { 0% { transform: translateY(0) translateX(0); opacity: 0; } 14% { opacity: 0.95; } 100% { transform: translateY(-106vh) translateX(16px); opacity: 0; } }
+        @keyframes fmSnow { 0% { transform: translateY(0) translateX(0); opacity: 0; } 12% { opacity: 0.95; } 100% { transform: translateY(106vh) translateX(24px); opacity: 0.25; } }
+        @keyframes fmLeaf { 0% { transform: translateY(0) rotate(0deg); opacity: 0; } 12% { opacity: 1; } 100% { transform: translateY(106vh) translateX(30px) rotate(320deg); opacity: 0.3; } }
+        @keyframes fmWordIn { 0% { transform: translateY(9px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes fmBar { from { width: 0%; } to { width: 100%; } }
       `}</style>
       {inner}
-      <div style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top))", left: 12, right: 60, display: "flex", gap: 3 }}>
+      <div style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top))", left: 12, right: 60, display: "flex", gap: 2, zIndex: 4 }}>
         {scenes.map((s, k) => (
           <span key={k} style={{ flex: 1, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.35)", overflow: "hidden" }}>
             <span style={{ display: "block", height: "100%", background: "#fff", width: k < i ? "100%" : "0%", ...(k === i ? { animation: `fmBar ${s.d}ms linear both` } : {}) }} />
           </span>
         ))}
       </div>
-      <style>{`@keyframes fmBar { from { width: 0%; } to { width: 100%; } }`}</style>
       <button onClick={onClose} aria-label="Fermer le film" style={{ position: "absolute", top: "calc(18px + env(safe-area-inset-top))", right: 12, width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(8,18,24,0.5)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5 }}><X size={20} /></button>
-      <button onClick={prev} aria-label="Scène précédente" style={{ position: "absolute", top: 70, bottom: 90, left: 0, width: "28%", background: "transparent", border: "none", cursor: "pointer" }} />
-      <button onClick={next} aria-label="Scène suivante" style={{ position: "absolute", top: 70, bottom: 90, right: 0, width: "38%", background: "transparent", border: "none", cursor: "pointer" }} />
+      <button onClick={prev} aria-label="Scène précédente" style={{ position: "absolute", top: 70, bottom: 90, left: 0, width: "26%", background: "transparent", border: "none", cursor: "pointer", zIndex: 4 }} />
+      <button onClick={next} aria-label="Scène suivante" style={{ position: "absolute", top: 70, bottom: 90, right: 0, width: "34%", background: "transparent", border: "none", cursor: "pointer", zIndex: 4 }} />
     </div>
   );
 }
@@ -3099,7 +3317,8 @@ const etapesJour = (evs) => {
   });
   return { points: Array.from(groupes.values()), route: seq.map((s) => s.coord) };
 };
-function recitDuJour(d, evs, messages, bestE, bestV) {
+function recitDuJour(d, evs, messages, bestE, bestV, opts) {
+  const o = opts || {};
   const list = evs.map((e) => ({ h: e.start ? e.start.replace(":", "h") : "", t: titreDe(e), lieu: e.place && e.place.name !== "À définir" ? e.place.name : "" }));
   if (!list.length) return "";
   const ouv = [
@@ -3133,9 +3352,15 @@ function recitDuJour(d, evs, messages, bestE, bestV) {
     if (milieu.length) ph.push(mil[d % mil.length](milieu.join(", puis ")));
   }
   if (list.length > 1) ph.push(finj[d % finj.length](list[list.length - 1]));
+  const fortSans = [
+    (t) => `Le moment préféré du groupe : ${t}.`,
+    (t) => `Ce que le groupe retiendra : ${t}.`,
+    (t) => `Le temps fort, sans hésiter : ${t}.`,
+  ];
   if (bestE && bestV >= 3) {
     const tf = titreDe(bestE);
-    if (!ph.join(" ").includes(tf) || bestV >= 5) ph.push(fort[d % fort.length](tf, bestV));
+    if (o.sansChiffres) ph.push(fortSans[d % fortSans.length](tf));
+    else if (!ph.join(" ").includes(tf) || bestV >= 5) ph.push(fort[d % fort.length](tf, bestV));
   }
   const notes = SETTINGS.dayNotes && SETTINGS.dayNotes[d] ? SETTINGS.dayNotes[d] : null;
   if (notes) {
@@ -3144,7 +3369,7 @@ function recitDuJour(d, evs, messages, bestE, bestV) {
       if (txt) ph.push(`${person(pid).name} note dans le carnet : « ${txt.slice(0, 140)} »`);
     });
   }
-  return ph.join(" ");
+  return (o.max ? ph.slice(0, o.max) : ph).join(" ");
 }
 async function pdfSetup(doc, JSP) {
   let F = { n: ["helvetica", "normal"], b: ["helvetica", "bold"], i: ["times", "italic"] };
@@ -4338,11 +4563,11 @@ function AddPhotoButton({ onPick }) {
     </>
   );
 }
-function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onFilm }) {
+function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
   const [pending, setPending] = useState(null);
   const sorted = [...photos].sort((a, b) => (b.at || 0) - (a.at || 0));
   const acts = sortByStart(mainList(events || []));
-  const canFilm = onFilm && featureOn("film") && sorted.filter((p) => p.url).length >= 3;
+  const canDiapo = onDiapo && featureOn("film") && sorted.filter((p) => p.url).length >= 2;
   const choose = (eventId) => { if (pending) { onAddPhoto(eventId, pending.url); setPending(null); } };
   const rowBtn = { width: "100%", textAlign: "left", cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, borderRadius: T.r.md, padding: "11px 13px", display: "flex", alignItems: "center", gap: 11 };
   return (
@@ -4350,9 +4575,9 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onFilm }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1 style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 28, margin: 0 }}>Photos</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {canFilm && (
-            <button onClick={onFilm} aria-label="Film du séjour" title="Film du séjour" style={{ cursor: "pointer", flex: "0 0 auto", height: 42, padding: "0 14px", borderRadius: T.r.pill, border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.seaDeep, boxShadow: T.sh.card, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: fD, fontWeight: 700, fontSize: 13.5 }}>
-              <Play size={16} /> Film
+          {canDiapo && (
+            <button onClick={onDiapo} aria-label="Diaporama des photos" title="Diaporama" style={{ cursor: "pointer", flex: "0 0 auto", height: 42, padding: "0 14px", borderRadius: T.r.pill, border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.seaDeep, boxShadow: T.sh.card, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: fD, fontWeight: 700, fontSize: 13.5 }}>
+              <Play size={16} /> Diaporama
             </button>
           )}
           <AddPhotoButton onPick={(url) => setPending({ url })} />
@@ -5309,7 +5534,7 @@ const FEATURE_DEFS = [
   { id: "recap", label: "Récap du soir", desc: "Le bilan de la journée : activités, photos, messages, lieux explorés." },
   { id: "awards", label: "Hauts faits du jour", desc: "Photographe du jour, bavard du jour, premier message (dans le récap)." },
   { id: "capsule", label: "Capsule temporelle", desc: "Chacun dépose un mot secret, révélé le dernier soir." },
-  { id: "film", label: "Film du séjour", desc: "Un diaporama automatique de toutes les photos, depuis le mur." },
+  { id: "film", label: "Diaporama photos", desc: "Un diaporama qui enchaîne les photos depuis la galerie, avec réactions et identification." },
   { id: "guess", label: "Devine le lieu", desc: "Une photo mystère dans la discussion, le groupe devine où c'est." },
   { id: "quiz", label: "Quiz du séjour", desc: "Le dernier soir, un quiz généré depuis vos journées, avec les scores du groupe." },
 ];
@@ -5898,6 +6123,7 @@ export default function App() {
     setRev((r) => r + 1);
   };
   const [film, setFilm] = useState(false);
+  const [diapo, setDiapo] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [wx, setWx] = useState(null);
   useEffect(() => {
@@ -6193,7 +6419,7 @@ export default function App() {
           {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} onMap={() => setMapOpen(true)} onShare={() => setSheet({ mode: "share" })} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "program" && <ScreenProgram events={events} now={now} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onOpenEvent={openDetail} onEditEvent={openEdit} onAdd={openAdd} onDelete={deleteEvent} canEdit={canEdit} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "talk" && <ScreenTalk messages={messages} onSend={sendMessage} pollHandlers={pollHandlers} />}
-          {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onFilm={() => setFilm(true)} />}
+          {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onDiapo={() => setDiapo(true)} />}
         </div>
 
         <BottomNav tab={tab} setTab={setTab} unreadTalk={unreadInfo.general} unreadNow={unreadInfo.activities} />
@@ -6217,6 +6443,7 @@ export default function App() {
 
         <PhotoViewer photos={visiblePhotos} startId={photoView} onClose={() => setPhotoView(null)} onToggleTag={toggleTag} onReact={togglePhotoReaction} onDelete={deletePhoto} />
         {film && <FilmOverlay events={events} photos={visiblePhotos} messages={messages} onClose={() => setFilm(false)} />}
+        {diapo && <Diaporama photos={visiblePhotos} onClose={() => setDiapo(false)} onReact={togglePhotoReaction} onToggleTag={toggleTag} />}
         {mapOpen && (() => {
           const seenM = new Set(); const pl = [];
           mainList(events).forEach((e) => { if (e.place && e.place.coord && e.place.name && e.place.name !== "À définir" && !seenM.has(placeKey(e.place.name))) { seenM.add(placeKey(e.place.name)); pl.push(e.place); } });
