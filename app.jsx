@@ -2691,8 +2691,35 @@ function buildPlaces(events) {
   });
   return out;
 }
-async function mapImage(places, wPx, hPx) {
-  const pts = (places || []).filter((p) => p.coord);
+let REVERSE_DOWN = false, REVERSE_LAST = 0;
+async function reverseAddr(coord) {
+  if (!coord) return "";
+  const key = coord.lat.toFixed(5) + "," + coord.lng.toFixed(5);
+  let cache = {};
+  try { cache = JSON.parse(localStorage.getItem("vacances_addr_v1") || "{}"); } catch (e) {}
+  if (cache[key] !== undefined) return cache[key];
+  if (REVERSE_DOWN) return "";
+  try {
+    const attente = 260 - (Date.now() - REVERSE_LAST);
+    if (attente > 0) await new Promise((r) => setTimeout(r, attente));
+    REVERSE_LAST = Date.now();
+    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const to = ctl ? setTimeout(() => ctl.abort(), 6000) : null;
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coord.lat}&lon=${coord.lng}&accept-language=fr&zoom=17`, { signal: ctl ? ctl.signal : undefined });
+    if (to) clearTimeout(to);
+    if (!r.ok) throw new Error("http");
+    const j = await r.json();
+    const a = j.address || {};
+    const rue = [a.road || a.pedestrian || a.footway || a.beach || "", a.house_number || ""].filter(Boolean).join(" ");
+    const ville = a.village || a.town || a.city || a.municipality || a.suburb || a.island || "";
+    const out = [rue, ville].filter(Boolean).join(", ") || String(j.display_name || "").split(",").slice(0, 2).join(",").trim();
+    try { cache[key] = out; localStorage.setItem("vacances_addr_v1", JSON.stringify(cache)); } catch (e) {}
+    return out;
+  } catch (e) { REVERSE_DOWN = true; return ""; }
+}
+async function mapImage(points, wPx, hPx, opts) {
+  const o = opts || {};
+  const pts = (points || []).filter((p) => p.coord);
   if (!pts.length) throw new Error("aucun point");
   const rad = Math.PI / 180;
   const prj = (co, z) => { const n = Math.pow(2, z) * 256; const lr = co.lat * rad; return { x: ((co.lng + 180) / 360) * n, y: ((1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2) * n }; };
@@ -2701,15 +2728,16 @@ async function mapImage(places, wPx, hPx) {
   for (let zz = 16; zz >= 3; zz--) {
     const a = prj({ lat: Math.max(...lats), lng: Math.min(...lngs) }, zz);
     const b = prj({ lat: Math.min(...lats), lng: Math.max(...lngs) }, zz);
-    if (b.x - a.x < wPx - 110 && b.y - a.y < hPx - 90) { z = zz; break; }
+    if (b.x - a.x < wPx - 110 && b.y - a.y < hPx - 90) { z = Math.min(zz, o.maxZoom || 15); break; }
   }
   const c = { lat: (Math.min(...lats) + Math.max(...lats)) / 2, lng: (Math.min(...lngs) + Math.max(...lngs)) / 2 };
   const n = Math.pow(2, z); const ctr = prj(c, z);
   const cv = document.createElement("canvas"); cv.width = wPx; cv.height = hPx;
   const ctx = cv.getContext("2d");
-  ctx.fillStyle = "#eaf2ef"; ctx.fillRect(0, 0, wPx, hPx);
+  ctx.fillStyle = o.sepia ? "#f2ead8" : "#eaf2ef"; ctx.fillRect(0, 0, wPx, hPx);
   const x0 = Math.floor((ctr.x - wPx / 2) / 256), x1 = Math.floor((ctr.x + wPx / 2) / 256);
   const ty0 = Math.floor((ctr.y - hPx / 2) / 256), ty1 = Math.floor((ctr.y + hPx / 2) / 256);
+  if (o.sepia) { try { ctx.filter = "saturate(0.3) sepia(0.32) contrast(0.9) brightness(1.07)"; } catch (e) {} }
   const jobs = [];
   for (let tx = x0; tx <= x1; tx++) for (let ty = ty0; ty <= ty1; ty++) if (ty >= 0 && ty < n) {
     jobs.push(imgOf(`https://tile.openstreetmap.org/${z}/${((tx % n) + n) % n}/${ty}.png`).then((im) => {
@@ -2717,18 +2745,92 @@ async function mapImage(places, wPx, hPx) {
     }).catch(() => {}));
   }
   await Promise.all(jobs);
-  pts.forEach((p, i) => {
-    const q = prj(p.coord, z);
-    const px = Math.round(q.x - (ctr.x - wPx / 2)), py = Math.round(q.y - (ctr.y - hPx / 2));
-    ctx.beginPath(); ctx.fillStyle = "#F0604A"; ctx.arc(px, py, 13, 0, Math.PI * 2); ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = "#ffffff"; ctx.stroke();
-    ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(String(i + 1), px, py + 0.5);
+  try { ctx.filter = "none"; } catch (e) {}
+  const px = (co) => { const q = prj(co, z); return [Math.round(q.x - (ctr.x - wPx / 2)), Math.round(q.y - (ctr.y - hPx / 2))]; };
+  const R = o.markerR || Math.max(9, Math.round(Math.min(wPx, hPx) / 32));
+  if (o.route && o.route.length > 1) {
+    ctx.save();
+    ctx.strokeStyle = o.sepia ? "rgba(112,78,50,0.8)" : "rgba(212,73,53,0.85)";
+    ctx.lineWidth = Math.max(3, Math.round(R / 3.2));
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    try { ctx.setLineDash([R * 0.9, R * 0.8]); } catch (e) {}
+    ctx.beginPath();
+    o.route.forEach((co, i) => { const [qx, qy] = px(co); if (i === 0) ctx.moveTo(qx, qy); else ctx.lineTo(qx, qy); });
+    ctx.stroke(); ctx.restore();
+  }
+  pts.forEach((p) => {
+    const [qx, qy] = px(p.coord);
+    ctx.beginPath(); ctx.fillStyle = o.sepia ? "#8a5a34" : "#F0604A"; ctx.arc(qx, qy, R, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = Math.max(2, Math.round(R / 4.5)); ctx.strokeStyle = "#ffffff"; ctx.stroke();
+    ctx.fillStyle = "#ffffff"; ctx.font = `bold ${Math.round(R * 1.1)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(String(p.label || ""), qx, qy + R * 0.05);
   });
   ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.fillRect(wPx - 128, hPx - 18, 128, 18);
   ctx.fillStyle = "#4a5a58"; ctx.font = "10px sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
   ctx.fillText("© OpenStreetMap", wPx - 120, hPx - 9);
   return cv.toDataURL("image/jpeg", 0.85);
+}
+const etapesJour = (evs) => {
+  const seq = [];
+  evs.forEach((e) => {
+    if (e.place && e.place.coord && e.place.name !== "À définir") {
+      const k = placeKey(e.place.name || "") + "|" + e.place.coord.lat.toFixed(4);
+      if (!seq.length || seq[seq.length - 1].k !== k) seq.push({ k, coord: e.place.coord });
+    }
+  });
+  const groupes = new Map();
+  seq.forEach((s, i) => {
+    const g = groupes.get(s.k);
+    if (g) g.label += "·" + (i + 1); else groupes.set(s.k, { coord: s.coord, label: String(i + 1) });
+  });
+  return { points: Array.from(groupes.values()), route: seq.map((s) => s.coord) };
+};
+function recitDuJour(d, evs, messages, bestE, bestV) {
+  const list = evs.map((e) => ({ h: e.start ? e.start.replace(":", "h") : "", t: titreDe(e), lieu: e.place && e.place.name !== "À définir" ? e.place.name : "" }));
+  if (!list.length) return "";
+  const ouv = [
+    (s) => `La journée s'ouvre à ${s.h} : ${s.t}.`,
+    (s) => `Tout commence à ${s.h} : ${s.t}.`,
+    (s) => `Mise en route à ${s.h} : ${s.t}.`,
+    (s) => `Premier rendez-vous à ${s.h} : ${s.t}.`,
+    (s) => `À ${s.h}, première étape : ${s.t}.`,
+    (s) => `Le jour démarre à ${s.h} : ${s.t}.`,
+  ];
+  const mil = [
+    (a) => `Suivront ${a}.`,
+    (a) => `Au fil des heures viendront ${a}.`,
+    (a) => `La suite : ${a}.`,
+    (a) => `Puis le programme enchaîne ${a}.`,
+  ];
+  const finj = [
+    (s) => `Dernière étape à ${s.h} : ${s.t}.`,
+    (s) => `La soirée se conclut à ${s.h} : ${s.t}.`,
+    (s) => `Et pour clore la journée, à ${s.h} : ${s.t}.`,
+  ];
+  const fort = [
+    (t, nb) => `Le moment préféré du groupe : ${t} (${nb} réactions).`,
+    (t, nb) => `${nb} réactions au compteur, le temps fort est net : ${t}.`,
+    (t, nb) => `Ce que le groupe retiendra : ${t}.`,
+  ];
+  const ph = [];
+  ph.push(ouv[d % ouv.length](list[0]));
+  if (list.length > 2) {
+    const milieu = list.slice(1, -1).map((s) => s.t).slice(0, 2);
+    if (milieu.length) ph.push(mil[d % mil.length](milieu.join(", puis ")));
+  }
+  if (list.length > 1) ph.push(finj[d % finj.length](list[list.length - 1]));
+  if (bestE && bestV >= 3) {
+    const tf = titreDe(bestE);
+    if (!ph.join(" ").includes(tf) || bestV >= 5) ph.push(fort[d % fort.length](tf, bestV));
+  }
+  const notes = SETTINGS.dayNotes && SETTINGS.dayNotes[d] ? SETTINGS.dayNotes[d] : null;
+  if (notes) {
+    Object.keys(notes).slice(0, 2).forEach((pid) => {
+      const txt = String(notes[pid] || "").trim();
+      if (txt) ph.push(`${person(pid).name} note dans le carnet : « ${txt.slice(0, 140)} »`);
+    });
+  }
+  return ph.join(" ");
 }
 async function pdfSetup(doc, JSP) {
   let F = { n: ["helvetica", "normal"], b: ["helvetica", "bold"], i: ["times", "italic"] };
@@ -2759,10 +2861,11 @@ async function pdfSetup(doc, JSP) {
     for (let i = 1; i < pts.length; i++) segs.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
     doc.lines(segs, pts[0][0], pts[0][1], [1, 1], fill ? "F" : "S", true);
   };
-  const tape = (cx, cy, ang) => {
+  const tape = (cx, cy, ang, col) => {
     const tw = 15, th = 5.2, ca = Math.cos(ang), sa = Math.sin(ang);
     const c = [[-tw / 2, -th / 2], [tw / 2, -th / 2], [tw / 2, th / 2], [-tw / 2, th / 2]].map(([x, y]) => [cx + x * ca - y * sa, cy + x * sa + y * ca]);
-    doc.setFillColor(250, 230, 160);
+    const [tr, tg, tb] = col || [250, 230, 160];
+    doc.setFillColor(tr, tg, tb);
     setOpacity(0.55); poly(c, true); setOpacity(1);
   };
   const toJpegCrop = async (url, cw, ch, center) => {
@@ -2778,7 +2881,7 @@ async function pdfSetup(doc, JSP) {
     cv.getContext("2d").drawImage(im, Math.round(ccx - sw / 2), Math.round(ccy - sh / 2), sw, sh, 0, 0, cw, ch);
     return cv.toDataURL("image/jpeg", 0.82);
   };
-  const polaroidTilt = async (cx, cy, w, ihh, angle, photo, faces, legend) => {
+  const polaroidTilt = async (cx, cy, w, ihh, angle, photo, faces, legend, tapeCol) => {
     const fw = w + 8, fh = ihh + (legend ? 17 : 9);
     const rad = (angle * Math.PI) / 180, ca = Math.cos(rad), sa = Math.sin(rad);
     const rot = (dx, dy) => [cx + dx * ca - dy * sa, cy + dx * sa + dy * ca];
@@ -2795,8 +2898,8 @@ async function pdfSetup(doc, JSP) {
       doc.setFont(...hand(legend)); doc.setFontSize(12); doc.setTextColor(64, 82, 91);
       doc.text(clean(legend), lx, ly, { align: "center", angle: -angle });
     }
-    tape(...rot(-fw / 2 + 5, -fh / 2 + 1), -0.6 + rad);
-    tape(...rot(fw / 2 - 5, -fh / 2 + 1), 0.6 + rad);
+    tape(...rot(-fw / 2 + 5, -fh / 2 + 1), -0.6 + rad, tapeCol);
+    tape(...rot(fw / 2 - 5, -fh / 2 + 1), 0.6 + rad, tapeCol);
     return true;
   };
   return { F, FC, hand, clean, setOpacity, poly, tape, toJpegCrop, polaroidTilt };
@@ -2812,66 +2915,169 @@ async function makeSouvenirPdf({ events, photos, messages }) {
   const faces = loadFaces();
   const star = pickStar(photos, faces);
   const ph = (photos || []).filter((p) => p.url);
+  const past = mainList(events);
   const fondCreme = () => { doc.setFillColor(255, 252, 244); doc.rect(0, 0, W, H, "F"); };
-  /* ---- couverture ---- */
-  const c1 = [255, 246, 226], c2 = [255, 205, 170], NB = 60;
+  const ENCRE = [150, 120, 88];
+  const doodle = (kind, x, y) => {
+    doc.setDrawColor(...ENCRE); doc.setFillColor(...ENCRE); doc.setLineWidth(0.5); doc.setLineDashPattern([], 0);
+    if (kind === 0) { doc.circle(x, y, 2.4, "S"); for (let i = 0; i < 8; i++) { const a = (i * Math.PI) / 4; doc.line(x + 3.2 * Math.cos(a), y + 3.2 * Math.sin(a), x + 4.6 * Math.cos(a), y + 4.6 * Math.sin(a)); } }
+    else if (kind === 1) { P.poly([[x - 3.4, y - 3], [x + 3.4, y - 3], [x, y + 0.6]], false); doc.line(x, y + 0.6, x, y + 3.4); doc.line(x - 2, y + 3.4, x + 2, y + 3.4); doc.circle(x + 1.2, y - 1.9, 0.8, "F"); }
+    else if (kind === 2) { doc.lines([[2.5, -2.2, 5, 0, 5, 0]], x - 4.5, y - 1, [1, 1], "S", false); doc.lines([[2.5, -2.2, 5, 0, 5, 0]], x - 3, y + 2, [1, 1], "S", false); }
+    else if (kind === 3) { doc.circle(x, y, 3.8, "S"); P.poly([[x, y - 2.6], [x + 1, y], [x, y + 2.6], [x - 1, y]], true); doc.circle(x, y, 0.45, "F"); }
+    else if (kind === 4) { const p5 = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5; const r = i % 2 ? 1.7 : 4; p5.push([x + r * Math.cos(a), y + r * Math.sin(a)]); } P.poly(p5, false); }
+    else { P.poly([[x - 4, y - 2.6], [x + 4, y - 2.6], [x + 4, y + 2.6], [x - 4, y + 2.6]], false); doc.circle(x, y, 1.5, "S"); P.poly([[x + 1.6, y - 3.4], [x + 3.2, y - 3.4], [x + 3.2, y - 2.6], [x + 1.6, y - 2.6]], true); }
+  };
+  const voilier = (x, y, s) => {
+    doc.setFillColor(64, 82, 91);
+    P.poly([[x + 11 * s, y - 2 * s], [x + 11 * s, y - 16 * s], [x, y - 2 * s]], true);
+    P.poly([[x + 14.5 * s, y - 2 * s], [x + 14.5 * s, y - 13 * s], [x + 24 * s, y - 2 * s]], true);
+    P.poly([[x - 2 * s, y - 0.4 * s], [x + 26 * s, y - 0.4 * s], [x + 21.5 * s, y + 4 * s], [x + 2.5 * s, y + 4 * s]], true);
+  };
+  /* ==== couverture ==== */
+  const c1 = [255, 247, 230], c2 = [255, 214, 182], NB = 60;
   for (let i = 0; i < NB; i++) {
     const t = i / (NB - 1);
     doc.setFillColor(Math.round(c1[0] + (c2[0] - c1[0]) * t), Math.round(c1[1] + (c2[1] - c1[1]) * t), Math.round(c1[2] + (c2[2] - c1[2]) * t));
     doc.rect(0, (H / NB) * i, W, H / NB + 0.4, "F");
   }
-  P.setOpacity(0.35); doc.setFillColor(247, 196, 96); doc.circle(178, 72, 17, "F"); P.setOpacity(1);
-  doc.setFillColor(243, 175, 66); doc.circle(178, 72, 9, "F");
-  [[26, 62], [58, 70], [96, 58], [136, 68], [40, 84]].forEach(([sx, sy], i) => {
-    doc.setFillColor(226, 162, 68); doc.circle(sx, sy, i % 2 ? 0.65 : 0.85, "F");
-  });
+  P.setOpacity(0.35); doc.setFillColor(247, 196, 96); doc.circle(183, 24, 13, "F"); P.setOpacity(1);
+  doc.setFillColor(243, 175, 66); doc.circle(183, 24, 7.2, "F");
+  [[24, 20], [60, 15], [122, 13], [156, 30]].forEach(([sx, sy], i) => { doc.setFillColor(226, 162, 68); doc.circle(sx, sy, i % 2 ? 0.6 : 0.8, "F"); });
   doc.setDrawColor(140, 122, 96); doc.setLineWidth(0.5);
-  doc.lines([[3, -2.6, 6, 0, 6, 0]], 70, 80, [1, 1], "S", false);
-  doc.lines([[2.6, -2.2, 5.2, 0, 5.2, 0]], 118, 74, [1, 1], "S", false);
+  doc.lines([[3, -2.6, 6, 0, 6, 0]], 48, 32, [1, 1], "S", false);
+  doc.lines([[2.6, -2.2, 5.2, 0, 5.2, 0]], 86, 24, [1, 1], "S", false);
+  const cadreTampon = (cx, cy, hw, hh, ang) => {
+    const rd = (ang * Math.PI) / 180, ca = Math.cos(rd), sa = Math.sin(rd);
+    const rot = (dx, dy) => [cx + dx * ca - dy * sa, cy + dx * sa + dy * ca];
+    P.poly([rot(-hw, -hh), rot(hw, -hh), rot(hw, hh), rot(-hw, hh)], false);
+  };
+  doc.setDrawColor(152, 112, 72); doc.setLineWidth(0.5);
+  cadreTampon(52, 21, 33, 6, -4);
+  doc.setLineWidth(0.25); doc.setLineDashPattern([1, 1.1], 0);
+  cadreTampon(52, 21, 30.6, 4.4, -4); doc.setLineDashPattern([], 0);
+  doc.setFont(...P.F.b); doc.setFontSize(7.5); doc.setTextColor(152, 112, 72);
+  doc.text("CARNET DE VOYAGE", 52, 22.6, { align: "center", angle: 4, charSpace: 1.3 });
   const titre = `C'était ${SETTINGS.place || SETTINGS.name || "le séjour"}`;
-  doc.setFont(...P.hand(titre, true)); doc.setFontSize(50); doc.setTextColor(35, 59, 69);
-  doc.text(P.clean(titre), W / 2, 36, { align: "center", angle: -1.5 });
+  doc.setFont(...P.hand(titre, true)); doc.setFontSize(48); doc.setTextColor(35, 59, 69);
+  doc.text(P.clean(titre), W / 2, 48, { align: "center", angle: -1.5 });
+  doc.setDrawColor(240, 96, 74); doc.setLineWidth(1.15);
+  try { doc.setLineCap(1); } catch (e) {}
+  doc.lines([[34, -2.6, 70, 2.4, 106, -0.8]], 52, 55, [1, 1], "S", false);
+  try { doc.setLineCap(0); } catch (e) {}
+  const kraft = (cx, cy, hw, hh, ang) => {
+    const rd = (ang * Math.PI) / 180, ca = Math.cos(rd), sa = Math.sin(rd);
+    const rot = (dx, dy) => [cx + dx * ca - dy * sa, cy + dx * sa + dy * ca];
+    doc.setFillColor(226, 208, 176); P.poly([rot(-hw + 1, -hh + 1.2), rot(hw + 1, -hh + 1.2), rot(hw + 1, hh + 1.2), rot(-hw + 1, hh + 1.2)], true);
+    doc.setFillColor(246, 232, 202); P.poly([rot(-hw, -hh), rot(hw, -hh), rot(hw, hh), rot(-hw, hh)], true);
+  };
+  const perTxt = P.clean(`${souvenirPeriode().split(" · ")[0]} 2026`);
+  kraft(105, 66, 37, 7, 2);
+  doc.setFont(...P.hand(perTxt, true)); doc.setFontSize(16); doc.setTextColor(92, 70, 44);
+  doc.text(perTxt, 105, 68.4, { align: "center", angle: -2 });
+  P.tape(105, 59.6, 0.12, [247, 208, 190]);
   const noms = ROSTER.filter((p) => p.active).map((p) => p.name).filter(Boolean);
-  doc.setFont(...P.F.n); doc.setFontSize(11); doc.setTextColor(110, 96, 70);
-  const per = doc.splitTextToSize(P.clean(`${souvenirPeriode().split(" · ")[0]} 2026 · ${noms.join(", ")}`), 168);
-  per.slice(0, 2).forEach((ln, i) => doc.text(ln, W / 2, 47 + i * 6, { align: "center" }));
-  doc.setDrawColor(176, 138, 90); doc.setLineWidth(0.4); doc.line(0, 108, W, 108);
-  doc.setFillColor(64, 82, 91);
-  P.poly([[42, 106], [42, 90], [31, 106]], true);
-  P.poly([[45.5, 106], [45.5, 93], [55, 106]], true);
-  P.poly([[29, 107.6], [57, 107.6], [52.5, 112], [33.5, 112]], true);
-  if (star) await P.polaroidTilt(107, 176, 126, 94, -3, star.photo, faces, star.label);
-  const pastN = mainList(events).length;
+  const nomsTxt = P.clean(noms.join("  ·  "));
+  doc.setFont(...P.hand(nomsTxt)); doc.setFontSize(15); doc.setTextColor(84, 74, 56);
+  doc.text(nomsTxt, W / 2, 82, { align: "center", angle: -1 });
+  voilier(24, 95, 0.55);
+  doc.setDrawColor(140, 122, 96); doc.setLineWidth(0.45); doc.setLineDashPattern([0.2, 1.6], 0);
+  doc.lines([[6, -2.4, 12, 1.8, 18, 0]], 20, 97.6, [1, 1], "S", false); doc.setLineDashPattern([], 0);
+  /* carte du séjour, papier ancien, circuit chronologique */
+  const placesU = buildPlaces(events);
+  const MC = { x: 105, y: 152, w: 156, h: 92, a: -1.2 };
+  const rd2 = (MC.a * Math.PI) / 180, ca2 = Math.cos(rd2), sa2 = Math.sin(rd2);
+  const rotC = (dx, dy) => [MC.x + dx * ca2 - dy * sa2, MC.y + dx * sa2 + dy * ca2];
+  try {
+    const ptsC = placesU.filter((p) => p.coord).map((p, i) => ({ coord: p.coord, label: String(i + 1) }));
+    const data = await mapImage(ptsC, 1240, 730, { sepia: true, route: ptsC.map((p) => p.coord), markerR: 16 });
+    doc.setFillColor(222, 214, 198);
+    P.poly([rotC(-81, -49), rotC(83, -49), rotC(83, 49.4), rotC(-81, 49.4)], true);
+    doc.setFillColor(255, 253, 246);
+    P.poly([rotC(-81, -49 - 1.6), rotC(81, -49 - 1.6), rotC(81, 49 - 1.6), rotC(-81, 49 - 1.6)], true);
+    const [ix, iy] = rotC(-78, -46 - 1.6);
+    doc.addImage(data, "JPEG", ix, iy, 156, 92, undefined, undefined, -MC.a);
+    const [rx, ry] = rotC(66, -34);
+    doc.setDrawColor(138, 100, 64); doc.setLineWidth(0.5); doc.circle(rx, ry, 6, "S");
+    doc.setFillColor(138, 100, 64);
+    P.poly([[rx, ry - 4.6], [rx + 1.4, ry], [rx, ry + 4.6], [rx - 1.4, ry]], true);
+    doc.setFont(...P.F.b); doc.setFontSize(6); doc.setTextColor(138, 100, 64);
+    doc.text("N", rx, ry - 7.2, { align: "center" });
+    P.tape(...rotC(-70, -50.6), -0.55, [250, 230, 160]);
+    P.tape(...rotC(70, -50.6), 0.55, [250, 230, 160]);
+    P.tape(...rotC(0, 50), 0.08, [196, 224, 214]);
+  } catch (e) {}
+  if (star) await P.polaroidTilt(154, 210, 62, 46, 3.5, star.photo, faces, star.label, [247, 208, 190]);
+  /* tampons de formes variées */
   let dist = 0, prev = null;
-  mainList(events).forEach((e) => { if (e.place && e.place.coord) { if (prev) dist += distM(prev, e.place.coord); prev = e.place.coord; } });
+  past.forEach((e) => { if (e.place && e.place.coord) { if (prev) dist += distM(prev, e.place.coord); prev = e.place.coord; } });
   const km = Math.round(dist / 1000);
-  const tampons = [[DAYS.length, DAYS.length > 1 ? "jours" : "jour"], [ph.length, ph.length > 1 ? "photos" : "photo"], [buildPlaces(events).length, "lieux"], km >= 1 ? [km, "km"] : [pastN, "activités"]];
   const encres = [[46, 107, 128], [222, 90, 70], [165, 130, 47], [126, 93, 184]];
-  tampons.forEach(([n, l], i) => {
-    const cx = [38, 90, 142, 188][i], cy = [256, 252, 258, 252][i], rot = [-7, 4, -3, 6][i];
-    const [r, g, b] = encres[i];
-    doc.setDrawColor(r, g, b); doc.setLineWidth(0.75); doc.setLineDashPattern([], 0); doc.circle(cx, cy, 11.6, "S");
-    doc.setLineWidth(0.32); doc.setLineDashPattern([1.1, 1.2], 0); doc.circle(cx, cy, 9.4, "S"); doc.setLineDashPattern([], 0);
-    doc.setTextColor(r, g, b); doc.setFont(...P.F.b); doc.setFontSize(13.5);
+  const t1 = (cx, cy, n, l, enc, rot) => {
+    const [r, g, b] = enc;
+    doc.setDrawColor(r, g, b); doc.setLineWidth(0.75); doc.setLineDashPattern([], 0); doc.circle(cx, cy, 11.4, "S");
+    doc.setLineWidth(0.32); doc.setLineDashPattern([1.1, 1.2], 0); doc.circle(cx, cy, 9.2, "S"); doc.setLineDashPattern([], 0);
+    doc.setTextColor(r, g, b); doc.setFont(...P.F.b); doc.setFontSize(13);
     doc.text(String(n), cx, cy + 1.1, { align: "center", angle: rot });
-    doc.setFontSize(5.7); doc.text(P.clean(l).toUpperCase(), cx, cy + 6, { align: "center", angle: rot, charSpace: 0.3 });
-  });
+    doc.setFontSize(5.6); doc.text(P.clean(l).toUpperCase(), cx, cy + 5.8, { align: "center", angle: rot, charSpace: 0.3 });
+  };
+  const t2 = (cx, cy, n, l, enc, rot) => {
+    const [r, g, b] = enc;
+    doc.setDrawColor(r, g, b); doc.setLineWidth(0.7);
+    const rd = (rot * Math.PI) / 180, cb = Math.cos(rd), sb = Math.sin(rd);
+    const ro = (dx, dy) => [cx + dx * cb - dy * sb, cy + dx * sb + dy * cb];
+    P.poly([ro(-14, -8.6), ro(14, -8.6), ro(14, 8.6), ro(-14, 8.6)], false);
+    doc.setLineWidth(0.3); doc.setLineDashPattern([1, 1.1], 0);
+    P.poly([ro(-12.2, -6.8), ro(12.2, -6.8), ro(12.2, 6.8), ro(-12.2, 6.8)], false);
+    doc.setLineDashPattern([], 0);
+    doc.setTextColor(r, g, b); doc.setFont(...P.F.b); doc.setFontSize(12.5);
+    doc.text(String(n), cx, cy + 1, { align: "center", angle: -rot });
+    doc.setFontSize(5.4); doc.text(P.clean(l).toUpperCase(), cx, cy + 5.6, { align: "center", angle: -rot, charSpace: 0.3 });
+  };
+  const t3 = (cx, cy, n, l, enc, rot) => {
+    const [r, g, b] = enc;
+    doc.setDrawColor(r, g, b); doc.setLineWidth(0.7);
+    try { doc.ellipse(cx, cy, 13.4, 8.8, "S"); doc.setLineWidth(0.3); doc.setLineDashPattern([1, 1.1], 0); doc.ellipse(cx, cy, 11.4, 7, "S"); doc.setLineDashPattern([], 0); } catch (e) { doc.circle(cx, cy, 10.8, "S"); }
+    doc.setTextColor(r, g, b); doc.setFont(...P.F.b); doc.setFontSize(12.5);
+    doc.text(String(n), cx, cy + 1, { align: "center", angle: rot });
+    doc.setFontSize(5.4); doc.text(P.clean(l).toUpperCase(), cx, cy + 5.4, { align: "center", angle: rot, charSpace: 0.3 });
+  };
+  const t4 = (cx, cy, n, l, enc, rot) => {
+    const [r, g, b] = enc;
+    doc.setDrawColor(r, g, b); doc.setLineWidth(0.45); doc.setLineDashPattern([1.4, 1.3], 0); doc.circle(cx, cy, 11.2, "S"); doc.setLineDashPattern([], 0);
+    doc.setLineWidth(0.7); doc.circle(cx, cy, 8.8, "S");
+    doc.setTextColor(r, g, b); doc.setFont(...P.F.b); doc.setFontSize(12.5);
+    doc.text(String(n), cx, cy + 1, { align: "center", angle: rot });
+    doc.setFontSize(5.4); doc.text(P.clean(l).toUpperCase(), cx, cy + 5.5, { align: "center", angle: rot, charSpace: 0.3 });
+  };
+  const vals = [[DAYS.length, DAYS.length > 1 ? "jours" : "jour"], [ph.length, ph.length > 1 ? "photos" : "photo"], [placesU.length, "lieux"], km >= 1 ? [km, "km"] : [past.length, "activités"]];
+  t1(34, 261, vals[0][0], vals[0][1], encres[0], -7);
+  t2(88, 257, vals[1][0], vals[1][1], encres[1], 5);
+  t3(140, 262, vals[2][0], vals[2][1], encres[2], -4);
+  t4(188, 256, vals[3][0], vals[3][1], encres[3], 6);
   doc.setFont(...P.F.n); doc.setFontSize(8); doc.setTextColor(150, 132, 106);
-  doc.text("C où déjà ?", W / 2, 289, { align: "center" });
-  /* ---- journées en flux ---- */
+  doc.text("C où déjà ?", W / 2, 290, { align: "center" });
+  /* ==== journées en flux ==== */
+  const bandes = ["#FFECD6", "#FDE8CC", "#E9F3EE", "#F6EFDF", "#FBE9E3", "#EEF0F9"];
+  const scotchs = [[250, 230, 160], [247, 208, 190], [196, 224, 214], [233, 220, 180], [244, 206, 198], [205, 210, 238]];
+  const anglesJ = [[-2.2, 1.8, -1.4], [1.6, -2.4, 1.8], [-1.4, 2.2, -2.2], [2.4, -1.8, 1.2], [-2.6, 1.4, -1.6], [1.8, -2.2, 2.0]];
   let y = 300;
   const newPage = () => { doc.addPage(); fondCreme(); y = 12; };
   const ensureS = (h) => { if (y + h > 283) newPage(); };
   for (let d = 0; d < DAYS.length; d++) {
-    const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+    const evs = past.filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
     const pj = ph.filter((p) => dayOfTs(p.at || 0) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
     if (!evs.length && !pj.length) continue;
-    ensureS(21 + (evs.length ? 32 : 4) + (pj.length ? 62 : 0));
-    doc.setFillColor(255, 236, 214); doc.rect(0, y, W, 15, "F");
+    const sc = scotchs[d % scotchs.length];
+    const ang = anglesJ[d % anglesJ.length];
+    ensureS(21 + (evs.length ? 30 : 4) + 24);
+    doc.setFillColor(bandes[d % bandes.length]); doc.rect(0, y, W, 15, "F");
     const tj = `Jour ${d + 1} · ${dayLabel(d)}`;
     doc.setFont(...P.hand(tj, true)); doc.setFontSize(20); doc.setTextColor(35, 59, 69);
     doc.text(P.clean(tj), 16, y + 10.5, { angle: -1 });
+    doodle(d % 6, 191, y + 7.5);
     y += 22;
+    let bestE = null, bestV = 0;
+    evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
     if (evs.length) {
       const steps = evs.slice(0, 5).map((e) => ({ hh: e.start ? e.start.replace(":", "h") : "", nom: titreDe(e) }));
       const x0 = 32, x1 = 178, n = steps.length;
@@ -2896,20 +3102,27 @@ async function makeSouvenirPdf({ events, photos, messages }) {
         doc.setTextColor(148, 136, 112); doc.setFont(...P.F.n); doc.setFontSize(6.8);
         doc.text(s.hh, xs[i], ys[i] + 11, { align: "center" });
       });
-      y += 28;
+      y += 27;
+    }
+    const recit = recitDuJour(d, evs, messages, bestE, bestV);
+    if (recit) {
+      doc.setFont(...P.hand(recit)); doc.setFontSize(13.5);
+      const lr = doc.splitTextToSize(P.clean(recit), 176).slice(0, 6);
+      ensureS(lr.length * 6.2 + 6);
+      doc.setTextColor(58, 55, 48);
+      doc.text(lr, 17, y + 4);
+      y += lr.length * 6.2 + 7;
     }
     if (pj.length >= 2) {
       ensureS(72);
-      await P.polaroidTilt(60, y + 32, 76, 57, -2.2, pj[0], faces, "");
-      await P.polaroidTilt(150, y + 35, 72, 54, 1.8, pj[1], faces, "");
+      await P.polaroidTilt(60, y + 32, 76, 57, ang[0], pj[0], faces, "", sc);
+      await P.polaroidTilt(150, y + 35, 72, 54, ang[1], pj[1], faces, "", sc);
       y += 74;
     } else if (pj.length === 1) {
       ensureS(76);
-      await P.polaroidTilt(105, y + 34, 100, 62, -1.8, pj[0], faces, "");
+      await P.polaroidTilt(105, y + 34, 100, 62, ang[0], pj[0], faces, "", sc);
       y += 78;
     }
-    let bestE = null, bestV = 0;
-    evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
     if (bestE && bestV >= 3) {
       ensureS(30);
       doc.setFillColor(255, 248, 233); doc.roundedRect(43, y, 124, 22, 2, 2, "F");
@@ -2938,12 +3151,12 @@ async function makeSouvenirPdf({ events, photos, messages }) {
     }
     if (pj.length >= 3) {
       ensureS(74);
-      await P.polaroidTilt(105, y + 32, 88, 54, -1.4, pj[2], faces, "");
+      await P.polaroidTilt(105, y + 32, 88, 54, ang[2], pj[2], faces, "", sc);
       y += 74;
     }
     y += 8;
   }
-  /* ---- livre d'or ---- */
+  /* ==== livre d'or ==== */
   const caps = SETTINGS.capsule || {};
   const mots = [];
   ROSTER.filter((p) => p.active).forEach((p) => normCaps(caps[p.id]).forEach((e) => mots.push({ pid: p.id, ...e })));
@@ -2984,7 +3197,7 @@ async function makeSouvenirPdf({ events, photos, messages }) {
     const minis = ph.filter((p) => !star || p.id !== star.photo.id).sort((a, b) => heartsOf(b) - heartsOf(a)).slice(0, 4);
     const ym = Math.min(252, yv + 26);
     for (let i = 0; i < minis.length; i++) {
-      await P.polaroidTilt(38 + i * 45, ym, 34, 27, [-2.5, 1.6, -1.2, 2.2][i], minis[i], faces, "");
+      await P.polaroidTilt(38 + i * 45, ym, 34, 27, [-2.5, 1.6, -1.2, 2.2][i], minis[i], faces, "", scotchs[i % scotchs.length]);
     }
   }
   doc.setFont(...P.F.n); doc.setFontSize(8); doc.setTextColor(172, 160, 140);
@@ -3067,7 +3280,7 @@ async function makeProgramPdf({ events, messages }) {
     y += 4;
   }
   try {
-    const data = await mapImage(places, 1070, 555);
+    const data = await mapImage(places.filter((p) => p.coord).map((p, i) => ({ coord: p.coord, label: String(i + 1) })), 1070, 555);
     doc.setFont(...P.F.b); doc.setFontSize(13); doc.setTextColor(35, 59, 69);
     doc.text("La carte du séjour", 16, y); y += 4;
     doc.addImage(data, "JPEG", 16, y, 178, 92.3);
@@ -3093,13 +3306,13 @@ async function makeProgramPdf({ events, messages }) {
       doc.text((e.start || "").replace(":", "h"), 16, yT);
       doc.setFont(...P.F.n); doc.setFontSize(8.8); doc.setTextColor(96, 88, 72);
       doc.text(fmtDur(e), 38, yT);
+      const ty = TYPES[e.type || "activite"] || TYPES.activite;
+      doc.setFillColor(ty.color); doc.circle(61.6, yT - 1.1, 1.5, "F");
       doc.setFont(...P.F.b); doc.setFontSize(9.8); doc.setTextColor(45, 52, 58);
-      doc.text(doc.splitTextToSize(P.clean(titreDe(e)), 92)[0] || "", 60, yT);
-      const sous = [e.place && e.place.name !== "À définir" ? e.place.name : "", e.note || ""].filter(Boolean).join(" · ");
-      if (sous) {
-        doc.setFont(...P.F.n); doc.setFontSize(8.2); doc.setTextColor(120, 112, 96);
-        doc.text(doc.splitTextToSize(P.clean(sous), 96)[0] || "", 60, yT + 4.6);
-      }
+      doc.text(doc.splitTextToSize(P.clean(titreDe(e)), 88)[0] || "", 65.4, yT);
+      const sous = [ty.label, e.place && e.place.name !== "À définir" ? e.place.name : "", e.note || ""].filter(Boolean).join(" · ");
+      doc.setFont(...P.F.n); doc.setFontSize(8.2); doc.setTextColor(120, 112, 96);
+      doc.text(doc.splitTextToSize(P.clean(sous), 92)[0] || "", 65.4, yT + 4.6);
       const v = vibeOfEvent(e, messages);
       const av = avisLabel(v);
       if (av) {
@@ -3110,6 +3323,15 @@ async function makeProgramPdf({ events, messages }) {
       }
       yT += 15;
     });
+    const ej = etapesJour(evs);
+    if (ej.points.length >= 2) {
+      if (yT + 46 > 282) { doc.addPage(); fond(); yT = 14; }
+      try {
+        const dj = await mapImage(ej.points, 1070, 240, { route: ej.route, markerR: 12, maxZoom: 14 });
+        doc.addImage(dj, "JPEG", 16, yT - 2, 178, 39.9);
+        yT += 44;
+      } catch (e) {}
+    }
     yT += 5;
   }
   /* par envie + adresses */
@@ -3141,15 +3363,19 @@ async function makeProgramPdf({ events, messages }) {
   if (places.length) {
     if (yT > 180) { doc.addPage(); fond(); yT = 18; }
     doc.setFont(...P.F.b); doc.setFontSize(14); doc.setTextColor(35, 59, 69);
-    doc.text("Les adresses", 16, yT); yT += 8;
-    places.forEach((p, i) => {
-      if (yT > 278) { doc.addPage(); fond(); yT = 18; }
-      if (i % 2 === 0) { doc.setFillColor(248, 250, 251); doc.rect(16, yT - 4.6, 178, 7.4, "F"); }
-      doc.setFont(...P.F.b); doc.setFontSize(9.4); doc.setTextColor(45, 52, 58);
-      doc.text(doc.splitTextToSize(P.clean(`${i + 1} · ${p.name}`), 66)[0] || "", 16, yT);
-      if (p.coord) {
-        doc.setFont(...P.F.n); doc.setFontSize(8.8); doc.setTextColor(96, 88, 72);
-        doc.text(`${p.coord.lat.toFixed(4)}, ${p.coord.lng.toFixed(4)}`, 88, yT);
+    doc.text("Les adresses", 16, yT); yT += 9;
+    for (let i = 0; i < places.length; i++) {
+      const p = places[i];
+      if (yT > 274) { doc.addPage(); fond(); yT = 18; }
+      if (i % 2 === 0) { doc.setFillColor(248, 250, 251); doc.rect(16, yT - 4.8, 178, 11.2, "F"); }
+      doc.setFont(...P.F.b); doc.setFontSize(9.6); doc.setTextColor(45, 52, 58);
+      doc.text(doc.splitTextToSize(P.clean(`${i + 1} · ${p.name}`), 128)[0] || "", 16, yT);
+      let addr = "";
+      try { addr = p.coord ? await reverseAddr(p.coord) : ""; } catch (e) {}
+      if (!addr && p.coord) addr = `${p.coord.lat.toFixed(4)}, ${p.coord.lng.toFixed(4)}`;
+      if (addr) {
+        doc.setFont(...P.F.n); doc.setFontSize(8.2); doc.setTextColor(120, 112, 96);
+        doc.text(doc.splitTextToSize(P.clean(addr), 128)[0] || "", 16, yT + 4.6);
       }
       const url = p.coord
         ? `https://www.google.com/maps/search/?api=1&query=${p.coord.lat},${p.coord.lng}`
@@ -3157,8 +3383,8 @@ async function makeProgramPdf({ events, messages }) {
       doc.setFont(...P.F.n); doc.setFontSize(8.8); doc.setTextColor(46, 107, 128);
       try { doc.textWithLink("ouvrir dans Maps", 152, yT, { url }); } catch (e) { doc.text("ouvrir dans Maps", 152, yT); }
       doc.setDrawColor(46, 107, 128); doc.setLineWidth(0.2); doc.line(152, yT + 1.1, 179, yT + 1.1);
-      yT += 7.4;
-    });
+      yT += 11.2;
+    }
   }
   const total = doc.getNumberOfPages ? doc.getNumberOfPages() : 0;
   for (let i = 1; i <= (total || 0); i++) {
