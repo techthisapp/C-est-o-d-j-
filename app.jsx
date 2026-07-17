@@ -2217,11 +2217,11 @@ function CapsuleCard({ now, onSave, onDelete }) {
 
 /* Film du séjour */
 function detectVehicule(events) {
-  const txt = mainList(events).map((e) => `${e.title || ""} ${e.place && e.place.name || ""} ${e.type || ""}`).join(" ").toLowerCase();
-  if (/ferry|bateau|boat|croisi|voilier/.test(txt)) return "bateau";
+  const txt = mainList(events).map((e) => `${e.title || ""} ${e.place && e.place.name || ""}`).join(" ").toLowerCase();
+  if (/ferry|bateau|boat|croisi|voilier|travers[ée]e/.test(txt)) return "bateau";
   if (/v[ée]lo|bike|cyclo/.test(txt)) return "velo";
-  if (/vol |avion|a[ée]roport|airport|✈/.test(txt) || /transport/.test(txt)) return "avion";
-  return "avion";
+  if (/vol|avion|a[ée]roport|airport|aeroporto|aeropuerto|flughafen|αερολιμ|terminal/.test(txt)) return "avion";
+  return "voiture";
 }
 function hullDe(pts) {
   if (pts.length < 3) return null;
@@ -2302,6 +2302,13 @@ function VehiculeSVG({ kind }) {
       <path d="M -3.4 1.6 L -1 -2.4 L 2.2 -2.4 L 3.4 1.6 M -1 -2.4 L 0.6 1.6 L -3.4 1.6 M 2.2 -2.4 L 1.6 -3.6" />
     </g>
   );
+  if (kind === "voiture") return (
+    <g>
+      <path d="M -6.5 1 L -5.5 -1.6 L -2.6 -3.4 L 2.8 -3.4 L 5.4 -1.4 L 6.5 1 L 6.2 2.2 L -6.2 2.2 Z" fill="#3A5560" />
+      <path d="M -2.2 -2.6 L 2.2 -2.6 L 4 -1.4 L -3.6 -1.4 Z" fill="#BFE0EA" />
+      <circle cx="-3.6" cy="2.4" r="1.5" fill="#22333B" /><circle cx="3.6" cy="2.4" r="1.5" fill="#22333B" />
+    </g>
+  );
   return (
     <g fill="#3A5560">
       <path d="M -6 0 L 6.5 -1.2 L 8.5 0.4 L -6 1.6 Z" />
@@ -2373,7 +2380,7 @@ function FilmOverlay({ events, photos, messages, onClose }) {
         ))}
         <div style={{ fontFamily: fB, fontSize: 13, letterSpacing: 3, color: "#A5822F", textTransform: "uppercase", animation: "vfade .8s ease both" }}>Le film du séjour</div>
         <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(44px, 13vw, 78px)", color: T.c.ink, transform: "rotate(-2deg)", margin: "10px 0 6px", animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".25s", textAlign: "center", lineHeight: 1.05 }}>{`C'était ${SETTINGS.place || SETTINGS.name || "nous"}`}</div>
-        <div style={{ fontFamily: fB, fontSize: 15, color: "#6E6046", animation: "vfade 1s ease both", animationDelay: ".9s" }}>{souvenirPeriode().split(" · ")[0]} 2026</div>
+        <div style={{ fontFamily: fB, fontSize: 15, color: "#6E6046", animation: "vfade 1s ease both", animationDelay: ".9s" }}>{`${souvenirPeriode().split(" · ")[0]} ${new Date(SETTINGS.startISO + "T12:00:00").getFullYear()}`}</div>
       </div>
     );
   } else if (sc.t === "voyage") {
@@ -3277,7 +3284,7 @@ async function makeSouvenirPdf({ events, photos, messages }) {
     doc.setFillColor(226, 208, 176); P.poly([rot(-hw + 1, -hh + 1.2), rot(hw + 1, -hh + 1.2), rot(hw + 1, hh + 1.2), rot(-hw + 1, hh + 1.2)], true);
     doc.setFillColor(246, 232, 202); P.poly([rot(-hw, -hh), rot(hw, -hh), rot(hw, hh), rot(-hw, hh)], true);
   };
-  const perTxt = P.clean(`${souvenirPeriode().split(" · ")[0]} 2026`);
+  const perTxt = P.clean(`${souvenirPeriode().split(" · ")[0]} ${new Date(SETTINGS.startISO + "T12:00:00").getFullYear()}`);
   kraft(105, 66, 37, 7, 2);
   doc.setFont(...P.hand(perTxt, true)); doc.setFontSize(16); doc.setTextColor(92, 70, 44);
   doc.text(perTxt, 105, 68.4, { align: "center", angle: -2 });
