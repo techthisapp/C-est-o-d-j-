@@ -4892,8 +4892,14 @@ function Sheet({ open, onClose, children, title }) {
 }
 
 /* Détail d'un événement */
-function DetailSheet({ event, messages, photos, canEdit, onEdit, onToggleMine, onSend, onAddPhoto, onOpenPhoto, onOpenEvent, onAddParallel, allEvents, pollHandlers, focusThread }) {
+function DetailSheet({ event, messages, photos, canEdit, onEdit, onPatch, onDelete, favorites, onAddFavorite, onToggleMine, onSend, onAddPhoto, onOpenPhoto, onOpenEvent, onAddParallel, allEvents, pollHandlers, focusThread }) {
   const threadRef = useRef(null);
+  const [edit, setEdit] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const savedRef = useRef(null);
+  useEffect(() => () => { if (savedRef.current) clearTimeout(savedRef.current); }, []);
+  useEffect(() => { setEdit(null); setConfirmDel(false); }, [event && event.id]);
   useEffect(() => {
     if (focusThread && threadRef.current) {
       const id = setTimeout(() => { try { threadRef.current.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { /* rien */ } }, 80);
@@ -4901,6 +4907,31 @@ function DetailSheet({ event, messages, photos, canEdit, onEdit, onToggleMine, o
     }
   }, [focusThread, event && event.id]);
   if (!event) return null;
+  const patch = (p) => {
+    if (!onPatch) return;
+    onPatch(event.id, p);
+    setSaved(true);
+    if (savedRef.current) clearTimeout(savedRef.current);
+    savedRef.current = setTimeout(() => setSaved(false), 1700);
+  };
+  const hmToMin = (v) => { const [h, m] = (v || "00:00").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  const minToHm = (min) => { const v = Math.max(0, Math.min(1439, min)); return pad(Math.floor(v / 60)) + ":" + pad(v % 60); };
+  const majDebut = (v) => { const s = hmToMin(v); const p = { start: v }; if (hmToMin(event.end) <= s) p.end = minToHm(s + 60); patch(p); };
+  const majFin = (v) => { const f = hmToMin(v); const p = { end: v }; if (f <= hmToMin(event.start)) p.start = minToHm(f - 60); patch(p); };
+  const champ = { fontFamily: fB, fontSize: 15, color: T.c.ink, width: "100%", boxSizing: "border-box", padding: "11px 12px", border: `1px solid ${T.c.sea}`, borderRadius: T.r.md, background: T.c.card, outline: "none" };
+  const zoneEdit = { background: T.c.seaSoft, borderRadius: T.r.md, padding: 11, display: "flex", flexDirection: "column", gap: 9 };
+  const btnFini = (
+    <button onClick={() => setEdit(null)} style={{ alignSelf: "flex-end", cursor: "pointer", border: "none", background: T.c.sea, color: "#fff", borderRadius: T.r.pill, padding: "7px 14px", minHeight: 36, fontFamily: fD, fontWeight: 700, fontSize: 13 }}>Terminé</button>
+  );
+  const ligne = (icone, label, valeur, cle, vide) => {
+    if (!canEdit) return valeur ? <InfoLine icon={icone} label={label} value={valeur} /> : null;
+    return (
+      <button onClick={() => setEdit(cle)} style={{ width: "100%", textAlign: "left", cursor: "pointer", background: "transparent", border: "none", padding: "3px 0", minHeight: 44, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ flex: 1, minWidth: 0, opacity: valeur ? 1 : 0.62 }}><InfoLine icon={icone} label={label} value={valeur || vide} /></span>
+        <Pencil size={14} color={T.c.inkFaint} style={{ flex: "0 0 auto" }} />
+      </button>
+    );
+  };
   const t = TYPES[event.type];
   const going = iAmIn(event);
   const alt = isAlt(event);
@@ -4913,14 +4944,49 @@ function DetailSheet({ event, messages, photos, canEdit, onEdit, onToggleMine, o
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 15 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <TypeChip type={event.type} />
+        {canEdit ? (
+          <button onClick={() => setEdit(edit === "type" ? null : "type")} style={{ cursor: "pointer", border: "none", background: "transparent", padding: 0, display: "inline-flex", alignItems: "center", gap: 5, minHeight: 34 }}>
+            <TypeChip type={event.type} /><Pencil size={12} color={T.c.inkFaint} />
+          </button>
+        ) : <TypeChip type={event.type} />}
+        {saved && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", fontFamily: fD, fontWeight: 600, fontSize: 12, color: T.c.seaDeep, animation: "vfade .2s ease" }}>
+            <Check size={13} /> Enregistré
+          </span>
+        )}
         {alt && main && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: fB, fontSize: 12.5, color: T.c.inkFaint }}>
             <CornerDownRight size={13} /> en parallèle de {main.title}
           </span>
         )}
       </div>
-      <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 24, lineHeight: 1.15 }}>{event.title}</div>
+      {edit === "type" && (
+        <div style={zoneEdit}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {[...TYPE_ORDER, ...(SETTINGS.categories || []).map((c) => c.id)].map((k) => {
+              const ty = TYPES[k]; if (!ty) return null; const on = event.type === k;
+              return (
+                <button key={k} onClick={() => { if (!on) patch({ type: k }); setEdit(null); }} style={{ cursor: "pointer", border: on ? `2px solid ${ty.color}` : `1px solid ${T.c.line}`, background: on ? ty.soft : T.c.card, color: on ? ty.color : T.c.inkSoft, borderRadius: T.r.pill, padding: "8px 13px", minHeight: 40, fontFamily: fD, fontWeight: 600, fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span>{ty.emoji}</span> {ty.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {edit === "titre" ? (
+        <input autoFocus defaultValue={event.title} placeholder="Plage, dîner, boutiques..."
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== event.title) patch({ title: v }); setEdit(null); }}
+          style={{ ...champ, fontFamily: fD, fontWeight: 700, fontSize: 22 }} />
+      ) : canEdit ? (
+        <button onClick={() => setEdit("titre")} style={{ width: "100%", textAlign: "left", cursor: "pointer", background: "transparent", border: "none", padding: 0, minHeight: 44, display: "flex", alignItems: "center", gap: 9 }}>
+          <span style={{ flex: 1, fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 24, lineHeight: 1.15 }}>{event.title}</span>
+          <Pencil size={15} color={T.c.inkFaint} style={{ flex: "0 0 auto" }} />
+        </button>
+      ) : (
+        <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 24, lineHeight: 1.15 }}>{event.title}</div>
+      )}
 
       {event.place && event.place.coord ? <MapPreview coord={event.place.coord} name={event.place.name} /> : null}
       {event.place && !event.place.coord && event.place.name && event.place.name !== "À définir" && (
@@ -4928,14 +4994,62 @@ function DetailSheet({ event, messages, photos, canEdit, onEdit, onToggleMine, o
           <Navigation size={16} /> Itinéraire vers « {event.place.name} »
         </a>
       )}
-      <div>
-        <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 15 }}>{event.place.name}</div>
-        {event.place.area && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 13 }}>{event.place.area}</div>}
-      </div>
+      {edit === "lieu" ? (
+        <div style={zoneEdit}>
+          <PlaceField
+            draft={{ ...event, placeName: event.place.name === "À définir" ? "" : event.place.name, coord: event.place.coord }}
+            setDraft={(d) => patch({ place: { name: (d.placeName || "").trim() || "À définir", coord: d.coord || null, area: event.place.area } })}
+            favorites={favorites} onAddFavorite={onAddFavorite} />
+          {btnFini}
+        </div>
+      ) : canEdit ? (
+        <button onClick={() => setEdit("lieu")} style={{ width: "100%", textAlign: "left", cursor: "pointer", background: "transparent", border: "none", padding: "3px 0", minHeight: 44, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: "block", fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 15 }}>{event.place.name}</span>
+            {event.place.area && <span style={{ display: "block", fontFamily: fB, color: T.c.inkFaint, fontSize: 13 }}>{event.place.area}</span>}
+          </span>
+          <Pencil size={14} color={T.c.inkFaint} style={{ flex: "0 0 auto" }} />
+        </button>
+      ) : (
+        <div>
+          <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 15 }}>{event.place.name}</div>
+          {event.place.area && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 13 }}>{event.place.area}</div>}
+        </div>
+      )}
 
-      <InfoLine icon={<Clock3 size={18} color={t.color} />} label="Horaire" value={`${DAYS[event.day].long}, ${event.start} à ${event.end}`} />
-      {event.cost && <InfoLine icon={<Wallet size={18} color={t.color} />} label="Budget" value={event.cost} />}
-      {event.note && <InfoLine icon={<StickyNote size={18} color={t.color} />} label="À prévoir" value={event.note} />}
+      {edit === "horaire" ? (
+        <div style={zoneEdit}>
+          <ScrollRow selKey={event.day}>
+            {DAYS.map((d) => {
+              const on = event.day === d.i;
+              return (
+                <button key={d.i} data-sel={on ? "1" : undefined} onClick={() => { if (!on) patch({ day: d.i }); }} style={{ flex: "0 0 auto", cursor: "pointer", border: on ? `2px solid ${T.c.sea}` : `1px solid ${T.c.line}`, background: on ? T.c.card : T.c.card, color: on ? T.c.seaDeep : T.c.inkSoft, borderRadius: T.r.md, padding: "9px 13px", minHeight: 40, fontFamily: fD, fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>{d.short} {d.d}</button>
+              );
+            })}
+          </ScrollRow>
+          <div style={{ display: "flex", gap: 10 }}>
+            <span style={{ flex: 1 }}><span style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 12.5, display: "block", marginBottom: 4 }}>Début</span>
+              <input type="time" value={event.start} onChange={(e) => majDebut(e.target.value)} style={champ} /></span>
+            <span style={{ flex: 1 }}><span style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 12.5, display: "block", marginBottom: 4 }}>Fin</span>
+              <input type="time" value={event.end} onChange={(e) => majFin(e.target.value)} style={champ} /></span>
+          </div>
+          {btnFini}
+        </div>
+      ) : ligne(<Clock3 size={18} color={t.color} />, "Horaire", `${DAYS[event.day].long}, ${event.start} à ${event.end}`, "horaire")}
+      {edit === "budget" ? (
+        <div style={zoneEdit}>
+          <input autoFocus defaultValue={event.cost || ""} placeholder="25 à 35 EUR par personne"
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+            onBlur={(e) => { const v = e.target.value.trim(); if (v !== (event.cost || "")) patch({ cost: v }); setEdit(null); }} style={champ} />
+        </div>
+      ) : ligne(<Wallet size={18} color={t.color} />, "Budget", event.cost, "budget", "Ajouter un budget")}
+      {edit === "note" ? (
+        <div style={zoneEdit}>
+          <textarea autoFocus defaultValue={event.note || ""} placeholder="Maillot, réservation, point de rendez-vous..."
+            onBlur={(e) => { const v = e.target.value.trim(); if (v !== (event.note || "")) patch({ note: v }); setEdit(null); }}
+            style={{ ...champ, minHeight: 74, resize: "vertical", lineHeight: 1.4 }} />
+        </div>
+      ) : ligne(<StickyNote size={18} color={t.color} />, "À prévoir", event.note, "note", "Ajouter une note")}
 
       {/* Présence */}
       <div>
@@ -5014,11 +5128,19 @@ function DetailSheet({ event, messages, photos, canEdit, onEdit, onToggleMine, o
         <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5, marginTop: 7 }}>Partagées avec le groupe.</div>
       </div>
 
-      {canEdit && (
-        <button onClick={onEdit} style={{ marginTop: 4, marginBottom: 10, cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.inkSoft, width: "100%", borderRadius: T.r.md, padding: "14px", fontFamily: fD, fontWeight: 600, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <Pencil size={17} /> Modifier l'activité
+      {canEdit && onDelete && (confirmDel ? (
+        <div style={{ marginTop: 4, marginBottom: 10, background: T.c.coralSoft, borderRadius: T.r.md, padding: 12 }}>
+          <div style={{ fontFamily: fB, fontSize: 14, color: T.c.ink, marginBottom: 10 }}>Supprimer cette activité ? Cette action est définitive.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setConfirmDel(false)} style={{ flex: 1, minHeight: 44, cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.inkSoft, borderRadius: T.r.md, padding: "11px", fontFamily: fD, fontWeight: 600, fontSize: 14 }}>Annuler</button>
+            <button onClick={() => onDelete(event.id)} style={{ flex: 1, minHeight: 44, cursor: "pointer", border: "none", background: T.c.coralDeep, color: "#fff", borderRadius: T.r.md, padding: "11px", fontFamily: fD, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}><Trash2 size={16} /> Supprimer</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setConfirmDel(true)} style={{ marginTop: 4, marginBottom: 10, cursor: "pointer", border: `1px solid ${T.c.coralDeep}55`, background: "transparent", color: T.c.coralDeep, width: "100%", borderRadius: T.r.md, padding: "13px", minHeight: 44, fontFamily: fD, fontWeight: 600, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Trash2 size={17} /> Supprimer l'activité
         </button>
-      )}
+      ))}
     </div>
   );
 }
@@ -6500,6 +6622,7 @@ export default function App() {
     return list.map((e) => e.id === id ? { ...e, skip: sk.includes(ME) ? sk.filter((x) => x !== ME) : [...sk, ME] } : e);
   });
 
+  const patchEvent = (id, patch) => setEvents((list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   const saveDraft = () => {
     const isPar = !!draft.parallelOf;
     const base = {
@@ -6652,6 +6775,7 @@ export default function App() {
         <Sheet open={!!sheet} onClose={closeSheet} title={sheetTitle}>
           {sheet?.mode === "detail" && (
             <DetailSheet event={sheetEvent} messages={messages} photos={visiblePhotos} canEdit={canEdit}
+              onPatch={patchEvent} onDelete={deleteEvent} favorites={favorites} onAddFavorite={addFavorite}
               onEdit={() => openEdit(sheetEvent)} onToggleMine={toggleMine} onSend={sendMessage}
               onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onOpenEvent={openDetail} onAddParallel={openAddParallel} allEvents={events} pollHandlers={pollHandlers} focusThread={!!sheet?.focusThread} />
           )}
