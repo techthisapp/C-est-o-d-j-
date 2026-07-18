@@ -4536,13 +4536,28 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [envol, setEnvol] = useState(0);
+  const [sansTrans, setSansTrans] = useState(false);
   const startX = useRef(null);
   const n = photos.length;
   const idx = ((i % n) + n) % n;
   const cur = photos[idx];
   const suiv = photos[(idx + 1) % n];
-  const label = `Les photos du groupe${n > 1 ? ` · ${idx + 1}/${n}` : ""}`;
-  const finEnvol = (e) => { if (e && e.propertyName && e.propertyName !== "transform") return; if (envol !== 0) { setI((x) => (x + 1) % n); setEnvol(0); setDrag(0); } };
+  const labelDe = (k) => `Les photos du groupe${n > 1 ? ` · ${k + 1}/${n}` : ""}`;
+  /* après l'envol, replacer la nouvelle carte du dessus sans transition pour qu'elle ne revienne pas en glissant */
+  useEffect(() => {
+    if (!sansTrans) return undefined;
+    const raf = window.requestAnimationFrame || ((c) => setTimeout(c, 16));
+    const id = raf(() => setSansTrans(false));
+    return () => (window.cancelAnimationFrame ? window.cancelAnimationFrame(id) : clearTimeout(id));
+  }, [sansTrans]);
+  const finEnvol = (e) => {
+    if (e && e.propertyName && e.propertyName !== "transform") return;
+    if (envol === 0) return;
+    setSansTrans(true);
+    setI((x) => (x + 1) % n);
+    setEnvol(0);
+    setDrag(0);
+  };
   const down = (e) => { if (envol) return; startX.current = e.clientX; setDragging(true); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} };
   const move = (e) => { if (startX.current == null) return; setDrag(e.clientX - startX.current); };
   const up = (e) => {
@@ -4558,12 +4573,12 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
   return (
     <div style={{ alignSelf: "center", width: "90%", marginTop: 2 }}>
       <div style={{ position: "relative" }}>
-        {n > 1 && (dragging || envol !== 0) && (
-          <CartePhoto photo={suiv} faces={faces} legende={label} style={{ position: "absolute", inset: 0, transform: "rotate(-1.4deg) scale(0.965)", opacity: 0.92 }} />
+        {n > 1 && (
+          <CartePhoto photo={suiv} faces={faces} legende={labelDe((idx + 1) % n)} style={{ position: "absolute", inset: 0, transform: "rotate(-1.4deg)" }} />
         )}
-        <CartePhoto photo={cur} faces={faces} legende={label}
+        <CartePhoto photo={cur} faces={faces} legende={labelDe(idx)}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onTransitionEnd={finEnvol}
-          style={{ position: "relative", transform: `rotate(-1.4deg) ${transform}`, transition: dragging ? "none" : "transform .5s cubic-bezier(.2,.75,.3,1), opacity .5s ease", opacity: envol !== 0 ? 0 : 1, cursor: dragging ? "grabbing" : "grab", touchAction: "pan-y" }} />
+          style={{ position: "relative", transform: `rotate(-1.4deg) ${transform}`, transition: (dragging || sansTrans) ? "none" : "transform .5s cubic-bezier(.2,.75,.3,1), opacity .5s ease", opacity: envol !== 0 ? 0 : 1, cursor: dragging ? "grabbing" : "grab", touchAction: "pan-y" }} />
       </div>
       {n > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 11 }}>
