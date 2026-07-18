@@ -1489,7 +1489,7 @@ function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCo
       <QuickActions event={event} unread={unread} onOpen={onOpen} onDiscuss={onDiscuss} onAddPhoto={onAddPhoto} onVibe={onVibe} vibeCount={vibeCount} light />
       {showPresence && (
         <div onClick={(e) => { e.stopPropagation(); setShowPresence(false); }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(12,28,38,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: T.c.card, color: T.c.ink, borderRadius: T.r.lg, padding: 18, width: "100%", maxWidth: 320, maxHeight: "70%", overflowY: "auto", boxShadow: T.sh.lift }}>
+          <div style={{ background: T.c.card, color: T.c.ink, borderRadius: T.r.lg, padding: 18, width: "100%", maxWidth: 320, maxHeight: "70%", overflowY: "auto", boxShadow: T.sh.lift }}>
             <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 16, marginBottom: 12 }}>{event.title}</div>
             <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, marginBottom: 9 }}>PRÉSENTS · {attendeesOf(event).length}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
