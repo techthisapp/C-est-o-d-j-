@@ -1436,7 +1436,7 @@ function NextCard({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount
         {!iAmIn(event) && <span style={{ fontFamily: fB, fontSize: 12.5, color: T.c.inkFaint }}>vous passez votre tour</span>}
       </div>
       <PollBanner count={openPolls} onOpen={onOpen} />
-      <QuickActions event={event} unread={unread} onOpen={onOpen} onDiscuss={onDiscuss} onAddPhoto={onAddPhoto} onVibe={onVibe} vibeCount={vibeCount} onJoin={onJoin} going={going} />
+      <QuickActions event={event} unread={unread} onOpen={onOpen} onDiscuss={onDiscuss} onAddPhoto={onAddPhoto} onJoin={onJoin} going={going} />
     </div>
   );
 }
