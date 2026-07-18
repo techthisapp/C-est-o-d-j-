@@ -6135,18 +6135,18 @@ function CategoriesSection({ categories, onAdd, onUpdate, onRemove }) {
 
 /* ---- Interactions du séjour (activables dans les réglages) ------------- */
 const FEATURE_DEFS = [
-  { id: "status", label: "Statut en direct", desc: "Chacun peut indiquer où il est (plage, resto, sieste), visible sur l'accueil." },
-  { id: "photoChallenge", label: "Défi photo du jour", desc: "Un thème de photo chaque jour, chacun poste sa participation." },
-  { id: "morningQuestion", label: "Question du matin", desc: "Un mini duel d'options chaque jour (plage ou piscine)." },
-  { id: "wholikely", label: "Qui a le plus de chances", desc: "Chaque jour, on vote pour un membre du groupe." },
-  { id: "bingo", label: "Bingo de vacances", desc: "Une grille partagée de moments à cocher pendant le séjour." },
-  { id: "quickvibe", label: "Réaction rapide", desc: "Un bouton pour dire au groupe que le moment est bon." },
-  { id: "recap", label: "Récap du soir", desc: "Le bilan de la journée : activités, photos, messages, lieux explorés." },
-  { id: "awards", label: "Hauts faits du jour", desc: "Photographe du jour, bavard du jour, premier message (dans le récap)." },
-  { id: "capsule", label: "Capsule temporelle", desc: "Chacun dépose un mot secret, révélé le dernier soir." },
-  { id: "film", label: "Diaporama photos", desc: "Un diaporama qui enchaîne les photos depuis la galerie, avec réactions et identification." },
-  { id: "guess", label: "Devine le lieu", desc: "Une photo mystère dans la discussion, le groupe devine où c'est." },
-  { id: "quiz", label: "Quiz du séjour", desc: "Le dernier soir, un quiz généré depuis vos journées, avec les scores du groupe." },
+  { id: "status", zone: "accueil", label: "Statut en direct", desc: "Chacun peut indiquer où il est (plage, resto, sieste), visible sur l'accueil." },
+  { id: "photoChallenge", zone: "accueil", label: "Défi photo du jour", desc: "Un thème de photo chaque jour, chacun poste sa participation." },
+  { id: "morningQuestion", zone: "accueil", label: "Question du matin", desc: "Un mini duel d'options chaque jour (plage ou piscine)." },
+  { id: "wholikely", zone: "accueil", label: "Qui a le plus de chances", desc: "Chaque jour, on vote pour un membre du groupe." },
+  { id: "bingo", zone: "jeux", label: "Bingo de vacances", desc: "Une grille partagée de moments à cocher pendant le séjour." },
+  { id: "quickvibe", zone: "accueil", label: "Réaction rapide", desc: "Un bouton pour dire au groupe que le moment est bon." },
+  { id: "recap", zone: "accueil", label: "Récap du soir", desc: "Le bilan de la journée : activités, photos, messages, lieux explorés." },
+  { id: "awards", zone: "accueil", label: "Hauts faits du jour", desc: "Photographe du jour, bavard du jour, premier message (dans le récap)." },
+  { id: "capsule", zone: "accueil", label: "Capsule temporelle", desc: "Chacun dépose un mot secret, révélé le dernier soir." },
+  { id: "film", zone: "photos", label: "Diaporama photos", desc: "Un diaporama qui enchaîne les photos depuis la galerie, avec réactions et identification." },
+  { id: "guess", zone: "jeux", label: "Devine le lieu", desc: "Une photo mystère dans la discussion, le groupe devine où c'est." },
+  { id: "quiz", zone: "jeux", label: "Quiz du séjour", desc: "Le dernier soir, un quiz généré depuis vos journées, avec les scores du groupe." },
 ];
 const featureOn = (k) => !SETTINGS.features || SETTINGS.features[k] !== false;
 function TripTypeSection({ onPick, onMood, rev }) {
@@ -6182,28 +6182,23 @@ function TripTypeSection({ onPick, onMood, rev }) {
     </div>
   );
 }
-function FeaturesSection({ onToggle, rev }) {
-  void rev;
-  const lbl = { fontFamily: fB, color: T.c.inkSoft, fontSize: 13, marginBottom: 6, display: "block" };
+function FeaturesZone({ zone, onToggle }) {
+  const list = FEATURE_DEFS.filter((f) => f.zone === zone);
+  if (!list.length) return null;
   return (
-    <div>
-      <label style={lbl}>Interactions du séjour</label>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {FEATURE_DEFS.map((f) => (
-          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: fD, fontWeight: 600, color: T.c.ink, fontSize: 14.5 }}>{f.label}</div>
-              <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12 }}>{f.desc}</div>
-            </div>
-            <Toggle on={featureOn(f.id)} onClick={() => onToggle(f.id)} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {list.map((f) => (
+        <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: fD, fontWeight: 600, color: T.c.ink, fontSize: 14.5 }}>{f.label}</div>
+            <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12 }}>{f.desc}</div>
           </div>
-        ))}
-      </div>
-      <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5, marginTop: 4 }}>Réglages partagés avec tout le groupe. D'autres interactions arriveront ici.</div>
+          <Toggle on={featureOn(f.id)} onClick={() => onToggle(f.id)} />
+        </div>
+      ))}
     </div>
   );
 }
-
 function Toggle({ on, onClick }) {
   return (
     <button onClick={onClick} aria-pressed={on} style={{ cursor: "pointer", border: "none", width: 46, height: 28, borderRadius: T.r.pill, background: on ? T.c.sea : T.c.line, position: "relative", flex: "0 0 auto" }}>
@@ -6258,162 +6253,109 @@ function NotifSettings() {
   );
 }
 
-function SettingsSheet({ commit, themeMode, onTheme, favorites, onRemoveFavorite, onRenameFavorite, categories, onAddCategory, onUpdateCategory, onRemoveCategory, onToggleFeature, onTripType, onMood, onOpenTime, featuresRev }) {
+function LigneRubrique({ emoji, titre, desc, onClick }) {
+  return (
+    <button onClick={onClick} style={{ width: "100%", textAlign: "left", cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, borderRadius: T.r.md, padding: "13px 14px", display: "flex", alignItems: "center", gap: 13 }}>
+      <span style={{ flex: "0 0 auto", width: 40, height: 40, borderRadius: T.r.pill, background: T.c.seaSoft, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{emoji}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 15 }}>{titre}</span>
+        <span style={{ display: "block", fontFamily: fB, color: T.c.inkFaint, fontSize: 12, marginTop: 1 }}>{desc}</span>
+      </span>
+      <span style={{ flex: "0 0 auto", color: T.c.inkFaint, fontSize: 22, lineHeight: 1 }}>&rsaquo;</span>
+    </button>
+  );
+}
+function SettingsSheet({ onTrip, themeMode, onTheme, favorites, onRemoveFavorite, onRenameFavorite, categories, onAddCategory, onUpdateCategory, onRemoveCategory, onToggleFeature, onTripType, onMood, onOpenTime, featuresRev }) {
+  const [vue, setVue] = useState(null);
   const [name, setName] = useState(SETTINGS.name);
   const [place, setPlace] = useState(SETTINGS.place);
   const [startISO, setStartISO] = useState(SETTINGS.startISO);
   const [endISO, setEndISO] = useState(isoPlusDays(SETTINGS.startISO, Math.max(1, SETTINGS.days) - 1));
-  const [roster, setRoster] = useState(ROSTER.filter((r) => r.active).map((p) => ({ phone: "", email: "", ...p })));
-  const [me, setMe] = useState(ME);
-  const [pickFor, setPickFor] = useState(null);
 
   const field = { fontFamily: fB, fontSize: 15, color: T.c.ink, width: "100%", boxSizing: "border-box", padding: "12px 13px", border: `1px solid ${T.c.line}`, borderRadius: T.r.md, background: T.c.card, outline: "none" };
-  const smallField = { ...field, padding: "9px 11px", fontSize: 14 };
   const lbl = { fontFamily: fB, color: T.c.inkSoft, fontSize: 13, marginBottom: 6, display: "block" };
+  const sousTitre = (t) => (<div style={{ fontFamily: fD, fontWeight: 700, fontSize: 12.5, letterSpacing: 0.4, color: T.c.seaDeep, textTransform: "uppercase", margin: "8px 0 2px" }}>{t}</div>);
+  const majDates = (sISO, eISO) => onTrip({ startISO: sISO, days: clamp(daysBetweenISO(sISO, eISO), 1, 30) });
 
-  const setRow = (id, patch) => setRoster((l) => l.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-  const activeRows = roster;
-  const myRole = (person(ME) || {}).role || "participant";
-  const orgCount = roster.filter((r) => r.role === "organisateur").length;
-  const canAdd = myRole === "organisateur" || myRole === "co-éditeur";
-  const canSetRole = (p, r) => {
-    if (p.role === r) return false;
-    if (myRole === "organisateur") { if (p.role === "organisateur" && r !== "organisateur" && orgCount <= 1) return false; return true; }
-    if (myRole === "co-éditeur") { if (p.role === "organisateur" || r === "organisateur") return false; return true; }
-    return false;
-  };
-  const canRemove = (p) => {
-    if (myRole === "organisateur") return !(p.role === "organisateur" && orgCount <= 1);
-    if (myRole === "co-éditeur") return p.role !== "organisateur";
-    return false;
-  };
-  const addParticipant = () => setRoster((l) => {
-    const i = l.length;
-    const id = "m" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
-    return [...l, { id, name: "", role: "participant", active: true, emoji: AVATAR_EMOJIS[i % AVATAR_EMOJIS.length], color: AVATAR_COLORS[i % AVATAR_COLORS.length], phone: "", email: "" }];
-  });
-  const removeParticipant = (id) => setRoster((l) => {
-    const next = l.filter((p) => p.id !== id);
-    if (me === id && next[0]) setMe(next[0].id);
-    return next;
-  });
+  if (vue === null) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <LigneRubrique emoji="🧳" titre="Le séjour" desc="Nom, lieu, dates, type de voyage, humeur" onClick={() => setVue("sejour")} />
+        <LigneRubrique emoji="🎨" titre="Apparence" desc="Thème clair, sombre ou automatique" onClick={() => setVue("apparence")} />
+        <LigneRubrique emoji="🔔" titre="Notifications" desc="Alertes reçues sur cet appareil" onClick={() => setVue("notifs")} />
+        <LigneRubrique emoji="🎲" titre="Contenu et interactions" desc="Rangé par endroit : programme, accueil, photos, jeux" onClick={() => setVue("contenu")} />
+        <LigneRubrique emoji="🕰️" titre="Outils" desc="Aperçu du temps" onClick={() => setVue("outils")} />
+      </div>
+    );
+  }
 
-  const apply = () => {
-    const cleanDays = clamp(daysBetweenISO(startISO, endISO), 1, 30);
-    commit({ name: name || "Nos vacances", place, startISO, days: cleanDays }, roster, me);
-  };
+  const retour = (
+    <button onClick={() => setVue(null)} style={{ cursor: "pointer", border: "none", background: "transparent", color: T.c.seaDeep, fontFamily: fD, fontWeight: 700, fontSize: 14.5, display: "flex", alignItems: "center", gap: 5, padding: "0 0 2px" }}>
+      <span style={{ fontSize: 20, lineHeight: 1 }}>&lsaquo;</span> Réglages
+    </button>
+  );
+
+  if (vue === "sejour") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {retour}
+        <div><label style={lbl}>Nom du séjour</label><input style={field} value={name} onChange={(e) => setName(e.target.value)} onBlur={() => onTrip({ name: name.trim() || "Nos vacances" })} placeholder="Nos vacances" /></div>
+        <div><label style={lbl}>Lieu (affiché en accueil)</label><input style={field} value={place} onChange={(e) => setPlace(e.target.value)} onBlur={() => onTrip({ place })} placeholder="Cap Ferret" /></div>
+        <div><label style={lbl}>Début du séjour</label><input type="date" style={field} value={startISO} onChange={(e) => { const v = e.target.value; const ne = endISO < v ? v : endISO; setStartISO(v); setEndISO(ne); majDates(v, ne); }} /></div>
+        <div><label style={lbl}>Fin du séjour</label><input type="date" style={field} min={startISO} value={endISO} onChange={(e) => { const v = e.target.value; setEndISO(v); majDates(startISO, v); }} /></div>
+        <TripTypeSection onPick={onTripType} onMood={onMood} rev={featuresRev} />
+        <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Les changements sont enregistrés au fur et à mesure.</div>
+      </div>
+    );
+  }
+
+  if (vue === "apparence") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {retour}
+        <div>
+          <label style={lbl}>Thème</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, label]) => {
+              const on = themeMode === k;
+              return (<button key={k} onClick={() => onTheme(k)} style={{ flex: 1, cursor: "pointer", border: on ? `2px solid ${T.c.sea}` : `1px solid ${T.c.line}`, background: on ? T.c.seaSoft : T.c.card, color: on ? T.c.seaDeep : T.c.inkSoft, borderRadius: T.r.md, padding: "10px 6px", fontFamily: fD, fontWeight: 600, fontSize: 13 }}>{label}</button>);
+            })}
+          </div>
+          <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12, marginTop: 6 }}>Automatique suit le réglage clair ou sombre de l'appareil.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (vue === "notifs") {
+    return (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{retour}<NotifSettings /></div>);
+  }
+
+  if (vue === "contenu") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {retour}
+        {sousTitre("Dans le programme")}
+        <CategoriesSection categories={categories || []} onAdd={onAddCategory} onUpdate={onUpdateCategory} onRemove={onRemoveCategory} />
+        <FavoritesSection favorites={favorites || []} onRename={onRenameFavorite} onRemove={onRemoveFavorite} />
+        {sousTitre("Sur l'accueil")}
+        <FeaturesZone zone="accueil" onToggle={onToggleFeature} />
+        {sousTitre("Dans les photos")}
+        <FeaturesZone zone="photos" onToggle={onToggleFeature} />
+        {sousTitre("Dans le coin jeux")}
+        <FeaturesZone zone="jeux" onToggle={onToggleFeature} />
+        <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Ces interactions sont partagées avec tout le groupe.</div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div>
-        <label style={lbl}>Nom du séjour</label>
-        <input style={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nos vacances" />
-      </div>
-      <div>
-        <label style={lbl}>Lieu (affiché en accueil)</label>
-        <input style={field} value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Cap Ferret" />
-      </div>
-      <div>
-        <label style={lbl}>Début du séjour</label>
-        <input type="date" style={field} value={startISO} onChange={(e) => { const v = e.target.value; setStartISO(v); if (endISO < v) setEndISO(v); }} />
-      </div>
-      <div>
-        <label style={lbl}>Fin du séjour</label>
-        <input type="date" style={field} min={startISO} value={endISO} onChange={(e) => setEndISO(e.target.value)} />
-      </div>
-
-      <div>
-        <label style={lbl}>Thème</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          {[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, label]) => {
-            const on = themeMode === k;
-            return (
-              <button key={k} onClick={() => onTheme(k)} style={{ flex: 1, cursor: "pointer", border: on ? `2px solid ${T.c.sea}` : `1px solid ${T.c.line}`, background: on ? T.c.seaSoft : T.c.card, color: on ? T.c.seaDeep : T.c.inkSoft, borderRadius: T.r.md, padding: "10px 6px", fontFamily: fD, fontWeight: 600, fontSize: 13 }}>{label}</button>
-            );
-          })}
-        </div>
-        <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12, marginTop: 6 }}>Automatique suit le réglage clair ou sombre de l'appareil.</div>
-      </div>
-
-      <NotifSettings />
-
-      <FavoritesSection favorites={favorites || []} onRename={onRenameFavorite} onRemove={onRemoveFavorite} />
-
-      <CategoriesSection categories={categories || []} onAdd={onAddCategory} onUpdate={onUpdateCategory} onRemove={onRemoveCategory} />
-
-      <TripTypeSection onPick={onTripType} onMood={onMood} rev={featuresRev} />
-      <div style={{ marginTop: 18 }}>
-        <button onClick={onOpenTime} style={{ cursor: "pointer", width: "100%", border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.ink, borderRadius: T.r.md, padding: "11px 13px", fontFamily: fD, fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 9 }}>
-          <Clock size={16} color={T.c.sea} /> Aperçu du temps (simulation)
-        </button>
-        <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5, marginTop: 6 }}>Pour parcourir le séjour à une autre date et heure. La pilule Aperçu reste visible tant que la simulation est active.</div>
-      </div>
-
-      <FeaturesSection onToggle={onToggleFeature} rev={featuresRev} />
-
-      <div>
-        <label style={lbl}>Participants</label>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {roster.map((p) => (
-            <div key={p.id} style={{ background: T.c.lineSoft, borderRadius: T.r.md, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                <button onClick={() => setPickFor(pickFor === p.id ? null : p.id)} aria-label="Changer l'avatar" style={{ cursor: "pointer", border: pickFor === p.id ? `2px solid ${T.c.ink}` : "none", background: p.color, width: 34, height: 34, borderRadius: T.r.pill, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flex: "0 0 auto" }}>{p.emoji}</button>
-                <input style={{ ...field, background: T.c.card }} value={p.name} onChange={(e) => setRow(p.id, { name: e.target.value })} placeholder="Prénom" />
-                {canRemove(p) && (
-                  <button onClick={() => removeParticipant(p.id)} aria-label="Retirer" style={{ cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.coralDeep, width: 38, height: 38, borderRadius: T.r.pill, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><Trash2 size={16} /></button>
-                )}
-              </div>
-              {pickFor === p.id && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, background: T.c.card, borderRadius: T.r.md, padding: 10 }}>
-                  {AVATAR_EMOJIS.map((em) => (
-                    <button key={em} onClick={() => { setRow(p.id, { emoji: em }); setPickFor(null); }} style={{ cursor: "pointer", border: p.emoji === em ? `2px solid ${T.c.sea}` : `1px solid ${T.c.line}`, background: T.c.card, width: 38, height: 38, borderRadius: T.r.pill, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>{em}</button>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 8 }}>
-                <input type="tel" style={{ ...smallField, flex: 1, minWidth: 0 }} value={p.phone || ""} onChange={(e) => setRow(p.id, { phone: e.target.value })} placeholder="Téléphone" />
-                <input type="email" style={{ ...smallField, flex: 1, minWidth: 0 }} value={p.email || ""} onChange={(e) => setRow(p.id, { email: e.target.value })} placeholder="E-mail" />
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {ROLES.map((r) => {
-                  const on = p.role === r;
-                  const allowed = on || canSetRole(p, r);
-                  return (
-                    <button key={r} onClick={() => { if (allowed && !on) setRow(p.id, { role: r }); }} disabled={!allowed}
-                      style={{ flex: 1, cursor: allowed && !on ? "pointer" : "default", border: on ? `2px solid ${T.c.sea}` : `1px solid ${T.c.line}`, background: on ? T.c.seaSoft : T.c.card, color: on ? T.c.seaDeep : T.c.inkSoft, borderRadius: T.r.md, padding: "8px 4px", fontFamily: fD, fontWeight: 600, fontSize: 12, opacity: allowed ? 1 : 0.4 }}>{ROLE_LABEL[r]}</button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-        {canAdd && (
-          <button onClick={addParticipant} style={{ marginTop: 10, cursor: "pointer", border: `1px dashed ${T.c.line}`, background: "transparent", color: T.c.seaDeep, width: "100%", borderRadius: T.r.md, padding: "11px", fontFamily: fD, fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <UserPlus size={17} /> Ajouter un participant
-          </button>
-        )}
-        <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12, marginTop: 8 }}>Touchez un avatar pour le changer. Les droits dépendent de votre rôle.</div>
-      </div>
-
-      <div>
-        <label style={lbl}>Je suis</label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {activeRows.map((p) => {
-            const on = me === p.id;
-            return (
-              <button key={p.id} onClick={() => setMe(p.id)} style={{ cursor: "pointer", border: on ? `2px solid ${p.color}` : `1px solid ${T.c.line}`, background: on ? `${p.color}18` : T.c.card, borderRadius: T.r.pill, padding: "5px 12px 5px 5px", display: "inline-flex", alignItems: "center", gap: 7 }}>
-                <span style={{ width: 24, height: 24, borderRadius: T.r.pill, background: p.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{p.emoji}</span>
-                <span style={{ fontFamily: fB, color: T.c.ink, fontSize: 13 }}>{p.name || p.id}</span>
-                {on && <Check size={14} color={p.color} />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <button onClick={apply} style={{ marginTop: 2, cursor: "pointer", border: "none", background: T.c.sea, color: "#fff", borderRadius: T.r.lg, padding: "14px", fontFamily: fD, fontWeight: 700, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        <Check size={19} /> Enregistrer
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {retour}
+      <button onClick={onOpenTime} style={{ cursor: "pointer", width: "100%", border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.ink, borderRadius: T.r.md, padding: "11px 13px", fontFamily: fD, fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 9 }}>
+        <Clock size={16} color={T.c.sea} /> Aperçu du temps (simulation)
       </button>
+      <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Pour parcourir le séjour à une autre date et heure. La pilule Aperçu reste visible tant que la simulation est active.</div>
     </div>
   );
 }
@@ -6955,6 +6897,16 @@ export default function App() {
     closeSheet();
   };
 
+  const applyTrip = (s) => {
+    SETTINGS = { ...SETTINGS, ...s };
+    if (s.startISO != null || s.days != null) {
+      DAYS = buildDays(SETTINGS.startISO, SETTINGS.days);
+      setSelectedDay((d) => clamp(d, 0, DAYS.length - 1));
+      if (realMode) setNow(realNow());
+    }
+    setRev((r) => r + 1);
+  };
+
   const sheetEvent = sheet?.event ? events.find((e) => e.id === sheet.event.id) || sheet.event : null;
   const sheetTitle = sheet?.mode === "settings" ? "Réglages du séjour"
     : sheet?.mode === "group" ? "Le groupe"
@@ -7046,7 +6998,7 @@ export default function App() {
               onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onOpenEvent={openDetail} onAddParallel={openAddParallel} allEvents={events} pollHandlers={pollHandlers} focusThread={!!sheet?.focusThread} />
           )}
           {sheet?.mode === "edit" && <EditSheet draft={draft} setDraft={setDraft} onSave={saveDraft} onDelete={deleteEvent} editing={!!draft?.id} favorites={favorites} onAddFavorite={addFavorite} />}
-          {sheet?.mode === "settings" && <SettingsSheet commit={commitSettings} themeMode={themeMode} onTheme={changeTheme} favorites={favorites} onRemoveFavorite={removeFavorite} onRenameFavorite={renameFavorite} categories={categories} onAddCategory={addCategory} onUpdateCategory={updateCategory} onRemoveCategory={removeCategory} onToggleFeature={toggleFeature} onTripType={setTripType} onMood={setMood} onOpenTime={() => { setSheet(null); setDemoOpen(true); }} featuresRev={rev} />}
+          {sheet?.mode === "settings" && <SettingsSheet onTrip={applyTrip} themeMode={themeMode} onTheme={changeTheme} favorites={favorites} onRemoveFavorite={removeFavorite} onRenameFavorite={renameFavorite} categories={categories} onAddCategory={addCategory} onUpdateCategory={updateCategory} onRemoveCategory={removeCategory} onToggleFeature={toggleFeature} onTripType={setTripType} onMood={setMood} onOpenTime={() => { setSheet(null); setDemoOpen(true); }} featuresRev={rev} />}
           {sheet?.mode === "group" && <ScreenFriends canEdit={canEdit} onUpdateContact={updateContact} />}
           {sheet?.mode === "games" && <GamesSheet photos={visiblePhotos} messages={messages} quizUnlocked={quizUnlocked} onOpenBingo={openBingo} onOpenQuiz={openQuiz} onGoTalk={() => { setSheet(null); setTab("talk"); }} onCreateGuess={createGuess} />}
           {sheet?.mode === "bingo" && <BingoSheet onToggle={toggleBingoCase} rev={rev} />}
