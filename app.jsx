@@ -6255,6 +6255,8 @@ function NotifSettings() {
   );
 }
 
+const FUSEAUX_COURANTS = ["Europe/Paris", "Europe/London", "Europe/Lisbon", "Europe/Madrid", "Europe/Rome", "Europe/Athens", "Europe/Istanbul", "Atlantic/Canary", "Africa/Casablanca", "America/New_York", "America/Los_Angeles", "America/Sao_Paulo", "Asia/Dubai", "Asia/Bangkok", "Asia/Tokyo", "Australia/Sydney"];
+const heureFuseau = (tz) => { try { return new Intl.DateTimeFormat("fr-FR", { timeZone: tz, hour: "2-digit", minute: "2-digit" }).format(new Date()); } catch (e) { return ""; } };
 function LigneRubrique({ emoji, titre, desc, onClick }) {
   return (
     <button onClick={onClick} style={{ width: "100%", textAlign: "left", cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, borderRadius: T.r.md, padding: "13px 14px", display: "flex", alignItems: "center", gap: 13 }}>
@@ -6278,6 +6280,9 @@ function SettingsSheet({ onTrip, themeMode, onTheme, favorites, onRemoveFavorite
   const lbl = { fontFamily: fB, color: T.c.inkSoft, fontSize: 13, marginBottom: 6, display: "block" };
   const sousTitre = (t) => (<div style={{ fontFamily: fD, fontWeight: 700, fontSize: 12.5, letterSpacing: 0.4, color: T.c.seaDeep, textTransform: "uppercase", margin: "8px 0 2px" }}>{t}</div>);
   const majDates = (sISO, eISO) => onTrip({ startISO: sISO, days: clamp(daysBetweenISO(sISO, eISO), 1, 30) });
+  const tzDevice = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return "Europe/Paris"; } })();
+  const tzActuel = SETTINGS.tz || tzDevice;
+  const fuseaux = Array.from(new Set([...FUSEAUX_COURANTS, tzDevice, tzActuel]));
 
   if (vue === null) {
     return (
@@ -6305,6 +6310,13 @@ function SettingsSheet({ onTrip, themeMode, onTheme, favorites, onRemoveFavorite
         <div><label style={lbl}>Lieu (affiché en accueil)</label><input style={field} value={place} onChange={(e) => setPlace(e.target.value)} onBlur={() => onTrip({ place })} placeholder="Cap Ferret" /></div>
         <div><label style={lbl}>Début du séjour</label><input type="date" style={field} value={startISO} onChange={(e) => { const v = e.target.value; const ne = endISO < v ? v : endISO; setStartISO(v); setEndISO(ne); majDates(v, ne); }} /></div>
         <div><label style={lbl}>Fin du séjour</label><input type="date" style={field} min={startISO} value={endISO} onChange={(e) => { const v = e.target.value; setEndISO(v); majDates(startISO, v); }} /></div>
+        <div>
+          <label style={lbl}>Fuseau horaire du séjour</label>
+          <select style={field} value={tzActuel} onChange={(e) => onTrip({ tz: e.target.value })}>
+            {fuseaux.map((tz) => (<option key={tz} value={tz}>{tz.replace(/_/g, " ")} ({heureFuseau(tz)})</option>))}
+          </select>
+          <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12, marginTop: 6 }}>Sert aux rappels : l'heure des activités est celle de ce fuseau.</div>
+        </div>
         <TripTypeSection onPick={onTripType} onMood={onMood} rev={featuresRev} />
         <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Les changements sont enregistrés au fur et à mesure.</div>
       </div>

@@ -1,24 +1,19 @@
-// Rappel serveur : envoie une notification push une heure avant chaque activité.
+// Rappel serveur : envoie une notification push une heure avant chaque activite.
 // Declenchee par pg_cron toutes les 5 minutes (voir migrations/reminders.sql).
 // Autonome : lit l'etat du sejour dans la table trips, les abonnements dans push_subs,
 // et evite les doublons via la table reminders_sent.
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
-const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:contact@example.com";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const PUB = Deno.env.get("VAPID_PUBLIC")!;
+const PRIV = Deno.env.get("VAPID_PRIVATE")!;
+const SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:contact@example.com";
 
 const HEURE_MS = 3600000;
 const FENETRE_MS = 12 * 60 * 1000; // marge apres l'instant du rappel, alignee sur un cron de 5 min
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
-}
 
 // Decalage (ms) du fuseau tz a l'instant utcMs
 function decalageFuseau(utcMs: number, tz: string): number {
@@ -35,7 +30,7 @@ function decalageFuseau(utcMs: number, tz: string): number {
 
 // Instant UTC (ms) du debut d'une activite (jour + heure locale du sejour)
 function debutActiviteMs(startISO: string, day: number, hhmm: string, tz: string): number | null {
-  const d = startISO.split("-").map(Number);
+  const d = String(startISO).split("-").map(Number);
   const h = String(hhmm).split(":").map(Number);
   if (d.length < 3 || h.length < 2 || d.some(isNaN) || h.some(isNaN)) return null;
   const base = Date.UTC(d[0], d[1] - 1, d[2]) + day * 86400000;
@@ -50,10 +45,11 @@ function titreActivite(e: Record<string, unknown>): string {
 }
 
 Deno.serve(async () => {
-  if (!SUPABASE_URL || !SERVICE_ROLE) {
+  if (!SUPABASE_URL || !SERVICE) {
     return new Response(JSON.stringify({ error: "config manquante" }), { status: 500 });
   }
-  const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
+  webpush.setVapidDetails(SUBJECT, PUB, PRIV);
+  const supa = createClient(SUPABASE_URL, SERVICE);
   const now = Date.now();
 
   const { data: trips, error } = await supa.from("trips").select("code, data");
@@ -73,7 +69,7 @@ Deno.serve(async () => {
     if (!events.length) continue;
 
     const { data: subs } = await supa
-      .from("push_subs").select("sub, prefs, enabled")
+      .from("push_subs").select("endpoint, sub, prefs, enabled")
       .eq("trip_code", trip.code).eq("enabled", true);
     if (!subs || !subs.length) continue;
 
@@ -98,7 +94,10 @@ Deno.serve(async () => {
       for (const row of subs) {
         if (row.prefs && row.prefs.nextActivity === false) continue;
         try { await webpush.sendNotification(row.sub, payload); envois++; }
-        catch (_e) { /* abonnement expire, on ignore */ }
+        catch (err: any) {
+          const code = (err && (err.statusCode || err.status)) || 0;
+          if (code === 404 || code === 410) await supa.from("push_subs").delete().eq("endpoint", row.endpoint);
+        }
       }
     }
   }
