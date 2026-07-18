@@ -2620,7 +2620,7 @@ function VehiculeSVG({ kind }) {
   );
 }
 const MUS = {
-  mer: { root: 261.63, bpm: 114, pad: "triangle", pluck: "triangle", bass: "sawtooth", vol: 0.24, swing: 0.12, prog: [[0, 4, 7, 11], [7, 11, 14, 17], [9, 12, 16, 19], [5, 9, 12, 16]] },
+  mer: { root: 261.63, bpm: 122, style: "deephouse", pad: "sine", pluck: "triangle", bass: "sine", vol: 0.25, swing: 0.06, prog: [[0, 3, 7, 10], [-2, 2, 5, 9], [-4, 0, 3, 7], [5, 8, 12, 15]] },
   ville: { root: 246.94, bpm: 120, pad: "sawtooth", pluck: "square", bass: "square", vol: 0.2, swing: 0.16, prog: [[0, 3, 7, 10], [5, 8, 12, 15], [8, 12, 15, 19], [3, 7, 10, 14]] },
   ski: { root: 293.66, bpm: 100, pad: "sine", pluck: "triangle", bass: "sine", vol: 0.22, swing: 0.08, prog: [[0, 4, 7, 11], [9, 12, 16, 19], [5, 9, 12, 16], [7, 11, 14, 17]] },
   rando: { root: 261.63, bpm: 108, pad: "triangle", pluck: "triangle", bass: "sawtooth", vol: 0.23, swing: 0.1, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]] },
@@ -2715,20 +2715,36 @@ function useMusique(type, actif) {
         const acc = cfg.prog[mesure % cfg.prog.length];
         const sw = pos % 2 === 1 ? croche2 * (cfg.swing || 0) : 0;
         const t = next + sw;
-        // nappe : accord tenu en début de mesure
-        if (pos === 0) acc.forEach((s, j) => voix(f(s - 12), t, spb * 3.4, cfg.pad, j === 0 ? 0.05 : 0.032, false));
-        // basse : groove sur la fondamentale
-        if (pos === 0 || pos === 6 || pos === 10) voix(f(acc[0] - 24), t, pos === 6 ? spb * 0.5 : spb * 0.9, cfg.bass, 0.13, false);
-        if (pos === 14) voix(f(acc[0] - 12), t, spb * 0.45, cfg.bass, 0.09, false);
-        // batterie : kick sur les temps, clap en backbeat, charley en croches
-        if (pos % 4 === 0) kick(t);
-        if (pos === 4 || pos === 12) clap(t);
-        if (pos % 2 === 0) charley(t, pos % 8 === 6);
-        // arpège brillant en doubles-croches montantes
-        if (pos % 2 === 0) {
-          const idx = (step / 2) % (acc.length + 1);
-          const semi = idx < acc.length ? acc[idx] : acc[0] + 12;
-          voix(f(semi + 12), t, croche2 * 1.5, cfg.pluck, 0.06, true);
+        if (cfg.style === "deephouse") {
+          // quatre temps au sol
+          if (pos % 4 === 0) kick(t);
+          // charley ouvert sur les contretemps (signature house), fermé léger ailleurs
+          if (pos === 2 || pos === 6 || pos === 10 || pos === 14) charley(t, true);
+          else if (pos % 2 === 0) charley(t, false);
+          // clap sur les 2 et 4
+          if (pos === 4 || pos === 12) clap(t);
+          // nappe chaude tenue
+          if (pos === 0) acc.forEach((s, j) => voix(f(s - 12), t, spb * 3.7, cfg.pad, j === 0 ? 0.042 : 0.028, false));
+          // sub profond roulant
+          if (pos === 0 || pos === 3 || pos === 6 || pos === 8 || pos === 11 || pos === 14) voix(f(acc[0] - 24), t, spb * 0.42, cfg.bass, 0.17, false);
+          // stab d'accord sur les levées
+          if (pos === 6 || pos === 14) acc.forEach((s) => voix(f(s), t, spb * 0.5, cfg.pluck, 0.028, true));
+        } else {
+          // nappe : accord tenu en début de mesure
+          if (pos === 0) acc.forEach((s, j) => voix(f(s - 12), t, spb * 3.4, cfg.pad, j === 0 ? 0.05 : 0.032, false));
+          // basse : groove sur la fondamentale
+          if (pos === 0 || pos === 6 || pos === 10) voix(f(acc[0] - 24), t, pos === 6 ? spb * 0.5 : spb * 0.9, cfg.bass, 0.13, false);
+          if (pos === 14) voix(f(acc[0] - 12), t, spb * 0.45, cfg.bass, 0.09, false);
+          // batterie : kick sur les temps, clap en backbeat, charley en croches
+          if (pos % 4 === 0) kick(t);
+          if (pos === 4 || pos === 12) clap(t);
+          if (pos % 2 === 0) charley(t, pos % 8 === 6);
+          // arpège brillant en doubles-croches montantes
+          if (pos % 2 === 0) {
+            const idx = (step / 2) % (acc.length + 1);
+            const semi = idx < acc.length ? acc[idx] : acc[0] + 12;
+            voix(f(semi + 12), t, croche2 * 1.5, cfg.pluck, 0.06, true);
+          }
         }
         next += croche2;
         step += 1;
@@ -2783,8 +2799,6 @@ function buildFilm(events, photos, messages, faces) {
     const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
     const pj = (parJour[d] || []).slice().sort((a, b) => ordreEvt(a).localeCompare(ordreEvt(b)) || ((a.at || 0) - (b.at || 0)));
     if (!evs.length && !pj.length) continue;
-    let bestE = null, bestV = 0;
-    evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
     sc.push({ t: "jour", d: 3800, day: d, evs, recit: recitDuJour(d, evs, messages, null, 0, { max: 2 }) });
     const ej = etapesJour(evs);
     if (ej.points.length >= 2) {
@@ -2824,10 +2838,6 @@ function buildFilm(events, photos, messages, faces) {
         else sc.push({ t: "mosaique", d: 4200 + paq.length * 650, day: d, phs: paq, leg, premiere });
       });
     });
-    if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3800, day: d, e: bestE });
-    const mj = (messages || []).filter((m) => dayOfMsg(m, events) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
-      .map((m) => ({ m, n: reactsOfMsg(m) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
-    if (mj) sc.push({ t: "mot", d: 4400, day: d, m: mj.m });
   }
   const caps = SETTINGS.capsule || {};
   const mots = [];
@@ -2835,9 +2845,9 @@ function buildFilm(events, photos, messages, faces) {
   mots.sort((a, b) => (a.at || 0) - (b.at || 0));
   if (mots.length) {
     sc.push({ t: "livreIntro", d: 3200 });
-    mots.slice(0, 8).forEach((mo) => {
+    mots.forEach((mo) => {
       const w = String(mo.text || "").split(/\s+/).length;
-      sc.push({ t: "livre", d: Math.min(7000, 2800 + w * 190), mo });
+      sc.push({ t: "livre", d: Math.min(12000, 3400 + w * 170), mo });
     });
   }
   const attachees = ph.filter((p) => evById[p.event] && typeof evById[p.event].day === "number");
@@ -2966,25 +2976,21 @@ function FilmOverlay({ events, photos, messages, onClose }) {
         </div>
       </div>
     );
-  } else if (sc.t === "mot" || sc.t === "livre") {
-    const src2 = sc.t === "mot" ? sc.m : sc.mo;
-    const qui = sc.t === "mot" ? sc.m.who : sc.mo.pid;
-    const mots = String(src2.text || "").split(/\s+/).slice(0, 44);
-    const pas2 = sc.t === "mot" ? 0.09 : 0.11;
+  } else if (sc.t === "livre") {
+    const mo = sc.mo;
+    const txt = String(mo.text || "");
+    const len = txt.length;
+    const taille = len > 220 ? "clamp(18px, 4.6vw, 26px)" : len > 90 ? "clamp(21px, 5.4vw, 32px)" : "clamp(25px, 6.8vw, 40px)";
+    const tilt = ((len % 5) - 2) * 0.7;
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: th.papier[0], display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "absolute", inset: 0, background: th.papier[0], display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, bottom: 0, left: 18, borderLeft: `2px dotted ${th.solL}` }} />
-        <div style={{ maxWidth: 600, padding: "0 34px", width: "100%" }}>
-          <div style={{ fontFamily: fH, fontSize: sc.t === "mot" ? "clamp(26px, 7.4vw, 42px)" : "clamp(28px, 8vw, 46px)", color: th.papierTxt, lineHeight: 1.3, transform: "rotate(-1deg)" }}>
-            {sc.t === "mot" && <span>«&nbsp;</span>}
-            {mots.map((w, k) => (
-              <span key={k} style={{ display: "inline-block", animation: "fmWordIn .5s ease both", animationDelay: `${0.28 + k * pas2}s`, marginRight: "0.28em" }}>{w}</span>
-            ))}
-            {sc.t === "mot" && <span style={{ animation: "fmWordIn .5s ease both", animationDelay: `${0.28 + mots.length * pas2}s`, display: "inline-block" }}>&nbsp;»</span>}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 9, marginTop: 20, animation: "vfade .9s ease both", animationDelay: `${0.6 + mots.length * pas2}s` }}>
-            {sc.t === "livre" && <Avatar id={qui} size={26} />}
-            <span style={{ fontFamily: fH, fontSize: sc.t === "livre" ? 24 : 21, color: th.encre, opacity: 0.6 }}>{person(qui).name}</span>
+        <div style={{ maxWidth: 620, width: "100%", padding: "0 36px", transform: `rotate(${tilt}deg)`, animation: "vfade .9s ease both" }}>
+          <div style={{ fontFamily: fH, fontSize: 42, color: th.solL, lineHeight: 0.5, marginBottom: 12 }}>“</div>
+          <div style={{ fontFamily: fH, fontSize: taille, color: th.papierTxt, lineHeight: 1.34 }}>{txt}</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 9, marginTop: 22, animation: "vfade 1.1s ease both", animationDelay: ".55s" }}>
+            <Avatar id={mo.pid} size={26} />
+            <span style={{ fontFamily: fH, fontSize: 23, color: th.encre, opacity: 0.66 }}>{person(mo.pid).name}</span>
           </div>
         </div>
       </div>
