@@ -6139,13 +6139,13 @@ function CategoriesSection({ categories, onAdd, onUpdate, onRemove }) {
 /* ---- Interactions du séjour (activables dans les réglages) ------------- */
 const FEATURE_DEFS = [
   { id: "status", zone: "accueil", label: "Statut en direct", desc: "Chacun peut indiquer où il est (plage, resto, sieste), visible sur l'accueil." },
-  { id: "photoChallenge", zone: "accueil", label: "Défi photo du jour", desc: "Un thème de photo chaque jour, chacun poste sa participation." },
-  { id: "morningQuestion", zone: "accueil", label: "Question du matin", desc: "Un mini duel d'options chaque jour (plage ou piscine)." },
-  { id: "wholikely", zone: "accueil", label: "Qui a le plus de chances", desc: "Chaque jour, on vote pour un membre du groupe." },
+  { id: "morningQuestion", zone: "rituel", label: "Question du matin", desc: "Un mini duel d'options chaque jour (plage ou piscine)." },
+  { id: "photoChallenge", zone: "rituel", label: "Défi photo du jour", desc: "Un thème de photo chaque jour, chacun poste sa participation." },
+  { id: "wholikely", zone: "rituel", label: "Qui a le plus de chances", desc: "Chaque jour, on vote pour un membre du groupe." },
   { id: "bingo", zone: "jeux", label: "Bingo de vacances", desc: "Une grille partagée de moments à cocher pendant le séjour." },
   { id: "quickvibe", zone: "accueil", label: "Réaction rapide", desc: "Un bouton pour dire au groupe que le moment est bon." },
-  { id: "recap", zone: "accueil", label: "Récap du soir", desc: "Le bilan de la journée : activités, photos, messages, lieux explorés." },
-  { id: "awards", zone: "accueil", label: "Hauts faits du jour", desc: "Photographe du jour, bavard du jour, premier message (dans le récap)." },
+  { id: "recap", zone: "rituel", label: "Récap du soir", desc: "Le bilan de la journée : activités, photos, messages, lieux explorés." },
+  { id: "awards", zone: "rituel", label: "Hauts faits du jour", desc: "Photographe du jour, bavard du jour, premier message (dans le récap)." },
   { id: "capsule", zone: "accueil", label: "Capsule temporelle", desc: "Chacun dépose un mot secret, révélé le dernier soir." },
   { id: "film", zone: "photos", label: "Diaporama photos", desc: "Un diaporama qui enchaîne les photos depuis la galerie, avec réactions et identification." },
   { id: "guess", zone: "jeux", label: "Devine le lieu", desc: "Une photo mystère dans la discussion, le groupe devine où c'est." },
@@ -6354,8 +6354,10 @@ function SettingsSheet({ onTrip, themeMode, onTheme, favorites, onRemoveFavorite
         {sousTitre("Dans le programme")}
         <CategoriesSection categories={categories || []} onAdd={onAddCategory} onUpdate={onUpdateCategory} onRemove={onRemoveCategory} />
         <FavoritesSection favorites={favorites || []} onRename={onRenameFavorite} onRemove={onRemoveFavorite} />
-        {sousTitre("Sur l'accueil")}
+        {sousTitre("Directement sur l'accueil")}
         <FeaturesZone zone="accueil" onToggle={onToggleFeature} />
+        {sousTitre("Dans le Rendez-vous du jour")}
+        <FeaturesZone zone="rituel" onToggle={onToggleFeature} />
         {sousTitre("Dans les photos")}
         <FeaturesZone zone="photos" onToggle={onToggleFeature} />
         {sousTitre("Dans le coin jeux")}
