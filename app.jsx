@@ -1338,7 +1338,7 @@ function PollBanner({ count, onOpen, light }) {
 }
 
 const BURST_EMOJIS = ["🤩", "✨", "🎉", "❤️", "😍", "🙌"];
-function QuickActions({ event, unread, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount, light }) {
+function QuickActions({ event, unread, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount, light, onJoin, going }) {
   const fileRef = useRef(null);
   const [burst, setBurst] = useState([]);
   const burstTimer = useRef(null);
@@ -1382,9 +1382,15 @@ function QuickActions({ event, unread, onOpen, onDiscuss, onAddPhoto, onVibe, vi
         </button>
         <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }}
           onChange={(e) => lireLot(e, (url) => onAddPhoto(event.id, url))} />
-        <button onClick={(e) => { stop(e); if (fileRef.current) fileRef.current.click(); }} style={base}>
-          <ImagePlus size={15} color={iconColor} /> Photo
-        </button>
+        {onJoin ? (
+          <button onClick={(e) => { stop(e); onJoin(); }} style={base}>
+            {going ? <><UserMinus size={15} color={iconColor} /> Je passe</> : <><UserPlus size={15} color={iconColor} /> Je reviens</>}
+          </button>
+        ) : (
+          <button onClick={(e) => { stop(e); if (fileRef.current) fileRef.current.click(); }} style={base}>
+            <ImagePlus size={15} color={iconColor} /> Photo
+          </button>
+        )}
         {onVibe && featureOn("quickvibe") && (
           <button onClick={(e) => { stop(e); spawnBurst(); onVibe(); }} aria-label="J'adore" title="J'adore" style={{ ...base, flex: "0 0 auto", padding: "9px 12px", gap: 5 }}>
             <span style={{ fontSize: 15 }}>🤩</span> J'adore
@@ -1437,6 +1443,7 @@ function NextCard({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount
 
 /* Carte pleine : activité en cours */
 function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount, unread, openPolls }) {
+  const [showPresence, setShowPresence] = useState(false);
   const t = TYPES[event.type];
   const total = Math.max(1, endAbs(event) - startAbs(event));
   const progress = clamp((now - startAbs(event)) / total, 0, 1);
@@ -1475,11 +1482,35 @@ function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCo
             <span style={{ fontFamily: fB, fontSize: 12.5, opacity: 1 }}>Se termine dans</span>
             <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{remainingLabel(remain)}</span>
           </span>
-          <AvatarRow ids={attendeesOf(event)} size={26} />
+          <span role="button" tabIndex={0} aria-label="Voir les participants" onClick={(e) => { e.stopPropagation(); setShowPresence(true); }} style={{ cursor: "pointer" }}><AvatarRow ids={attendeesOf(event)} size={26} /></span>
         </div>
       </div>
       <PollBanner count={openPolls} onOpen={onOpen} light />
       <QuickActions event={event} unread={unread} onOpen={onOpen} onDiscuss={onDiscuss} onAddPhoto={onAddPhoto} onVibe={onVibe} vibeCount={vibeCount} light />
+      {showPresence && (
+        <div onClick={(e) => { e.stopPropagation(); setShowPresence(false); }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(12,28,38,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: T.c.card, color: T.c.ink, borderRadius: T.r.lg, padding: 18, width: "100%", maxWidth: 320, maxHeight: "70%", overflowY: "auto", boxShadow: T.sh.lift }}>
+            <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 16, marginBottom: 12 }}>{event.title}</div>
+            <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, marginBottom: 9 }}>PRÉSENTS · {attendeesOf(event).length}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {attendeesOf(event).map((id) => (
+                <div key={id} style={{ display: "flex", alignItems: "center", gap: 9 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
+              ))}
+              {attendeesOf(event).length === 0 && <span style={{ fontFamily: fB, fontSize: 13, color: T.c.inkFaint }}>Personne pour l'instant.</span>}
+            </div>
+            {skipOf(event).length > 0 && (
+              <>
+                <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, margin: "15px 0 9px" }}>PASSENT LEUR TOUR · {skipOf(event).length}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {skipOf(event).map((id) => (
+                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 9, opacity: 0.55 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4720,7 +4751,7 @@ function FilmEncart({ th, onFilm }) {
     </button>
   );
 }
-function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz, onMap, onShare }) {
+function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz, onMap, onShare, onToggleMine }) {
   const tripOver = dayOfNow(now) >= DAYS.length;
   const [faces, setFaces] = useState(() => loadFaces());
   const [scan, setScan] = useState(null);
@@ -4821,7 +4852,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
                   </div>
                 </div>
                 <PollBanner count={op(sameDayNext.id)} onOpen={() => onOpenEvent(sameDayNext)} />
-                <QuickActions event={sameDayNext} unread={ub(sameDayNext.id)} onOpen={() => onOpenEvent(sameDayNext)} onDiscuss={() => onOpenThread(sameDayNext)} onAddPhoto={onAddPhoto} />
+                <QuickActions event={sameDayNext} unread={ub(sameDayNext.id)} onOpen={() => onOpenEvent(sameDayNext)} onDiscuss={() => onOpenThread(sameDayNext)} onAddPhoto={onAddPhoto} onJoin={() => onToggleMine(sameDayNext.id)} going={iAmIn(sameDayNext)} />
               </div>
               <ParallelList main={sameDayNext} events={events} onOpen={onOpenEvent} ub={ub} />
             </div>
@@ -5434,7 +5465,7 @@ function DetailSheet({ event, messages, photos, canEdit, onEdit, onPatch, onDele
       }}>
         {alt
           ? (going ? <><LogOut size={17} /> Quitter cette activité</> : <><LogIn size={17} /> Rejoindre cette activité</>)
-          : (going ? <><UserMinus size={17} /> Je passe mon tour</> : <><UserPlus size={17} /> Finalement, je viens</>)}
+          : (going ? <><UserMinus size={17} /> Je passe mon tour</> : <><UserPlus size={17} /> Je reviens</>)}
       </button>
       {alt && (
         <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12.5, marginTop: -8, textAlign: "center" }}>
@@ -7112,7 +7143,7 @@ export default function App() {
         </div>
 
         <div key={tab} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", WebkitOverflowScrolling: "touch", overflowY: tab === "talk" ? "hidden" : "auto", padding: tab === "talk" ? "16px 16px 10px" : "18px 18px 24px", animation: "vfade .25s ease" }}>
-          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} onMap={() => setMapOpen(true)} onShare={() => setSheet({ mode: "share" })} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
+          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onToggleMine={toggleMine} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} onMap={() => setMapOpen(true)} onShare={() => setSheet({ mode: "share" })} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "program" && <ScreenProgram events={events} now={now} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onOpenEvent={openDetail} onEditEvent={openEdit} onAdd={openAdd} onDelete={deleteEvent} canEdit={canEdit} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "talk" && <ScreenTalk messages={messages} onSend={sendMessage} pollHandlers={pollHandlers} />}
           {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onDiapo={() => setDiapo(true)} />}
