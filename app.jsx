@@ -1405,7 +1405,7 @@ function QuickActions({ event, unread, onOpen, onDiscuss, onAddPhoto, onVibe, vi
   );
 }
 
-function NextCard({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount, unread, openPolls }) {
+function NextCard({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount, unread, openPolls, onJoin, going }) {
   const t = TYPES[event.type];
   const mins = startAbs(event) - now;
   return (
@@ -1436,7 +1436,7 @@ function NextCard({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount
         {!iAmIn(event) && <span style={{ fontFamily: fB, fontSize: 12.5, color: T.c.inkFaint }}>vous passez votre tour</span>}
       </div>
       <PollBanner count={openPolls} onOpen={onOpen} />
-      <QuickActions event={event} unread={unread} onOpen={onOpen} onDiscuss={onDiscuss} onAddPhoto={onAddPhoto} onVibe={onVibe} vibeCount={vibeCount} />
+      <QuickActions event={event} unread={unread} onOpen={onOpen} onDiscuss={onDiscuss} onAddPhoto={onAddPhoto} onVibe={onVibe} vibeCount={vibeCount} onJoin={onJoin} going={going} />
     </div>
   );
 }
@@ -4862,7 +4862,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
         <NightCard nxt={nxt} dIdx={dIdx} onOpen={onOpenEvent} unread={nxt ? ub(nxt.id) : 0} />
       ) : (
         <div>
-          <NextCard event={sameDayNext} now={now} onOpen={() => onOpenEvent(sameDayNext)} onDiscuss={() => onOpenThread(sameDayNext)} onAddPhoto={onAddPhoto} onVibe={play ? () => play.vibe(sameDayNext.id) : null} vibeCount={play ? vibeTotal((play.messages || []).find((m) => m.id === "vibe-" + sameDayNext.id)) : 0} unread={ub(sameDayNext.id)} openPolls={op(sameDayNext.id)} />
+          <NextCard event={sameDayNext} now={now} onOpen={() => onOpenEvent(sameDayNext)} onDiscuss={() => onOpenThread(sameDayNext)} onAddPhoto={onAddPhoto} onVibe={play ? () => play.vibe(sameDayNext.id) : null} vibeCount={play ? vibeTotal((play.messages || []).find((m) => m.id === "vibe-" + sameDayNext.id)) : 0} unread={ub(sameDayNext.id)} openPolls={op(sameDayNext.id)} onJoin={() => onToggleMine(sameDayNext.id)} going={iAmIn(sameDayNext)} />
           <ParallelList main={sameDayNext} events={events} onOpen={onOpenEvent} ub={ub} />
         </div>
       )}
