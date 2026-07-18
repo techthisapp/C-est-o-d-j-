@@ -1071,7 +1071,7 @@ const LAND_PALETTE = {
   rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82", anniversaire: "#C79ED6",
 };
 const LAND_BASEOP = (t) => (t === "ville" ? 0.20 : t === "rando" ? 0.26 : 0.30);
-function Landscape({ type, night }) {
+function Landscape({ type, night, figDx }) {
   const c = T.c;
   const t = LAND_PALETTE[type] ? type : "mer";
   const col = LAND_PALETTE[t];
@@ -1269,7 +1269,7 @@ function Landscape({ type, night }) {
       </defs>
       <rect x="0" y="92.4" width="320" height="25.6" fill={"url(#" + gid + ")"} />
       {deco}
-      <g opacity={figOp}>{fig}</g>
+      <g opacity={figOp} transform={figDx ? `translate(${figDx}, 0)` : undefined}>{fig}</g>
     </g>
   );
 }
@@ -4549,26 +4549,23 @@ function PlacesMap({ places, onClose }) {
     </div>
   );
 }
-function SouvenirSky({ periode }) {
+function SouvenirSky({ periode, stats }) {
   const t = LAND_PALETTE[SETTINGS.tripType] ? SETTINGS.tripType : "mer";
+  const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
+  const rot = [-6, 3, -3, 5];
   return (
-    <div style={{ position: "relative", margin: "0 -18px" }}>
+    <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(178deg, #FFF4DE 0%, #FFE8CB 44%, #FBE1C7 72%, #F6DABF 100%)", paddingBottom: 14 }}>
       <svg viewBox="0 0 320 128" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
-        <defs>
-          <linearGradient id="souvSky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#FFF4DE" />
-            <stop offset="0.7" stopColor="#FFE4C4" />
-            <stop offset="1" stopColor="#FFD9BC" />
-          </linearGradient>
-        </defs>
-        <rect x="0" y="0" width="320" height="128" fill="url(#souvSky)" />
         <g transform="translate(0, 10)">
-          <circle cx="250" cy="64" r="26" fill={T.c.sun} opacity="0.3" />
-          <circle cx="250" cy="64" r="13" fill={T.c.sun} opacity="0.92" />
+          <g style={{ transformOrigin: "250px 64px", animation: "vfloat 6.5s ease-in-out infinite" }}>
+            <circle cx="250" cy="64" r="26" fill={T.c.sun} opacity="0.3" style={{ transformOrigin: "250px 64px", animation: "vbreath 4.4s ease-in-out infinite" }} />
+            <circle cx="250" cy="64" r="19" fill={T.c.sun} opacity="0.22" style={{ transformOrigin: "250px 64px", animation: "vbreath 4.4s ease-in-out 0.4s infinite" }} />
+            <circle cx="250" cy="64" r="13" fill={T.c.sun} opacity="0.92" />
+          </g>
           {[[36, 16], [84, 30], [138, 12], [198, 26], [292, 18]].map(([sx, sy], i) => (
             <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
           ))}
-          <Landscape type={t} night={false} />
+          <Landscape type={t} night={false} figDx={-86} />
           <line x1="0" y1="92" x2="320" y2="92" stroke="#B08A5A" strokeOpacity="0.3" strokeWidth="1.4" />
         </g>
       </svg>
@@ -4577,6 +4574,22 @@ function SouvenirSky({ periode }) {
         <div style={{ fontFamily: fH, fontWeight: 600, fontSize: 37, color: "#233B45", lineHeight: 1.02, marginTop: 2 }}>C'était {SETTINGS.place || "le séjour"}</div>
         <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4 }}>{periode}</div>
       </div>
+      {stats && stats.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px", marginTop: -2 }}>
+          {stats.map(([n, l, act], i) => {
+            const inner = (
+              <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 19, color: encres[i], lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{n}</span>
+                <span style={{ fontFamily: fB, fontWeight: 700, fontSize: 7.5, letterSpacing: 1.1, color: encres[i], textTransform: "uppercase", marginTop: 2 }}>{l}</span>
+              </div>
+            );
+            const st = { width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, opacity: 0.82, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", background: "transparent", padding: 0 };
+            return act
+              ? <button key={l} onClick={act} aria-label={`Voir les ${l} sur la carte`} style={{ ...st, cursor: "pointer" }}>{inner}</button>
+              : <div key={l} style={st}>{inner}</div>;
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -4598,20 +4611,6 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
   const album = albumFaces.length ? albumFaces : (star && (nbVis(star.photo) >= 2 || nbTags(star.photo) > 3) ? [star.photo] : albumFaces);
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 4px" }}>
-        {stats.map(([n, l, act], i) => {
-          const inner = (
-            <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 19, color: encres[i], lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{n}</span>
-              <span style={{ fontFamily: fB, fontWeight: 700, fontSize: 7.5, letterSpacing: 1.1, color: encres[i], textTransform: "uppercase", marginTop: 2 }}>{l}</span>
-            </div>
-          );
-          const st = { width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, opacity: 0.82, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", background: "transparent", padding: 0 };
-          return act
-            ? <button key={l} onClick={act} aria-label={`Voir les ${l} sur la carte`} style={{ ...st, cursor: "pointer" }}>{inner}</button>
-            : <div key={l} style={st}>{inner}</div>;
-        })}
-      </div>
       {actions.length > 0 && (
         <div style={{ display: "flex", justifyContent: "space-around", gap: 6, padding: "0 2px" }}>
           {actions.map(([Icon, label, fn]) => (
@@ -4821,9 +4820,10 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
     const periode = dStart.getMonth() === dEnd.getMonth()
       ? `Du ${dStart.getDate()} au ${dEnd.getDate()} ${MO[dEnd.getMonth()]}`
       : `Du ${dStart.getDate()} ${MO[dStart.getMonth()]} au ${dEnd.getDate()} ${MO[dEnd.getMonth()]}`;
+    const svStats = souvenirStats(events, photos, play ? play.messages : []).map(([n, l, a]) => [n, l, a === "map" && Number(n) > 0 ? onMap : null]);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <SouvenirSky periode={`${periode} · ${DAYS.length} jours à ${nActifs}`} />
+        <SouvenirSky periode={`${periode} · ${DAYS.length} jours à ${nActifs}`} stats={svStats} />
         <SouvenirCard events={events} photos={photos} messages={play ? play.messages : []} star={star} faces={faces} onOpenEvent={onOpenEvent} onOpenPhoto={onOpenPhoto} onFilm={onFilm} onOpenQuiz={onOpenQuiz} onMap={onMap} onShare={onShare} />
         {scan && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: fB, fontSize: 11.5, color: T.c.inkFaint }}><RefreshCw size={12} style={{ animation: "vspin 1.1s linear infinite" }} /> Analyse des photos... {scan.done}/{scan.total}</div>}
         <PhotoStrip photos={(photos || []).filter((p) => !star || p.id !== star.photo.id)} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel variant="polaroid" faces={faces} />
