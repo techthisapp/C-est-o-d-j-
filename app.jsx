@@ -3252,37 +3252,82 @@ const fmtMin = (m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`
 const hFr = (t) => String(t || "").replace(":", "h");
 function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onOpenPhoto, todayDone }) {
   const [expanded, setExpanded] = useState(false);
+  const [selId, setSelId] = useState(null);
   const active = RITUAL_SLOTS.filter((s) => featureOn(s.feat));
   if (active.length === 0 || !play) return null;
   let cur = active.find((s) => mid < s.to) || active[active.length - 1];
   const recapSlot = active.find((s) => s.id === "recap");
   if (todayDone && recapSlot) cur = recapSlot;
-  const upcoming = !todayDone && mid < cur.from;
-  const nextSlot = active.find((s) => s.from > cur.from) || null;
+
   const doneOf = (s) => {
     if (s.id === "morning") return !!(((SETTINGS.morning || {})[dIdx] || {})[ME]);
     if (s.id === "photo") return photos.some((p) => p.event === "defi-d" + dIdx && p.who === ME);
     if (s.id === "who") return !!(((SETTINGS.wholikely || {})[dIdx] || {})[ME]);
     return false;
   };
+  const accessible = (s) => mid >= s.from;
+  const selSlot = selId ? active.find((s) => s.id === selId && accessible(s)) : null;
+  const vu = selSlot || cur;
+  const consultation = vu.id !== cur.id;
+
+  const upcoming = !consultation && !todayDone && mid < cur.from;
+  const nextSlot = active.find((s) => s.from > cur.from) || null;
   const curDone = !upcoming && doneOf(cur);
-  const collapsed = curDone && !expanded && cur.id !== "recap";
+  const collapsed = !consultation && curDone && !expanded && cur.id !== "recap";
+  const passesAccessibles = active.some((s) => accessible(s) && s.id !== cur.id);
+
+  const contenu = (s) => (
+    <>
+      {s.id === "morning" && <MorningQuestionCard dIdx={dIdx} onVote={play.voteMorning} bare />}
+      {s.id === "photo" && <DailyChallengeCard dIdx={dIdx} photos={photos} onAddPhoto={onAddPhoto} onOpenPhoto={onOpenPhoto} bare />}
+      {s.id === "who" && <WhoLikelyCard dIdx={dIdx} onVote={play.voteWho} bare />}
+      {s.id === "recap" && <RecapCard dIdx={dIdx} events={events} messages={play.messages} photos={photos} now={now} bare />}
+    </>
+  );
+
   const dot = (s) => {
-    const isCur = s.id === cur.id;
-    const passed = s.to <= mid && !isCur;
-    const filled = (isCur && curDone) || (passed && doneOf(s));
+    const isVu = s.id === vu.id;
+    const passed = s.to <= mid && !isVu;
+    const filled = doneOf(s);
+    const clickable = accessible(s);
     return (
-      <span key={s.id} style={{ width: 8, height: 8, borderRadius: 8, flex: "0 0 auto", background: filled ? T.c.sea : passed ? T.c.line : "transparent", border: isCur && !filled ? `2px solid ${T.c.sea}` : filled ? "none" : `2px solid ${T.c.line}`, boxSizing: "border-box" }} />
+      <button key={s.id} onClick={clickable ? () => setSelId(s.id === cur.id ? null : s.id) : undefined} aria-label={clickable ? "Voir : " + s.label.toLowerCase() : undefined} style={{ width: 15, height: 15, padding: 0, border: "none", background: "transparent", flex: "0 0 auto", cursor: clickable ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ width: 8, height: 8, borderRadius: 8, background: filled ? T.c.sea : passed ? T.c.line : "transparent", border: isVu && !filled ? `2px solid ${T.c.sea}` : filled ? "none" : `2px solid ${T.c.line}`, boxSizing: "border-box", boxShadow: isVu ? `0 0 0 3px ${T.c.seaSoft}` : "none" }} />
+      </button>
     );
   };
+
   const wrap = { background: `linear-gradient(150deg, ${T.c.seaSoft}, ${T.c.card} 72%)`, border: `1px solid ${T.c.line}`, borderRadius: T.r.lg, padding: "12px 14px" };
   const header = (
-    <div onClick={curDone ? () => setExpanded(!expanded) : undefined} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: collapsed || upcoming ? 0 : 10, cursor: curDone ? "pointer" : "default" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: (collapsed || upcoming) ? 0 : 10 }}>
       <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 11, letterSpacing: 1.1, color: T.c.inkFaint }}>RENDEZ-VOUS DU JOUR</span>
       <span style={{ flex: 1 }} />
-      <span style={{ display: "inline-flex", gap: 5, alignItems: "center" }}>{active.map(dot)}</span>
+      <span style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>{active.map(dot)}</span>
     </div>
   );
+
+  const retour = (
+    <button onClick={() => setSelId(null)} style={{ marginTop: 10, cursor: "pointer", border: "none", background: "transparent", color: T.c.seaDeep, fontFamily: fD, fontWeight: 600, fontSize: 12.5, padding: 0, display: "flex", alignItems: "center", gap: 3 }}>
+      <span style={{ fontSize: 15, lineHeight: 1 }}>&lsaquo;</span> Revenir à maintenant
+    </button>
+  );
+
+  if (consultation) {
+    const fait = doneOf(vu);
+    return (
+      <div style={wrap}>
+        {header}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
+          <span style={{ fontSize: 16 }}>{vu.emoji}</span>
+          <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14.5 }}>{vu.label}</span>
+          <span style={{ fontFamily: fB, fontWeight: 600, color: fait ? T.c.sea : T.c.inkFaint, fontSize: 11.5, marginLeft: "auto" }}>{fait ? "déjà répondu" : "à compléter"}</span>
+        </div>
+        {contenu(vu)}
+        {retour}
+      </div>
+    );
+  }
+
   if (upcoming) {
     return (
       <div style={wrap}>
@@ -3290,6 +3335,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
         <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 13.5, marginTop: 8 }}>
           {cur.emoji} Prochain rendez-vous à <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink }}>{fmtMin(cur.from)}</span> : {cur.label.toLowerCase()}.
         </div>
+        {passesAccessibles && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11, marginTop: 8 }}>Touchez un point ci-dessus pour revoir un rendez-vous passé.</div>}
       </div>
     );
   }
@@ -3315,10 +3361,8 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
         <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14.5 }}>{cur.label}</span>
         {nextSlot && <span style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5, marginLeft: "auto" }}>puis {fmtMin(nextSlot.from)}</span>}
       </div>
-      {cur.id === "morning" && <MorningQuestionCard dIdx={dIdx} onVote={play.voteMorning} bare />}
-      {cur.id === "photo" && <DailyChallengeCard dIdx={dIdx} photos={photos} onAddPhoto={onAddPhoto} onOpenPhoto={onOpenPhoto} bare />}
-      {cur.id === "who" && <WhoLikelyCard dIdx={dIdx} onVote={play.voteWho} bare />}
-      {cur.id === "recap" && <RecapCard dIdx={dIdx} events={events} messages={play.messages} photos={photos} now={now} bare />}
+      {contenu(cur)}
+      {passesAccessibles && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11, marginTop: 9 }}>Touchez un point ci-dessus pour revoir un rendez-vous passé.</div>}
     </div>
   );
 }
