@@ -4935,7 +4935,7 @@ function SwipeActions({ children, onEdit, onDelete, enabled }) {
   const actBtn = { cursor: "pointer", border: "none", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: fD, fontWeight: 700, fontSize: 12, width: W };
 
   return (
-    <div style={{ position: "relative", overflow: "hidden", borderRadius: T.r.md }}>
+    <div data-swipe-card="1" style={{ position: "relative", overflow: "hidden", borderRadius: T.r.md }}>
       {(open || dx < -2) && (
         <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: total, display: "flex" }}>
           {onEdit && <button onClick={() => { onEdit(); closeIt(); }} aria-label="Modifier l'activité" style={{ ...actBtn, background: T.c.sea }}><Pencil size={16} /> Modifier</button>}
@@ -4961,9 +4961,30 @@ function SwipeActions({ children, onEdit, onDelete, enabled }) {
 function ScreenProgram({ events, now, selectedDay, setSelectedDay, onOpenEvent, onEditEvent, onAdd, onDelete, canEdit, unreadByEvent, openPollsByEvent }) {
   const day = DAYS[selectedDay];
   const mains = sortByStart(mainList(events).filter((e) => e.day === selectedDay));
+  const dayGeste = useRef(null);
+  const dayMoved = useRef(false);
+  const onTS = (e) => {
+    const tgt = e.target;
+    if (tgt && tgt.closest && (tgt.closest("[data-swipe-card]") || tgt.closest("[data-no-day-swipe]"))) { dayGeste.current = null; return; }
+    const t = e.touches[0]; dayGeste.current = { x: t.clientX, y: t.clientY }; dayMoved.current = false;
+  };
+  const onTM = (e) => {
+    const g = dayGeste.current; if (!g) return;
+    const t = e.touches[0]; const dx = t.clientX - g.x, dy = t.clientY - g.y;
+    if (!dayMoved.current && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) dayMoved.current = true;
+  };
+  const onTE = (e) => {
+    const g = dayGeste.current; dayGeste.current = null;
+    if (!g || !dayMoved.current) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null; if (!t) return;
+    const dx = t.clientX - g.x; if (Math.abs(dx) < 45) return;
+    if (dx < 0) setSelectedDay(Math.min(DAYS.length - 1, selectedDay + 1));
+    else setSelectedDay(Math.max(0, selectedDay - 1));
+  };
+  const onCCJour = (e) => { if (dayMoved.current) { e.preventDefault(); e.stopPropagation(); dayMoved.current = false; } };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE} onClickCapture={onCCJour} style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1 style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 28, margin: 0 }}>Programme</h1>
         {canEdit && (
@@ -4972,7 +4993,7 @@ function ScreenProgram({ events, now, selectedDay, setSelectedDay, onOpenEvent, 
           </button>
         )}
       </div>
-      <div style={{ display: "flex", gap: 14, overflowX: "auto", margin: "0 -2px", paddingBottom: 2 }}>
+      <div data-no-day-swipe="1" style={{ display: "flex", gap: 14, overflowX: "auto", margin: "0 -2px", paddingBottom: 2 }}>
         {DAYS.map((d) => {
           const on = d.i === selectedDay;
           const today = d.i === clamp(dayOfNow(now), 0, DAYS.length - 1);
