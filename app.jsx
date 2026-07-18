@@ -841,6 +841,14 @@ function GuessBubble({ m, onGuess, onReveal }) {
 
 /* ---- Message : bulle et saisie ---------------------------------------- */
 const REACTIONS = ["❤️", "👍", "😂", "🔥", "😮", "🙏"];
+const mentionedIds = (txt) => {
+  const t = txt || "";
+  return ROSTER.filter((p) => {
+    if (!p.active || p.id === ME || !p.name) return false;
+    const esc = p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("@" + esc + "(?![\\p{L}\\p{M}'’-])", "u").test(t);
+  }).map((p) => p.id);
+};
 const renderMentions = (txt, color) => {
   const names = ROSTER.filter((p) => p.active).map((p) => person(p.id).name).filter(Boolean).sort((a, b) => b.length - a.length);
   if (!names.length || !txt) return txt;
@@ -6012,7 +6020,7 @@ const sigOf = (d) => stableStringify([d.events || [], d.messages || [], d.roster
 const VAPID_PUB = CFG.vapidPublicKey || "";
 const FUNCTIONS_URL = CFG.supabaseUrl ? CFG.supabaseUrl + "/functions/v1" : "";
 const NOTIF_KEY = "vacances_notif_v1";
-const DEFAULT_NOTIF = { enabled: false, messages: true, addActivity: true, editActivity: true, nextActivity: true };
+const DEFAULT_NOTIF = { enabled: false, messages: true, mentions: true, addActivity: true, editActivity: true, nextActivity: true };
 const RAPPELS_KEY = "vacances_rappels_v1";
 function loadNotif() { try { return JSON.parse(localStorage.getItem(NOTIF_KEY)) || null; } catch (e) { return null; } }
 function saveNotif(p) { try { localStorage.setItem(NOTIF_KEY, JSON.stringify(p)); } catch (e) { /* rien */ } }
@@ -6052,7 +6060,7 @@ function notify(payload) {
     fetch(FUNCTIONS_URL + "/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + CFG.supabaseAnonKey },
-      body: JSON.stringify({ ...payload, tripCode: TRIP_CODE, exclude: ME }),
+      body: JSON.stringify({ ...payload, tripCode: TRIP_CODE, exclude: payload.exclude != null ? payload.exclude : ME }),
       keepalive: true,
     }).catch(() => {});
   } catch (e) { /* silencieux */ }
@@ -6381,6 +6389,7 @@ function NotifSettings() {
           {prefs.enabled && (
             <>
               <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Nouveaux messages</span><Toggle on={prefs.messages} onClick={() => toggleKind("messages")} /></div>
+              <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Mentions<span style={{ display: "block", fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Quand quelqu'un vous nomme avec une arobase.</span></span><Toggle on={prefs.mentions !== false} onClick={() => toggleKind("mentions")} /></div>
               <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Ajout d'activité</span><Toggle on={prefs.addActivity} onClick={() => toggleKind("addActivity")} /></div>
               <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Modification d'activité</span><Toggle on={prefs.editActivity} onClick={() => toggleKind("editActivity")} /></div>
               <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Rappel avant une activité<span style={{ display: "block", fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Une heure avant le début, sur cet appareil.</span></span><Toggle on={prefs.nextActivity !== false} onClick={() => toggleKind("nextActivity")} /></div>
@@ -6921,6 +6930,8 @@ export default function App() {
     const meName = (person(ME) || {}).name || "Quelqu'un";
     const ev = scope !== "general" ? events.find((e) => e.id === scope) : null;
     notify({ type: "messages", title: ev ? `${meName} · ${ev.title}` : `${meName} a écrit`, body: text });
+    const ment = mentionedIds(text);
+    if (ment.length) notify({ type: "mentions", title: ev ? `${meName} vous a mentionné · ${ev.title}` : `${meName} vous a mentionné`, body: text, only: ment });
   };
   const createPoll = (scope, q, optLabels, multi, allowComments) => {
     const poll = { id: uid("m"), scope, who: ME, kind: "poll", q, multi: !!multi, allowComments: !!allowComments, closed: false, votes: {}, comments: [], opts: optLabels.map((label, i) => ({ id: "o" + (i + 1), label })) };
