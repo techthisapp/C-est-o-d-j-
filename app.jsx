@@ -2497,7 +2497,6 @@ function CarteStylisee({ lieux, sequence, th }) {
   const gonfle = (f) => (h || []).map(([x, y]) => [clamp(cx0 + (x - cx0) * f * 1.55, 4, 96), clamp(cy0 + (y - cy0) * f * 1.7, 4, 56)]);
   const masse = h ? pathDe(gonfle(1)) : "";
   const contours = h ? [0.74, 0.5, 0.28].map((f) => pathDe(gonfle(f))) : [];
-  const pas = 1.15;
   const alea = (k, s) => { const x = Math.sin((k + 1) * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); };
   return (
     <svg viewBox="0 0 100 62" style={{ width: "100%", height: "100%", display: "block" }} preserveAspectRatio="xMidYMid meet">
@@ -2551,31 +2550,38 @@ function CarteStylisee({ lieux, sequence, th }) {
           <animate attributeName="r" values="0;2.9;2.1" keyTimes="0;0.7;1" begin={`${0.5 + i * 0.16}s`} dur="0.5s" fill="freeze" />
         </circle>
       ))}
-      {seq.length > 1 && seq.slice(1).map((s, i) => {
-        const a = seq[i];
-        const t0 = 0.5 + i * pas + 0.45;
-        return (
-          <path key={"s" + i} d={`M ${nx(a.coord.lng)} ${ny(a.coord.lat)} L ${nx(s.coord.lng)} ${ny(s.coord.lat)}`} pathLength="1" fill="none" stroke={th.trait} strokeWidth="1.2" strokeLinecap="round" strokeDasharray="1" strokeDashoffset="1">
-            <animate attributeName="stroke-dashoffset" from="1" to="0" begin={`${t0}s`} dur="0.62s" fill="freeze" />
-            <animate attributeName="stroke-opacity" values="1;0.45;1" begin={`${t0 + 0.62}s`} dur="1.5s" repeatCount="indefinite" />
-            <animate attributeName="stroke-width" values="1.2;1.7;1.2" begin={`${t0 + 0.62}s`} dur="1.5s" repeatCount="indefinite" />
-          </path>
-        );
-      })}
+      {seq.length > 1 && (() => {
+        const dTot = 1.5;
+        const total = seq.reduce((acc, s, i) => (i === 0 ? 0 : acc + Math.hypot(nx(s.coord.lng) - nx(seq[i - 1].coord.lng), ny(s.coord.lat) - ny(seq[i - 1].coord.lat))), 0) || 1;
+        let cum = 0;
+        return seq.slice(1).map((s, i) => {
+          const a = seq[i];
+          const seg = Math.hypot(nx(s.coord.lng) - nx(a.coord.lng), ny(s.coord.lat) - ny(a.coord.lat));
+          const t0 = 0.55 + (cum / total) * dTot;
+          cum += seg;
+          const dur = Math.max(0.18, (seg / total) * dTot);
+          return (
+            <path key={"s" + i} d={`M ${nx(a.coord.lng)} ${ny(a.coord.lat)} L ${nx(s.coord.lng)} ${ny(s.coord.lat)}`} pathLength="1" fill="none" stroke={th.trait} strokeWidth="1.3" strokeLinecap="round" strokeDasharray="1" strokeDashoffset="1">
+              <animate attributeName="stroke-dashoffset" from="1" to="0" begin={`${t0}s`} dur={`${dur}s`} fill="freeze" />
+              <animate attributeName="stroke-opacity" values="1;0.5;1" begin={`${0.55 + dTot}s`} dur="1.6s" repeatCount="indefinite" />
+            </path>
+          );
+        });
+      })()}
       {seq.map((s, i) => {
         const x = nx(s.coord.lng), y = ny(s.coord.lat);
-        const t0 = 0.5 + i * pas;
+        const t0 = 0.2 + i * 0.09;
         return (
           <g key={"p" + i}>
             <circle cx={x} cy={y} r="2" fill="none" stroke={th.trait} strokeWidth="0.6" opacity="0">
-              <animate attributeName="r" from="2" to="9" begin={`${t0}s`} dur="1s" fill="freeze" />
-              <animate attributeName="opacity" from="0.85" to="0" begin={`${t0}s`} dur="1s" fill="freeze" />
+              <animate attributeName="r" from="2" to="8" begin={`${t0}s`} dur="0.9s" fill="freeze" />
+              <animate attributeName="opacity" from="0.8" to="0" begin={`${t0}s`} dur="0.9s" fill="freeze" />
             </circle>
             <circle cx={x} cy={y} r="0" fill={th.point} stroke="#fff" strokeWidth="0.9">
-              <animate attributeName="r" values="0;4.4;3.2" keyTimes="0;0.66;1" begin={`${t0}s`} dur="0.52s" fill="freeze" />
+              <animate attributeName="r" values="0;4.4;3.2" keyTimes="0;0.66;1" begin={`${t0}s`} dur="0.5s" fill="freeze" />
             </circle>
             <text x={x} y={y - 5.2} textAnchor="middle" fontSize="3.1" fontWeight="700" fill={th.encre} fontFamily="sans-serif" paintOrder="stroke" stroke="#ffffff" strokeWidth="1" opacity="0">
-              <animate attributeName="opacity" from="0" to="1" begin={`${t0 + 0.12}s`} dur="0.4s" fill="freeze" />
+              <animate attributeName="opacity" from="0" to="1" begin={`${t0 + 0.2}s`} dur="0.4s" fill="freeze" />
               {String(s.nom || "").slice(0, 22)}
             </text>
           </g>
@@ -2666,9 +2672,14 @@ function useMusique(type, actif) {
     };
     tick();
     const id = setInterval(tick, 60);
-    ctx.resume().catch(() => {});
+    const reprendre = () => { if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {}); };
+    reprendre();
+    const evs = ["pointerdown", "touchstart", "click", "keydown"];
+    const surGeste = () => { reprendre(); };
+    if (typeof document !== "undefined") evs.forEach((e) => document.addEventListener(e, surGeste, { passive: true }));
     return () => {
       clearInterval(id);
+      if (typeof document !== "undefined") evs.forEach((e) => document.removeEventListener(e, surGeste));
       try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(master.gain.value, ctx.currentTime); master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.35); } catch (e) {}
       setTimeout(() => { try { ctx.close(); } catch (e) {} }, 500);
     };
@@ -2691,14 +2702,27 @@ function legendesJour(d, evs) {
   });
   return out.length ? out : [{ l1: dayLabel(d), l2: "" }];
 }
-function buildFilm(events, photos, messages) {
+function buildFilm(events, photos, messages, faces) {
   const ph = (photos || []).filter((p) => p.url);
   const sc = [{ t: "titre", d: 4600 }];
   const lieuxU = buildPlaces(events);
-  if (lieuxU.filter((p) => p.coord).length >= 1) sc.push({ t: "voyage", d: 5800, vehicule: detectVehicule(events) });
+  if (lieuxU.filter((p) => p.coord).length >= 1) sc.push({ t: "voyage", d: 4600, vehicule: detectVehicule(events) });
+  /* photos rattachées à une journée par leur activité ; les autres (mur) réparties au prorata sur les jours qui ont des activités */
+  const parJour = {};
+  const orphelines = [];
+  ph.forEach((p) => { const d = dayOfPhoto(p, events); if (d != null) { (parJour[d] = parJour[d] || []).push(p); } else orphelines.push(p); });
+  const joursActifs = [];
+  for (let d = 0; d < DAYS.length; d++) if (mainList(events).some((e) => e.day === d)) joursActifs.push(d);
+  if (orphelines.length && joursActifs.length) {
+    orphelines.sort((a, b) => (a.at || 0) - (b.at || 0));
+    orphelines.forEach((p, k) => { const d = joursActifs[Math.floor((k * joursActifs.length) / orphelines.length)]; (parJour[d] = parJour[d] || []).push(p); });
+  } else if (orphelines.length) {
+    orphelines.forEach((p) => (parJour[0] = parJour[0] || []).push(p));
+  }
+  const nbVisages = (p) => { const f = (faces || {})[p.id]; return f && f.n ? f.n : 0; };
   for (let d = 0; d < DAYS.length; d++) {
     const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
-    const pj = ph.filter((p) => dayOfPhoto(p, events) === d).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
+    const pj = (parJour[d] || []).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
     if (!evs.length && !pj.length) continue;
     let bestE = null, bestV = 0;
     evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
@@ -2712,17 +2736,17 @@ function buildFilm(events, photos, messages) {
           if (!seq.length || seq[seq.length - 1].k !== k) seq.push({ k, coord: e.place.coord, nom: e.place.name });
         }
       });
-      sc.push({ t: "trajet", d: 1500 + seq.length * 1150 + 700, day: d, seq });
+      sc.push({ t: "trajet", d: 3400, day: d, seq });
     }
     const legs = legendesJour(d, evs);
-    const style = ["plein", "polaroid", "diptyque", "tirage"][d % 4];
-    if (style === "diptyque" && pj.length >= 2) {
-      sc.push({ t: "diptyque", d: 6400, day: d, phs: pj.slice(0, 2), leg: legs[0] });
-      if (pj[2]) sc.push({ t: "plein", d: 5000, day: d, ph: pj[2], leg: legs[1 % legs.length] });
-    } else {
-      const st = style === "diptyque" ? "plein" : style;
-      pj.slice(0, 3).forEach((p, k) => sc.push({ t: st, d: st === "polaroid" ? 5400 : 5000, day: d, ph: p, leg: legs[k % legs.length] }));
-    }
+    const choisies = pj.slice(0, 3);
+    choisies.forEach((p, k) => {
+      const leg = legs[k % legs.length];
+      const groupe = nbVisages(p) >= 3;
+      if (groupe) sc.push({ t: "polaroid", d: 5200, day: d, ph: p, leg });
+      else if ((d + k) % 2 === 0) sc.push({ t: "plein", d: 5000, day: d, ph: p, leg });
+      else sc.push({ t: "tirage", d: 4800, day: d, ph: p, leg });
+    });
     if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3800, day: d, e: bestE });
     const mj = (messages || []).filter((m) => dayOfMsg(m, events) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
       .map((m) => ({ m, n: reactsOfMsg(m) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
@@ -2743,10 +2767,10 @@ function buildFilm(events, photos, messages) {
   return sc;
 }
 function FilmOverlay({ events, photos, messages, onClose }) {
-  const scenes = useMemo(() => buildFilm(events, photos, messages), []);
+  const faces = useMemo(() => loadFaces(), []);
+  const scenes = useMemo(() => buildFilm(events, photos, messages, faces), []);
   const [i, setI] = useState(0);
   const [son, setSon] = useState(true);
-  const faces = useMemo(() => loadFaces(), []);
   const lieuxU = useMemo(() => buildPlaces(events), []);
   const th = themeDe();
   useMusique(SETTINGS.tripType || "mer", son);
@@ -2802,14 +2826,17 @@ function FilmOverlay({ events, photos, messages, onClose }) {
       </div>
     );
   } else if (sc.t === "jour") {
+    const accent = [th.point, th.trait, th.feteLabel][sc.day % 3];
     inner = (
       <div style={{ position: "absolute", inset: 0, background: th.bandes[sc.day % th.bandes.length], overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.45)", transformOrigin: "left", animation: "fmWipe 0.9s cubic-bezier(.7,0,.2,1) both" }} />
-        <div style={{ textAlign: "center", padding: "0 26px", maxWidth: 620 }}>
-          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(52px, 17vw, 92px)", color: th.encre, transform: "rotate(-1.5deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".2s", lineHeight: 1 }}>{`Jour ${sc.day + 1}`}</div>
-          <div style={{ fontFamily: fB, fontSize: 16, color: th.papierTxt, opacity: 0.75, marginTop: 8, animation: "vfade .8s ease both", animationDelay: ".6s" }}>{dayLabel(sc.day)}</div>
+        <div style={{ position: "absolute", inset: 0, background: accent, transformOrigin: "left", animation: "fmWipe 0.7s cubic-bezier(.7,0,.2,1) both" }} />
+        <div style={{ position: "absolute", top: "13%", left: "50%", transform: "translateX(-50%)", fontFamily: fH, fontWeight: 700, fontSize: "38vw", color: accent, opacity: 0.1, lineHeight: 1, animation: "fmZoomIn 1s cubic-bezier(.2,.8,.2,1) both" }}>{sc.day + 1}</div>
+        <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "0 26px", maxWidth: 640 }}>
+          <div style={{ display: "inline-block", background: accent, color: "#fff", fontFamily: fB, fontWeight: 700, fontSize: 13, letterSpacing: 3, textTransform: "uppercase", borderRadius: T.r.pill, padding: "6px 16px", animation: "fmDrop .7s cubic-bezier(.2,.9,.3,1.2) both" }}>{`Étape ${sc.day + 1} sur ${DAYS.length}`}</div>
+          <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(66px, 23vw, 128px)", color: th.encre, transform: "rotate(-2deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".18s", lineHeight: 0.95, marginTop: 10 }}>{`Jour ${sc.day + 1}`}</div>
+          <div style={{ fontFamily: fB, fontSize: 17, color: th.papierTxt, opacity: 0.8, marginTop: 6, animation: "vfade .8s ease both", animationDelay: ".55s" }}>{dayLabel(sc.day)}</div>
           {sc.recit && (
-            <div style={{ fontFamily: fH, fontSize: "clamp(20px, 5.4vw, 27px)", color: th.papierTxt, marginTop: 18, lineHeight: 1.35, animation: "vfade 1s ease both", animationDelay: "1s" }}>{sc.recit}</div>
+            <div style={{ fontFamily: fH, fontSize: "clamp(21px, 5.6vw, 29px)", color: th.papierTxt, marginTop: 20, lineHeight: 1.35, animation: "vfade 1s ease both", animationDelay: ".95s" }}>{sc.recit}</div>
           )}
         </div>
       </div>
