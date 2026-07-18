@@ -1442,8 +1442,7 @@ function NextCard({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount
 }
 
 /* Carte pleine : activité en cours */
-function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount, unread, openPolls }) {
-  const [showPresence, setShowPresence] = useState(false);
+function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCount, unread, openPolls, onShowPresence }) {
   const t = TYPES[event.type];
   const total = Math.max(1, endAbs(event) - startAbs(event));
   const progress = clamp((now - startAbs(event)) / total, 0, 1);
@@ -1482,35 +1481,11 @@ function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCo
             <span style={{ fontFamily: fB, fontSize: 12.5, opacity: 1 }}>Se termine dans</span>
             <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{remainingLabel(remain)}</span>
           </span>
-          <span role="button" tabIndex={0} aria-label="Voir les participants" onClick={(e) => { e.stopPropagation(); setShowPresence(true); }} style={{ cursor: "pointer" }}><AvatarRow ids={attendeesOf(event)} size={26} /></span>
+          <span role="button" tabIndex={0} aria-label="Voir les participants" onClick={(e) => { e.stopPropagation(); onShowPresence(event); }} style={{ cursor: "pointer" }}><AvatarRow ids={attendeesOf(event)} size={26} /></span>
         </div>
       </div>
       <PollBanner count={openPolls} onOpen={onOpen} light />
       <QuickActions event={event} unread={unread} onOpen={onOpen} onDiscuss={onDiscuss} onAddPhoto={onAddPhoto} onVibe={onVibe} vibeCount={vibeCount} light />
-      {showPresence && (
-        <div onClick={(e) => { e.stopPropagation(); setShowPresence(false); }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(12,28,38,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26 }}>
-          <div style={{ background: T.c.card, color: T.c.ink, borderRadius: T.r.lg, padding: 18, width: "100%", maxWidth: 320, maxHeight: "70%", overflowY: "auto", boxShadow: T.sh.lift }}>
-            <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 16, marginBottom: 12 }}>{event.title}</div>
-            <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, marginBottom: 9 }}>PRÉSENTS · {attendeesOf(event).length}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-              {attendeesOf(event).map((id) => (
-                <div key={id} style={{ display: "flex", alignItems: "center", gap: 9 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
-              ))}
-              {attendeesOf(event).length === 0 && <span style={{ fontFamily: fB, fontSize: 13, color: T.c.inkFaint }}>Personne pour l'instant.</span>}
-            </div>
-            {skipOf(event).length > 0 && (
-              <>
-                <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, margin: "15px 0 9px" }}>PASSENT LEUR TOUR · {skipOf(event).length}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                  {skipOf(event).map((id) => (
-                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 9, opacity: 0.55 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -4751,7 +4726,7 @@ function FilmEncart({ th, onFilm }) {
     </button>
   );
 }
-function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz, onMap, onShare, onToggleMine }) {
+function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz, onMap, onShare, onToggleMine, onShowPresence }) {
   const tripOver = dayOfNow(now) >= DAYS.length;
   const [faces, setFaces] = useState(() => loadFaces());
   const [scan, setScan] = useState(null);
@@ -4830,7 +4805,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
       {cur ? (
         <>
           <div>
-            <CurrentHero event={cur} now={now} onOpen={() => onOpenEvent(cur)} onDiscuss={() => onOpenThread(cur)} onAddPhoto={onAddPhoto} onVibe={play ? () => play.vibe(cur.id) : null} vibeCount={play ? vibeTotal((play.messages || []).find((m) => m.id === "vibe-" + cur.id)) : 0} unread={ub(cur.id)} openPolls={op(cur.id)} />
+            <CurrentHero event={cur} now={now} onOpen={() => onOpenEvent(cur)} onDiscuss={() => onOpenThread(cur)} onAddPhoto={onAddPhoto} onVibe={play ? () => play.vibe(cur.id) : null} vibeCount={play ? vibeTotal((play.messages || []).find((m) => m.id === "vibe-" + cur.id)) : 0} unread={ub(cur.id)} openPolls={op(cur.id)} onShowPresence={onShowPresence} />
             <ParallelList main={cur} events={events} onOpen={onOpenEvent} ub={ub} />
           </div>
           {sameDayNext && (
@@ -6840,6 +6815,7 @@ export default function App() {
   const [film, setFilm] = useState(false);
   const [diapo, setDiapo] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [presenceEvt, setPresenceEvt] = useState(null);
   const [wx, setWx] = useState(null);
   useEffect(() => {
     if (typeof fetch !== "function") return;
@@ -7143,7 +7119,7 @@ export default function App() {
         </div>
 
         <div key={tab} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", WebkitOverflowScrolling: "touch", overflowY: tab === "talk" ? "hidden" : "auto", padding: tab === "talk" ? "16px 16px 10px" : "18px 18px 24px", animation: "vfade .25s ease" }}>
-          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onToggleMine={toggleMine} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} onMap={() => setMapOpen(true)} onShare={() => setSheet({ mode: "share" })} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
+          {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onToggleMine={toggleMine} onShowPresence={setPresenceEvt} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} onMap={() => setMapOpen(true)} onShare={() => setSheet({ mode: "share" })} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "program" && <ScreenProgram events={events} now={now} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onOpenEvent={openDetail} onEditEvent={openEdit} onAdd={openAdd} onDelete={deleteEvent} canEdit={canEdit} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "talk" && <ScreenTalk messages={messages} onSend={sendMessage} pollHandlers={pollHandlers} />}
           {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onDiapo={() => setDiapo(true)} />}
@@ -7171,6 +7147,30 @@ export default function App() {
 
         {photoView && <PhotoViewer photos={photoView.ids ? visiblePhotos.filter((p) => photoView.ids.indexOf(p.id) >= 0) : visiblePhotos} startId={photoView.id} onClose={() => setPhotoView(null)} onToggleTag={toggleTag} onReact={togglePhotoReaction} onDelete={deletePhoto} />}
         {film && <FilmOverlay events={events} photos={visiblePhotos} messages={messages} onClose={() => setFilm(false)} />}
+        {presenceEvt && (
+          <div onClick={() => setPresenceEvt(null)} style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(12,28,38,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26 }}>
+            <div style={{ background: T.c.card, color: T.c.ink, borderRadius: T.r.lg, padding: 18, width: "100%", maxWidth: 320, maxHeight: "70%", overflowY: "auto", boxShadow: T.sh.lift }}>
+              <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 16, marginBottom: 12 }}>{presenceEvt.title}</div>
+              <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, marginBottom: 9 }}>PRÉSENTS · {attendeesOf(presenceEvt).length}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {attendeesOf(presenceEvt).map((id) => (
+                  <div key={id} style={{ display: "flex", alignItems: "center", gap: 9 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
+                ))}
+                {attendeesOf(presenceEvt).length === 0 && <span style={{ fontFamily: fB, fontSize: 13, color: T.c.inkFaint }}>Personne pour l'instant.</span>}
+              </div>
+              {skipOf(presenceEvt).length > 0 && (
+                <>
+                  <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, margin: "15px 0 9px" }}>PASSENT LEUR TOUR · {skipOf(presenceEvt).length}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                    {skipOf(presenceEvt).map((id) => (
+                      <div key={id} style={{ display: "flex", alignItems: "center", gap: 9, opacity: 0.55 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         {diapo && <Diaporama photos={visiblePhotos} onClose={() => setDiapo(false)} onReact={togglePhotoReaction} onToggleTag={toggleTag} />}
         {mapOpen && (() => {
           const seenM = new Set(); const pl = [];
