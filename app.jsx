@@ -2628,13 +2628,34 @@ const MUS = {
   detente: { root: 207.65, bpm: 56, pad: "sine", pluck: "sine", vol: 0.15, prog: [[0, 4, 7, 11], [-2, 2, 5, 9], [-4, 0, 3, 7], [-5, -1, 2, 7]] },
   anniversaire: { root: 261.63, bpm: 106, pad: "triangle", pluck: "square", vol: 0.11, prog: [[0, 4, 7, 12], [5, 9, 12, 17], [7, 11, 14, 19], [0, 4, 9, 12]] },
 };
+let AUDIO_CTX = null;
+function ctxAudio() {
+  if (typeof window === "undefined") return null;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!AUDIO_CTX) { try { AUDIO_CTX = new AC(); } catch (e) { return null; } }
+  return AUDIO_CTX;
+}
+function debloquerAudio() {
+  const ctx = ctxAudio();
+  if (!ctx) return;
+  try {
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    const b = ctx.createBuffer(1, 1, 22050);
+    const s = ctx.createBufferSource();
+    s.buffer = b; s.connect(ctx.destination); s.start(0);
+  } catch (e) { /* rien */ }
+}
+if (typeof document !== "undefined") {
+  const g = () => debloquerAudio();
+  ["pointerdown", "touchstart", "touchend", "mousedown", "click", "keydown"].forEach((e) => document.addEventListener(e, g, { capture: true, passive: true }));
+}
 function useMusique(type, actif) {
   useEffect(() => {
     if (!actif || typeof window === "undefined") return undefined;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return undefined;
-    let ctx = null;
-    try { ctx = new AC(); } catch (e) { return undefined; }
+    const ctx = ctxAudio();
+    if (!ctx) return undefined;
+    debloquerAudio();
     const cfg = MUS[type] || MUS.mer;
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
@@ -2672,16 +2693,16 @@ function useMusique(type, actif) {
     };
     tick();
     const id = setInterval(tick, 60);
-    const reprendre = () => { if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {}); };
-    reprendre();
-    const evs = ["pointerdown", "touchstart", "click", "keydown"];
-    const surGeste = () => { reprendre(); };
-    if (typeof document !== "undefined") evs.forEach((e) => document.addEventListener(e, surGeste, { passive: true }));
+    let vivant = true;
+    const relance = () => { if (vivant && ctx.state === "suspended") ctx.resume().catch(() => {}); };
+    const surGeste = () => relance();
+    if (typeof document !== "undefined") ["pointerdown", "touchstart", "click"].forEach((e) => document.addEventListener(e, surGeste, { passive: true }));
     return () => {
+      vivant = false;
       clearInterval(id);
-      if (typeof document !== "undefined") evs.forEach((e) => document.removeEventListener(e, surGeste));
-      try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(master.gain.value, ctx.currentTime); master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.35); } catch (e) {}
-      setTimeout(() => { try { ctx.close(); } catch (e) {} }, 500);
+      if (typeof document !== "undefined") ["pointerdown", "touchstart", "click"].forEach((e) => document.removeEventListener(e, surGeste));
+      try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(master.gain.value, ctx.currentTime); master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.4); } catch (e) {}
+      try { master.disconnect(); dly.disconnect(); wet.disconnect(); fb.disconnect(); } catch (e) {}
     };
   }, [actif, type]);
 }
@@ -2694,13 +2715,14 @@ const momentLabel = (hh) => {
   if (h < 22) return "En soirée";
   return "Dans la nuit";
 };
-function legendesJour(d, evs) {
-  const out = evs.map((e) => {
+function legendePhoto(p, events) {
+  const e = p && p.event && p.event !== "album" ? (events || []).find((x) => x.id === p.event) : null;
+  if (e) {
     const t = titreDe(e);
     const lieu = e.place && e.place.name && e.place.name !== "À définir" ? e.place.name : "";
     return { l1: `${momentLabel(e.start)}, ${t}`, l2: placeKey(lieu) === placeKey(t) ? "" : lieu };
-  });
-  return out.length ? out : [{ l1: dayLabel(d), l2: "" }];
+  }
+  return { l1: "", l2: "" };
 }
 function buildFilm(events, photos, messages, faces) {
   const ph = (photos || []).filter((p) => p.url);
@@ -2738,14 +2760,14 @@ function buildFilm(events, photos, messages, faces) {
       });
       sc.push({ t: "trajet", d: 3400, day: d, seq });
     }
-    const legs = legendesJour(d, evs);
     const choisies = pj.slice(0, 3);
     choisies.forEach((p, k) => {
-      const leg = legs[k % legs.length];
+      const leg = legendePhoto(p, events);
       const groupe = nbVisages(p) >= 3;
-      if (groupe) sc.push({ t: "polaroid", d: 5200, day: d, ph: p, leg });
-      else if ((d + k) % 2 === 0) sc.push({ t: "plein", d: 5000, day: d, ph: p, leg });
-      else sc.push({ t: "tirage", d: 4800, day: d, ph: p, leg });
+      const premiere = k === 0;
+      if (groupe) sc.push({ t: "polaroid", d: 5200, day: d, ph: p, leg, premiere });
+      else if ((d + k) % 2 === 0) sc.push({ t: "plein", d: 5000, day: d, ph: p, leg, premiere });
+      else sc.push({ t: "tirage", d: 4800, day: d, ph: p, leg, premiere });
     });
     if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3800, day: d, e: bestE });
     const mj = (messages || []).filter((m) => dayOfMsg(m, events) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
@@ -2853,14 +2875,14 @@ function FilmOverlay({ events, photos, messages, onClose }) {
       <div style={{ position: "absolute", inset: 0, background: "#071018", animation: `${sc.day % 2 ? "fmIrisIn" : "fmFadeIn"} 1s ease both` }}>
         <img src={sc.ph.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: posOf(sc.ph), animation: `${sc.day % 2 ? "fmKenA" : "fmKenB"} 6.5s ease-out both` }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,16,24,0.4) 0%, rgba(7,16,24,0) 24%, rgba(7,16,24,0) 52%, rgba(7,16,24,0.62) 100%)" }} />
-        {chipJour(sc.day)}
+        {sc.premiere && chipJour(sc.day)}
         {legende(sc.leg, true)}
       </div>
     );
   } else if (sc.t === "polaroid") {
     inner = (
       <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${th.papier[0]}, ${th.papier[1]})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        {chipJour(sc.day)}
+        {sc.premiere && chipJour(sc.day)}
         <div style={{ width: "min(86vw, 520px)", background: "#fff", borderRadius: 4, padding: "8px 8px 0", boxShadow: "0 18px 44px rgba(10,20,26,0.3)", transform: `rotate(${sc.day % 2 ? 1.6 : -1.8}deg)`, animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", position: "relative", marginBottom: 46 }}>
           <div style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%) rotate(-2deg)", width: 74, height: 19, background: "rgba(250,230,160,0.85)", borderRadius: 2 }} />
           <img src={sc.ph.url} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", objectPosition: posOf(sc.ph), borderRadius: 2, display: "block", maxHeight: "58vh" }} />
@@ -2872,7 +2894,7 @@ function FilmOverlay({ events, photos, messages, onClose }) {
   } else if (sc.t === "tirage") {
     inner = (
       <div style={{ position: "absolute", inset: 0, background: th.bandes[(sc.day + 2) % th.bandes.length], display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        {chipJour(sc.day)}
+        {sc.premiere && chipJour(sc.day)}
         <div style={{ background: "#fff", padding: 11, boxShadow: "0 16px 40px rgba(30,20,10,0.22)", transform: `rotate(${sc.day % 2 ? -1.2 : 1.2}deg)`, animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", marginBottom: 40 }}>
           <img src={sc.ph.url} alt="" style={{ width: "min(84vw, 560px)", maxHeight: "58vh", aspectRatio: "3 / 2", objectFit: "cover", objectPosition: posOf(sc.ph), display: "block" }} />
         </div>
