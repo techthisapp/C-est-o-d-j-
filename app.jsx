@@ -2660,7 +2660,6 @@ function useMusique(type, actif) {
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
     master.connect(ctx.destination);
-    try { master.gain.linearRampToValueAtTime(cfg.vol, ctx.currentTime + 3); } catch (e) {}
     const dly = ctx.createDelay(1);
     dly.delayTime.value = 60 / cfg.bpm / 2;
     const fb = ctx.createGain(); fb.gain.value = 0.3;
@@ -2679,9 +2678,15 @@ function useMusique(type, actif) {
       o.start(t); o.stop(t + dur + 0.06);
     };
     const spb = 60 / cfg.bpm;
-    let step = 0, next = ctx.currentTime + 0.2;
+    let step = 0, next = 0, lance = false;
     const tick = () => {
       if (!ctx || ctx.state === "closed") return;
+      if (ctx.state !== "running") { ctx.resume().catch(() => {}); return; }
+      if (!lance) {
+        lance = true;
+        next = ctx.currentTime + 0.12;
+        try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0.0001, ctx.currentTime); master.gain.linearRampToValueAtTime(cfg.vol, ctx.currentTime + 3); } catch (e) {}
+      }
       while (next < ctx.currentTime + 0.35) {
         const acc = cfg.prog[Math.floor(step / 8) % cfg.prog.length];
         if (step % 8 === 0) acc.forEach((s, j) => note(f(s - 12), next, spb * 4.4, cfg.pad, j === 0 ? 0.055 : 0.035, false));
@@ -2729,22 +2734,16 @@ function buildFilm(events, photos, messages, faces) {
   const sc = [{ t: "titre", d: 4600 }];
   const lieuxU = buildPlaces(events);
   if (lieuxU.filter((p) => p.coord).length >= 1) sc.push({ t: "voyage", d: 4600, vehicule: detectVehicule(events) });
-  /* photos rattachées à une journée par leur activité ; les autres (mur) réparties au prorata sur les jours qui ont des activités */
+  /* seules les photos rattachées à une activité entrent dans le film ; regroupées par jour de leur activité */
+  const evById = {};
+  mainList(events).forEach((e) => { evById[e.id] = e; });
+  const ordreEvt = (p) => { const e = evById[p.event]; return e && e.start ? e.start : ""; };
   const parJour = {};
-  const orphelines = [];
-  ph.forEach((p) => { const d = dayOfPhoto(p, events); if (d != null) { (parJour[d] = parJour[d] || []).push(p); } else orphelines.push(p); });
-  const joursActifs = [];
-  for (let d = 0; d < DAYS.length; d++) if (mainList(events).some((e) => e.day === d)) joursActifs.push(d);
-  if (orphelines.length && joursActifs.length) {
-    orphelines.sort((a, b) => (a.at || 0) - (b.at || 0));
-    orphelines.forEach((p, k) => { const d = joursActifs[Math.floor((k * joursActifs.length) / orphelines.length)]; (parJour[d] = parJour[d] || []).push(p); });
-  } else if (orphelines.length) {
-    orphelines.forEach((p) => (parJour[0] = parJour[0] || []).push(p));
-  }
+  ph.forEach((p) => { const e = evById[p.event]; if (!e || typeof e.day !== "number") return; (parJour[e.day] = parJour[e.day] || []).push(p); });
   const nbVisages = (p) => { const f = (faces || {})[p.id]; return f && f.n ? f.n : 0; };
   for (let d = 0; d < DAYS.length; d++) {
     const evs = mainList(events).filter((e) => e.day === d).sort((a, b) => (a.start || "").localeCompare(b.start || ""));
-    const pj = (parJour[d] || []).sort((a, b) => (heartsOf(b) - heartsOf(a)) || ((a.at || 0) - (b.at || 0)));
+    const pj = (parJour[d] || []).slice().sort((a, b) => ordreEvt(a).localeCompare(ordreEvt(b)) || ((a.at || 0) - (b.at || 0)));
     if (!evs.length && !pj.length) continue;
     let bestE = null, bestV = 0;
     evs.forEach((e) => { const v = vibeOfEvent(e, messages); if (v > bestV) { bestV = v; bestE = e; } });
@@ -2760,7 +2759,10 @@ function buildFilm(events, photos, messages, faces) {
       });
       sc.push({ t: "trajet", d: 3400, day: d, seq });
     }
-    const choisies = pj.slice(0, 3);
+    const MAXJ = 4;
+    let choisies;
+    if (pj.length <= MAXJ) choisies = pj;
+    else { choisies = []; for (let s = 0; s < MAXJ; s++) choisies.push(pj[Math.floor((s * pj.length) / MAXJ)]); }
     choisies.forEach((p, k) => {
       const leg = legendePhoto(p, events);
       const groupe = nbVisages(p) >= 3;
@@ -2785,7 +2787,9 @@ function buildFilm(events, photos, messages, faces) {
       sc.push({ t: "livre", d: Math.min(7000, 2800 + w * 190), mo });
     });
   }
-  sc.push({ t: "fin", d: 9000, star: pickStar(photos, loadFaces()) });
+  const attachees = ph.filter((p) => evById[p.event] && typeof evById[p.event].day === "number");
+  const baseFin = attachees.length ? attachees : ph;
+  sc.push({ t: "fin", d: 9000, star: pickStar(baseFin, faces || loadFaces()), minis: baseFin });
   return sc;
 }
 function FilmOverlay({ events, photos, messages, onClose }) {
@@ -2959,7 +2963,7 @@ function FilmOverlay({ events, photos, messages, onClose }) {
       </div>
     );
   } else {
-    const minis = (photos || []).filter((p) => p.url && (!sc.star || p.id !== sc.star.photo.id)).sort((a, b) => heartsOf(b) - heartsOf(a)).slice(0, 12);
+    const minis = (sc.minis || []).filter((p) => p.url && (!sc.star || p.id !== sc.star.photo.id)).sort((a, b) => heartsOf(b) - heartsOf(a)).slice(0, 12);
     const noms = ROSTER.filter((p) => p.active).map((p) => p.name).filter(Boolean);
     inner = (
       <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${th.fin[0]} 0%, ${th.fin[1]} 58%, ${th.fin[2]} 100%)`, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -3022,7 +3026,7 @@ function FilmOverlay({ events, photos, messages, onClose }) {
           </span>
         ))}
       </div>
-      <button onClick={() => setSon((v) => !v)} aria-label={son ? "Couper la musique" : "Remettre la musique"} style={{ position: "absolute", top: "calc(18px + env(safe-area-inset-top))", right: 62, width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(8,18,24,0.5)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5 }}>{son ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
+      <button onClick={() => { debloquerAudio(); setSon((v) => !v); }} aria-label={son ? "Couper la musique" : "Remettre la musique"} style={{ position: "absolute", top: "calc(18px + env(safe-area-inset-top))", right: 62, width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(8,18,24,0.5)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5 }}>{son ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
       <button onClick={onClose} aria-label="Fermer le film" style={{ position: "absolute", top: "calc(18px + env(safe-area-inset-top))", right: 12, width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(8,18,24,0.5)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5 }}><X size={20} /></button>
       <button onClick={prev} aria-label="Scène précédente" style={{ position: "absolute", top: 70, bottom: 90, left: 0, width: "26%", background: "transparent", border: "none", cursor: "pointer", zIndex: 4 }} />
       <button onClick={next} aria-label="Scène suivante" style={{ position: "absolute", top: 70, bottom: 90, right: 0, width: "34%", background: "transparent", border: "none", cursor: "pointer", zIndex: 4 }} />
