@@ -4426,7 +4426,10 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
   const stats = souvenirStats(events, photos, messages).map(([n, l, a]) => [n, l, a === "map" && lieux > 0 ? onMap : null]);
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
-  const actions = [[Play, "Film", onFilm], [HelpCircle, "Quiz", onOpenQuiz], [MapIcon, "Carte", lieux > 0 ? onMap : null], [Share2, "Partager", onShare]].filter((a) => a[2]);
+  const actions = [[HelpCircle, "Quiz", onOpenQuiz], [MapIcon, "Carte", lieux > 0 ? onMap : null], [Share2, "Partager", onShare]].filter((a) => a[2]);
+  const th = themeDe();
+  const albumFaces = phs.map((p) => ({ p, n: (faces && faces[p.id] && faces[p.id].n) || 0 })).filter((x) => x.n >= 1).sort((a, b) => b.n - a.n || heartsOf(b.p) - heartsOf(a.p)).map((x) => x.p);
+  const album = albumFaces.length ? albumFaces : (star ? [star.photo] : []);
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 4px" }}>
@@ -4463,20 +4466,70 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
           </span>
         </button>
       )}
-      {star && (
-        <div style={{ alignSelf: "center", width: "88%", background: "#ffffff", padding: "11px 11px 12px", borderRadius: 4, boxShadow: "0 10px 26px rgba(31,58,68,0.18)", transform: "rotate(-2deg)", position: "relative", marginTop: 4 }}>
-          <span style={{ position: "absolute", left: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(-38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
-          <span style={{ position: "absolute", right: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
-          <button onClick={() => onOpenPhoto(star.photo)} aria-label="Ouvrir la photo" style={{ display: "block", width: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", position: "relative" }}>
-            <img src={star.photo.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", objectPosition: faceCrop(faces, star.photo), display: "block" }} />
-          </button>
-          <button onClick={onFilm} aria-label="Revoir le film du séjour" style={{ position: "absolute", left: "50%", top: "calc(50% - 6px)", transform: "translate(-50%, -50%)", cursor: "pointer", width: 58, height: 58, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.9)", background: "rgba(6,14,18,0.42)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,0.25)" }}>
-            <Play size={24} fill="#fff" style={{ marginLeft: 3 }} />
-          </button>
-          <span style={{ display: "block", textAlign: "center", fontFamily: fH, fontWeight: 600, fontSize: 19, color: "#40525B", marginTop: 9 }}>{star.label}{star.n >= 3 ? ` · ❤ ${star.n}` : ""}</span>
+      {album.length > 0 && <AlbumVisages photos={album} faces={faces} onOpenPhoto={onOpenPhoto} />}
+      <FilmEncart th={th} onFilm={onFilm} />
+    </>
+  );
+}
+function AlbumVisages({ photos, faces, onOpenPhoto }) {
+  const [i, setI] = useState(0);
+  const startX = useRef(null);
+  const n = photos.length;
+  const va = (d) => setI((x) => (x + d + n) % n);
+  const p = photos[Math.min(i, n - 1)];
+  const tap = useRef(0);
+  return (
+    <div style={{ alignSelf: "center", width: "90%", marginTop: 2 }}>
+      <div style={{ position: "relative", background: "#fff", padding: "11px 11px 12px", borderRadius: 4, boxShadow: "0 10px 26px rgba(31,58,68,0.18)", transform: "rotate(-1.4deg)" }}>
+        <span style={{ position: "absolute", left: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(-38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+        <span style={{ position: "absolute", right: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+        <div
+          onPointerDown={(e) => { startX.current = e.clientX; tap.current = e.clientX; }}
+          onPointerUp={(e) => {
+            if (startX.current == null) return;
+            const dx = e.clientX - startX.current; startX.current = null;
+            if (dx < -34) va(1); else if (dx > 34) va(-1);
+            else if (Math.abs(e.clientX - tap.current) < 10) onOpenPhoto(p, photos);
+          }}
+          style={{ position: "relative", overflow: "hidden", borderRadius: 2, cursor: "pointer", touchAction: "pan-y" }}>
+          <img src={p.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", objectPosition: faceCrop(faces, p), display: "block" }} />
+          {n > 1 && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); va(-1); }} aria-label="Photo précédente" style={{ position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(6,14,18,0.32)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(3px)" }}>‹</button>
+              <button onClick={(e) => { e.stopPropagation(); va(1); }} aria-label="Photo suivante" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(6,14,18,0.32)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(3px)" }}>›</button>
+            </>
+          )}
+        </div>
+        <span style={{ display: "block", textAlign: "center", fontFamily: fH, fontWeight: 600, fontSize: 18, color: "#40525B", marginTop: 9 }}>La photo de groupe{n > 1 ? ` · ${i + 1}/${n}` : ""}</span>
+      </div>
+      {n > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 9 }}>
+          {photos.slice(0, 12).map((ph, k) => (
+            <button key={ph.id} onClick={() => setI(k)} aria-label={`Photo ${k + 1}`} style={{ width: 7, height: 7, borderRadius: "50%", border: "none", padding: 0, cursor: "pointer", background: k === i ? T.c.seaDeep : T.c.line }} />
+          ))}
         </div>
       )}
-    </>
+    </div>
+  );
+}
+function FilmEncart({ th, onFilm }) {
+  return (
+    <button onClick={onFilm} aria-label="Lancer le film du séjour" style={{ alignSelf: "center", width: "94%", marginTop: 6, cursor: "pointer", border: "none", padding: 0, borderRadius: T.r.lg, overflow: "hidden", position: "relative", boxShadow: "0 12px 30px rgba(31,58,68,0.22)", background: `linear-gradient(135deg, ${th.ciel[0]} 0%, ${th.ciel[1]} 55%, ${th.ciel[2]} 100%)`, display: "block", textAlign: "left" }}>
+      <span style={{ position: "absolute", top: -18, right: -10, width: 82, height: 82, borderRadius: "50%", background: th.astre, opacity: 0.5, filter: "blur(2px)" }} />
+      {[["16%", "12%"], ["30%", "84%"], ["66%", "22%"], ["78%", "70%"]].map(([tp, lf], k) => (
+        <span key={k} style={{ position: "absolute", top: tp, left: lf, width: 4, height: 4, borderRadius: "50%", background: th.etoile, opacity: 0.7 }} />
+      ))}
+      <span style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", position: "relative" }}>
+        <span style={{ flex: "0 0 auto", width: 54, height: 54, borderRadius: "50%", background: th.fam === "ville" ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.5)", border: `2px solid ${th.fam === "ville" ? "rgba(255,255,255,0.5)" : "#ffffff"}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.14)" }}>
+          <Play size={24} fill={th.encre} color={th.encre} style={{ marginLeft: 3 }} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontFamily: fB, fontWeight: 700, fontSize: 9.5, letterSpacing: 1.6, textTransform: "uppercase", color: th.feteLabel }}>Le film du séjour</span>
+          <span style={{ display: "block", fontFamily: fH, fontWeight: 700, fontSize: 27, color: th.encre, lineHeight: 1.05, marginTop: 1 }}>Revivez tout le voyage</span>
+          <span style={{ display: "block", fontFamily: fB, fontSize: 12, color: th.encre, opacity: 0.66, marginTop: 3 }}>Photos, étapes et livre d'or, en musique</span>
+        </span>
+      </span>
+    </button>
   );
 }
 function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenPhoto, onLikePhoto, photos, onAdd, onSetStatus, wx, wxCoord, play, unreadByEvent, openPollsByEvent, onFilm, onOpenQuiz, onMap, onShare }) {
