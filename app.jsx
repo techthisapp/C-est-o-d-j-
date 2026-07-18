@@ -3256,7 +3256,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   const geste = useRef(null);
   const swipeFlag = useRef(false);
   const active = RITUAL_SLOTS.filter((s) => featureOn(s.feat));
-  if (active.length === 0 || !play) return null;
+  if (active.length === 0 || !play || !featureOn("rituel")) return null;
   let cur = active.find((s) => mid < s.to) || active[active.length - 1];
   const recapSlot = active.find((s) => s.id === "recap");
   if (todayDone && recapSlot) cur = recapSlot;
@@ -6426,7 +6426,14 @@ function SettingsSheet({ onTrip, themeMode, onTheme, favorites, onRemoveFavorite
         {sousTitre("Directement sur l'accueil")}
         <FeaturesZone zone="accueil" onToggle={onToggleFeature} />
         {sousTitre("Dans le Rendez-vous du jour")}
-        <FeaturesZone zone="rituel" onToggle={onToggleFeature} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14.5 }}>Afficher le Rendez-vous du jour</div>
+            <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12 }}>Éteint d'un coup toute la boîte sur l'accueil.</div>
+          </div>
+          <Toggle on={featureOn("rituel")} onClick={() => onToggleFeature("rituel")} />
+        </div>
+        {featureOn("rituel") && <FeaturesZone zone="rituel" onToggle={onToggleFeature} />}
         {sousTitre("Dans les photos")}
         <FeaturesZone zone="photos" onToggle={onToggleFeature} />
         {sousTitre("Dans le coin jeux")}
