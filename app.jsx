@@ -4539,7 +4539,9 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
   const [sansTrans, setSansTrans] = useState(false);
   const startX = useRef(null);
   const startY = useRef(null);
+  const lastY = useRef(0);
   const axe = useRef(null);
+  const scroller = useRef(null);
   const n = photos.length;
   const idx = ((i % n) + n) % n;
   const cur = photos[idx];
@@ -4560,16 +4562,34 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
     setEnvol(0);
     setDrag(0);
   };
-  const down = (e) => { if (envol) return; startX.current = e.clientX; startY.current = e.clientY; axe.current = null; setDragging(true); };
+  const trouveScrollable = (el) => {
+    let node = el ? el.parentElement : null;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const st = window.getComputedStyle(node);
+      if (/(auto|scroll)/.test(st.overflowY || "") && node.scrollHeight > node.clientHeight + 2) return node;
+      node = node.parentElement;
+    }
+    return null;
+  };
+  const scrollDe = (d) => { const el = scroller.current; if (el) el.scrollTop += d; else window.scrollBy(0, d); };
+  const down = (e) => {
+    if (envol) return;
+    startX.current = e.clientX; startY.current = e.clientY; lastY.current = e.clientY;
+    axe.current = null; scroller.current = trouveScrollable(e.currentTarget);
+    setDragging(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  };
   const move = (e) => {
     if (startX.current == null) return;
     const dx = e.clientX - startX.current;
     const dy = e.clientY - startY.current;
-    if (axe.current == null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-      axe.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
-      if (axe.current === "h") { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} }
+    /* horizontal tant que l'inclinaison reste sous environ 63 degres (composante verticale jusqu'a deux fois l'horizontale) */
+    if (axe.current == null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      axe.current = Math.abs(dx) * 2 >= Math.abs(dy) ? "h" : "v";
     }
     if (axe.current === "h") setDrag(dx);
+    else if (axe.current === "v") scrollDe(lastY.current - e.clientY);
+    lastY.current = e.clientY;
   };
   const up = (e) => {
     if (startX.current == null) return;
@@ -4578,7 +4598,7 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
     const a = axe.current;
     startX.current = null; startY.current = null; axe.current = null;
     setDragging(false);
-    if (a === "h" && n > 1 && Math.abs(dx) > 70) setEnvol(dx < 0 ? -1 : 1);
+    if (a === "h" && n > 1 && Math.abs(dx) > 60) setEnvol(dx < 0 ? -1 : 1);
     else if (a == null && Math.abs(dx) < 10 && Math.abs(dy) < 10) { setDrag(0); onOpenPhoto(cur, photos); }
     else setDrag(0);
   };
@@ -4594,7 +4614,7 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
         )}
         <CartePhoto photo={cur} faces={faces} legende={labelDe(idx)}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel} onTransitionEnd={finEnvol}
-          style={{ position: "relative", transform: `rotate(-1.4deg) ${transform}`, transition: (dragging || sansTrans) ? "none" : "transform .5s cubic-bezier(.2,.75,.3,1), opacity .5s ease", opacity: envol !== 0 ? 0 : 1, cursor: dragging ? "grabbing" : "grab", touchAction: "pan-y" }} />
+          style={{ position: "relative", transform: `rotate(-1.4deg) ${transform}`, transition: (dragging || sansTrans) ? "none" : "transform .5s cubic-bezier(.2,.75,.3,1), opacity .5s ease", opacity: envol !== 0 ? 0 : 1, cursor: dragging ? "grabbing" : "grab", touchAction: "none" }} />
       </div>
       {n > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 11 }}>
