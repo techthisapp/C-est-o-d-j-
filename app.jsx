@@ -222,6 +222,7 @@ const sortByStart = (list) => [...list].sort((a, b) => startAbs(a) - startAbs(b)
 const skipOf = (e) => e.skip || [];
 const isAlt = (e) => !!e.parallelOf;
 const attendeesOf = (e) => isAlt(e) ? (e.who || []) : activeIds().filter((id) => !skipOf(e).includes(id));
+const lieuSecondaire = (e) => { const p = (e && e.place) || {}; const n = p.name || ""; if (!n || n === "À définir") return ""; return (e.title || "").toLowerCase().includes(n.toLowerCase()) ? "" : n; };
 const iAmIn = (e) => attendeesOf(e).includes(ME);
 const mainList = (events) => events.filter((e) => !isAlt(e));
 const parallelsOf = (events, id) => events.filter((e) => e.parallelOf === id);
@@ -234,7 +235,7 @@ const remainingLabel = (mins) => {
   if (mins <= 0) return "maintenant";
   if (mins < 60) return `${mins} min`;
   const h = Math.floor(mins / 60), m = mins % 60;
-  return m === 0 ? `${h} h` : `${h} h ${pad(m)}`;
+  return m === 0 ? `${h}h` : `${h}h${pad(m)}`;
 };
 const dayOfNow = (now) => Math.floor(now / 1440);
 const minsInDay = (now) => ((now % 1440) + 1440) % 1440;
@@ -1359,7 +1360,7 @@ function QuickActions({ event, unread, onOpen, onDiscuss, onAddPhoto, onVibe, vi
     position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
     padding: "9px 10px", borderRadius: T.r.pill, fontFamily: fD, fontWeight: 600, fontSize: 12.5,
     cursor: "pointer", textDecoration: "none", flex: 1, minWidth: 0, border: "none",
-    ...(light ? { background: "#ffffff26", color: "#fff" } : { background: t.soft, color: t.deep }),
+    ...(light ? { background: "#ffffff40", color: "#fff" } : { background: t.soft, color: t.deep }),
   };
   const stop = (e) => e.stopPropagation();
   const sep = light ? "#ffffff33" : T.c.line;
@@ -1385,8 +1386,8 @@ function QuickActions({ event, unread, onOpen, onDiscuss, onAddPhoto, onVibe, vi
           <ImagePlus size={15} color={iconColor} /> Photo
         </button>
         {onVibe && featureOn("quickvibe") && (
-          <button onClick={(e) => { stop(e); spawnBurst(); onVibe(); }} aria-label="On est bien" title="On est bien" style={{ ...base, flex: "0 0 auto", padding: "9px 12px", gap: 4 }}>
-            <span style={{ fontSize: 15 }}>🤩</span>
+          <button onClick={(e) => { stop(e); spawnBurst(); onVibe(); }} aria-label="J'adore" title="J'adore" style={{ ...base, flex: "0 0 auto", padding: "9px 12px", gap: 5 }}>
+            <span style={{ fontSize: 15 }}>🤩</span> J'adore
             {vibeCount > 0 && <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 12.5 }}>{vibeCount}</span>}
             {burst.map((b) => (
               <span key={b.id} style={{ position: "absolute", left: "50%", top: 0, fontSize: 17, pointerEvents: "none", opacity: 0, animation: `vburst ${b.dur}ms ease-out ${b.delay}ms forwards`, "--dx": b.dx + "px", "--rot": b.rot + "deg" }}>{b.e}</span>
@@ -1444,7 +1445,7 @@ function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCo
     <div onClick={onOpen} role="button" tabIndex={0} style={{
       width: "100%", textAlign: "left", cursor: "pointer",
       background: `linear-gradient(140deg, ${t.color}, ${t.deep})`,
-      borderRadius: T.r.xl, padding: "15px 16px", color: "#fff", boxShadow: T.sh.soft,
+      borderRadius: T.r.xl, padding: "13px 15px", color: "#fff", boxShadow: T.sh.soft,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontFamily: fB, fontWeight: 600, fontSize: 12, letterSpacing: 0.6, opacity: 0.96 }}>
@@ -1455,15 +1456,15 @@ function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCo
           <span style={{ fontSize: 24 }}>{t.emoji}</span>
         </span>
       </div>
-      <h2 style={{ fontFamily: fD, fontWeight: 700, fontSize: 25, lineHeight: 1.12, margin: "7px 0 8px" }}>{event.title}</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: fB, fontSize: 13.5, opacity: 0.96 }}>
+      <h2 style={{ fontFamily: fD, fontWeight: 700, fontSize: 22, lineHeight: 1.12, margin: "5px 0 7px" }}>{event.title}</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: fB, fontSize: 13.5, opacity: 1 }}>
         {(() => {
           const p = event.place || {};
           const t = (event.title || "").toLowerCase();
           const label = p.name && !t.includes(p.name.toLowerCase()) ? p.name + (p.area ? `  ${p.area}` : "") : (p.area || null);
-          return label ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><MapPin size={16} color="#ffffffcc" /> {label}</span> : null;
+          return label ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><MapPin size={16} color="#ffffffe6" /> {label}</span> : null;
         })()}
-        <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Clock3 size={16} color="#ffffffcc" /> {hFr(event.start)} à {hFr(event.end)}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Clock3 size={16} color="#ffffffe6" /> {hFr(event.start)} à {hFr(event.end)}</span>
       </div>
       <div style={{ marginTop: 11 }}>
         <div style={{ height: 7, borderRadius: T.r.pill, background: "#ffffff3d", overflow: "hidden" }}>
@@ -1471,7 +1472,7 @@ function CurrentHero({ event, now, onOpen, onDiscuss, onAddPhoto, onVibe, vibeCo
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
-            <span style={{ fontFamily: fB, fontSize: 12.5, opacity: 0.92 }}>Se termine dans</span>
+            <span style={{ fontFamily: fB, fontSize: 12.5, opacity: 1 }}>Se termine dans</span>
             <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{remainingLabel(remain)}</span>
           </span>
           <AvatarRow ids={attendeesOf(event)} size={26} />
@@ -4812,7 +4813,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
                       <UnreadBadge n={ub(sameDayNext.id)} />
                     </div>
                     <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sameDayNext.title}</div>
-                    <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12.5 }}>{sameDayNext.place.name}</div>
+                    {lieuSecondaire(sameDayNext) && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12.5 }}>{lieuSecondaire(sameDayNext)}</div>}
                   </div>
                   <div style={{ textAlign: "right", flex: "0 0 auto" }}>
                     <div style={{ fontFamily: fB, fontSize: 11, color: T.c.inkSoft }}>dans</div>
@@ -4844,7 +4845,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
                 <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14, width: 42, flex: "0 0 auto", fontVariantNumeric: "tabular-nums" }}>{e.start}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: fD, fontWeight: 600, color: T.c.ink, fontSize: 15.5 }}>{e.title}</div>
-                  <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 13 }}>{e.place.name}</div>
+                  {lieuSecondaire(e) && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 13 }}>{lieuSecondaire(e)}</div>}
                 </div>
                 <UnreadBadge n={ub(e.id)} />
                 <span style={{ fontSize: 18, flex: "0 0 auto" }}>{TYPES[e.type].emoji}</span>
