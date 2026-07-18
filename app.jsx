@@ -3253,6 +3253,8 @@ const hFr = (t) => String(t || "").replace(":", "h");
 function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onOpenPhoto, todayDone }) {
   const [expanded, setExpanded] = useState(false);
   const [selId, setSelId] = useState(null);
+  const geste = useRef(null);
+  const swipeFlag = useRef(false);
   const active = RITUAL_SLOTS.filter((s) => featureOn(s.feat));
   if (active.length === 0 || !play) return null;
   let cur = active.find((s) => mid < s.to) || active[active.length - 1];
@@ -3275,6 +3277,15 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   const curDone = !upcoming && doneOf(cur);
   const collapsed = !consultation && curDone && !expanded && cur.id !== "recap";
   const passesAccessibles = active.some((s) => accessible(s) && s.id !== cur.id);
+  const navSlots = active.filter((s) => accessible(s) || s.id === cur.id);
+  const idxVu = Math.max(0, navSlots.findIndex((s) => s.id === vu.id));
+  const aller = (delta) => {
+    const np = idxVu + delta;
+    if (np < 0 || np >= navSlots.length) return;
+    const t = navSlots[np];
+    setExpanded(true);
+    setSelId(t.id === cur.id ? null : t.id);
+  };
 
   const contenu = (s) => (
     <>
@@ -3298,6 +3309,20 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   };
 
   const wrap = { background: `linear-gradient(150deg, ${T.c.seaSoft}, ${T.c.card} 72%)`, border: `1px solid ${T.c.line}`, borderRadius: T.r.lg, padding: "12px 14px" };
+  const onPD = (e) => { geste.current = { x: e.clientX, y: e.clientY, axe: null, gesting: false }; };
+  const onPM = (e) => {
+    const g = geste.current; if (!g) return;
+    const dx = e.clientX - g.x, dy = e.clientY - g.y;
+    if (!g.axe) { if (Math.abs(dx) + Math.abs(dy) < 8) return; g.axe = Math.abs(dx) > Math.abs(dy) * 1.2 ? "h" : "v"; if (g.axe === "h") g.gesting = true; }
+  };
+  const onPU = (e) => {
+    const g = geste.current; geste.current = null;
+    if (!g || !g.gesting) return;
+    const dx = e.clientX - g.x;
+    if (Math.abs(dx) > 40) { swipeFlag.current = true; aller(dx > 0 ? -1 : 1); }
+  };
+  const onCC = (e) => { if (swipeFlag.current) { e.stopPropagation(); e.preventDefault(); swipeFlag.current = false; } };
+  const wrapProps = { onPointerDown: onPD, onPointerMove: onPM, onPointerUp: onPU, onPointerCancel: () => { geste.current = null; }, onClickCapture: onCC, style: { ...wrap, touchAction: "pan-y" } };
   const header = (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: (collapsed || upcoming) ? 0 : 10 }}>
       <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 11, letterSpacing: 1.1, color: T.c.inkFaint }}>RENDEZ-VOUS DU JOUR</span>
@@ -3315,7 +3340,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   if (consultation) {
     const fait = doneOf(vu);
     return (
-      <div style={wrap}>
+      <div {...wrapProps}>
         {header}
         <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
           <span style={{ fontSize: 16 }}>{vu.emoji}</span>
@@ -3330,7 +3355,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
 
   if (upcoming) {
     return (
-      <div style={wrap}>
+      <div {...wrapProps}>
         {header}
         <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 13.5, marginTop: 8 }}>
           {cur.emoji} Prochain rendez-vous à <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink }}>{fmtMin(cur.from)}</span> : {cur.label.toLowerCase()}.
@@ -3341,7 +3366,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   }
   if (collapsed) {
     return (
-      <div style={wrap}>
+      <div {...wrapProps}>
         {header}
         <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 8 }}>
           <Check size={15} color={T.c.sea} />
@@ -3354,7 +3379,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
     );
   }
   return (
-    <div style={wrap}>
+    <div {...wrapProps}>
       {header}
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
         <span style={{ fontSize: 16 }}>{cur.emoji}</span>
