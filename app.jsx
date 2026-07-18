@@ -4572,6 +4572,8 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
           ))}
         </div>
       )}
+      {album.length > 0 && <AlbumVisages photos={album} faces={faces} onOpenPhoto={onOpenPhoto} />}
+      <FilmEncart th={th} onFilm={onFilm} />
       {tops.length > 0 && (
         <div style={{ width: "96%", alignSelf: "center", background: "#FFF8E9", borderRadius: 12, boxShadow: T.sh.card, padding: "13px 14px 6px", transform: "rotate(-0.8deg)" }}>
           <div style={{ fontFamily: fB, fontWeight: 700, fontSize: 8.5, letterSpacing: 1.5, color: "#A5822F", textTransform: "uppercase", marginBottom: 9 }}>Les moments préférés du groupe</div>
@@ -4589,8 +4591,6 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
           })}
         </div>
       )}
-      {album.length > 0 && <AlbumVisages photos={album} faces={faces} onOpenPhoto={onOpenPhoto} />}
-      <FilmEncart th={th} onFilm={onFilm} />
     </>
   );
 }
