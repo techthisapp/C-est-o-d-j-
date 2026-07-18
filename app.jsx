@@ -2698,6 +2698,14 @@ function useMusique(type, actif) {
     const kick = (t) => { voix(150, t, 0.16, "sine", 0.9, false, 46); };
     const charley = (t, ouvert) => bruit(t, ouvert ? 0.12 : 0.035, ouvert ? 0.12 : 0.16, 8500);
     const clap = (t) => bruit(t, 0.14, 0.4, null, 1700);
+    const snare = (t) => bruit(t, 0.1, 0.32, null, 2100);
+    const riser = (t, dur) => {
+      const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.2;
+      bp.frequency.setValueAtTime(600, t); bp.frequency.exponentialRampToValueAtTime(6000, t + dur);
+      const gn = ctx.createGain(); gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.05, t + dur * 0.9); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(bp); bp.connect(gn); gn.connect(master); s.start(t); s.stop(t + dur + 0.05);
+    };
     const spb = 60 / cfg.bpm;
     const croche2 = spb / 4;
     let step = 0, next = 0, lance = false;
@@ -2709,43 +2717,74 @@ function useMusique(type, actif) {
         next = ctx.currentTime + 0.12;
         try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0.0001, ctx.currentTime); master.gain.linearRampToValueAtTime(cfg.vol, ctx.currentTime + 2.4); } catch (e) {}
       }
+      const MOTIFS = [
+        [0, 2, 4, 2, 1, 3, 5, 3],
+        [4, 3, 2, 1, 0, 1, 2, 3],
+        [0, 0, 2, 2, 1, 1, 4, 4],
+        [0, 4, 1, 5, 2, 4, 3, 5],
+        [0, null, 2, null, 4, null, 1, null],
+        [5, 4, 3, 2, 1, 2, 3, 4],
+      ];
       while (next < ctx.currentTime + 0.4) {
         const pos = step % 16;
-        const mesure = Math.floor(step / 16);
-        const acc = cfg.prog[mesure % cfg.prog.length];
+        const bar = Math.floor(step / 16);
+        const acc = cfg.prog[bar % cfg.prog.length];
+        const phase = bar % 8;
+        const intro = bar < 2;
+        const brk = phase === 7;
+        const fill = phase === 3 || phase === 7;
+        const house = cfg.style === "deephouse";
         const sw = pos % 2 === 1 ? croche2 * (cfg.swing || 0) : 0;
         const t = next + sw;
-        if (cfg.style === "deephouse") {
-          // quatre temps au sol
-          if (pos % 4 === 0) kick(t);
-          // charley ouvert sur les contretemps (signature house), fermé léger ailleurs
-          if (pos === 2 || pos === 6 || pos === 10 || pos === 14) charley(t, true);
-          else if (pos % 2 === 0) charley(t, false);
-          // clap sur les 2 et 4
-          if (pos === 4 || pos === 12) clap(t);
-          // nappe chaude tenue
-          if (pos === 0) acc.forEach((s, j) => voix(f(s - 12), t, spb * 3.7, cfg.pad, j === 0 ? 0.042 : 0.028, false));
-          // sub profond roulant
-          if (pos === 0 || pos === 3 || pos === 6 || pos === 8 || pos === 11 || pos === 14) voix(f(acc[0] - 24), t, spb * 0.42, cfg.bass, 0.17, false);
-          // stab d'accord sur les levées
-          if (pos === 6 || pos === 14) acc.forEach((s) => voix(f(s), t, spb * 0.5, cfg.pluck, 0.028, true));
-        } else {
-          // nappe : accord tenu en début de mesure
-          if (pos === 0) acc.forEach((s, j) => voix(f(s - 12), t, spb * 3.4, cfg.pad, j === 0 ? 0.05 : 0.032, false));
-          // basse : groove sur la fondamentale
-          if (pos === 0 || pos === 6 || pos === 10) voix(f(acc[0] - 24), t, pos === 6 ? spb * 0.5 : spb * 0.9, cfg.bass, 0.13, false);
-          if (pos === 14) voix(f(acc[0] - 12), t, spb * 0.45, cfg.bass, 0.09, false);
-          // batterie : kick sur les temps, clap en backbeat, charley en croches
-          if (pos % 4 === 0) kick(t);
-          if (pos === 4 || pos === 12) clap(t);
-          if (pos % 2 === 0) charley(t, pos % 8 === 6);
-          // arpège brillant en doubles-croches montantes
-          if (pos % 2 === 0) {
-            const idx = (step / 2) % (acc.length + 1);
-            const semi = idx < acc.length ? acc[idx] : acc[0] + 12;
-            voix(f(semi + 12), t, croche2 * 1.5, cfg.pluck, 0.06, true);
+
+        // NAPPE : accord tenu, voicing enrichi une mesure sur quatre
+        if (pos === 0) {
+          acc.forEach((s, j) => voix(f(s - 12), t, spb * 3.6, cfg.pad, j === 0 ? 0.045 : 0.028, false));
+          if (bar % 4 === 2) voix(f(acc[acc.length - 1]), t, spb * 3.2, cfg.pad, 0.02, false);
+        }
+
+        // BASSE (silencieuse en intro sauf le premier temps)
+        if (!intro || pos === 0) {
+          if (house) {
+            if (pos === 0 || pos === 3 || pos === 6 || pos === 8 || pos === 11 || pos === 14) voix(f(acc[0] - 24), t, spb * 0.42, cfg.bass, 0.17, false);
+          } else {
+            if (pos === 0 || pos === 6 || pos === 10) voix(f(acc[0] - 24), t, pos === 6 ? spb * 0.5 : spb * 0.9, cfg.bass, 0.13, false);
+            if (pos === 14 && !brk) voix(f(acc[0] - 12), t, spb * 0.45, cfg.bass, 0.09, false);
           }
         }
+
+        // BATTERIE : construite en intro, coupée pendant le break
+        if (!intro) {
+          const beat = pos % 4 === 0;
+          if (beat && !(brk && pos >= 8)) kick(t);
+          if ((pos === 4 || pos === 12) && !(brk && pos === 4)) clap(t);
+          if (house) {
+            if (pos === 2 || pos === 6 || pos === 10 || pos === 14) charley(t, true);
+            else if (pos % 2 === 0) charley(t, false);
+          } else if (pos % 2 === 0) {
+            charley(t, pos % 8 === 6);
+          }
+          // fill : petit roulement en fin de mesure
+          if (fill && pos >= 12) { snare(t); if (pos >= 14) charley(t, true); }
+        } else if (pos % 4 === 2) {
+          charley(t, false);
+        }
+
+        // LEAD : motif qui tourne toutes les deux mesures, muet pendant le break
+        if (pos % 2 === 0 && !brk && !(intro && bar === 0)) {
+          const motif = MOTIFS[Math.floor(bar / 2) % MOTIFS.length];
+          const deg = motif[pos / 2];
+          if (deg != null) {
+            const semi = deg < acc.length ? acc[deg] : acc[deg - acc.length] + 12;
+            voix(f(semi + (house ? 0 : 12)), t, house ? spb * 0.5 : croche2 * 1.5, cfg.pluck, house ? 0.03 : 0.055, true);
+          }
+        }
+        // stabs house supplémentaires sur les levées
+        if (house && (pos === 6 || pos === 14) && !brk) acc.forEach((s) => voix(f(s), t, spb * 0.45, cfg.pad, 0.022, true));
+
+        // RISER : balaie pendant le break pour relancer la boucle
+        if (brk && pos === 8) riser(t, spb * 4);
+
         next += croche2;
         step += 1;
       }
@@ -4421,15 +4460,16 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
   const msgs = (messages || []).filter((m) => !isVibe(m) && !isLoc(m));
   const seen = new Set(); let lieux = 0;
   past.forEach((e) => { if (e.place && e.place.name && e.place.name !== "À définir" && !seen.has(placeKey(e.place.name))) { seen.add(placeKey(e.place.name)); lieux += 1; } });
-  let best = null, bestN = 0;
-  past.forEach((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); const n = v ? vibeTotal(v) : 0; if (n > bestN) { best = e; bestN = n; } });
+  const tops = past.map((e) => { const v = (messages || []).find((m) => m.id === "vibe-" + e.id); return { e, n: v ? vibeTotal(v) : 0 }; }).filter((x) => x.n >= 1).sort((a, b) => b.n - a.n).slice(0, 3);
   const stats = souvenirStats(events, photos, messages).map(([n, l, a]) => [n, l, a === "map" && lieux > 0 ? onMap : null]);
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
   const actions = [[HelpCircle, "Quiz", onOpenQuiz], [MapIcon, "Carte", lieux > 0 ? onMap : null], [Share2, "Partager", onShare]].filter((a) => a[2]);
   const th = themeDe();
-  const albumFaces = phs.map((p) => ({ p, n: (faces && faces[p.id] && faces[p.id].n) || 0 })).filter((x) => x.n >= 1).sort((a, b) => b.n - a.n || heartsOf(b.p) - heartsOf(a.p)).map((x) => x.p);
-  const album = albumFaces.length ? albumFaces : (star ? [star.photo] : []);
+  const nbVis = (p) => (faces && faces[p.id] && faces[p.id].n) || 0;
+  const nbTags = (p) => (p.tags || []).length;
+  const albumFaces = phs.filter((p) => nbVis(p) >= 2 || nbTags(p) > 3).sort((a, b) => (nbVis(b) - nbVis(a)) || (nbTags(b) - nbTags(a)) || (heartsOf(b) - heartsOf(a)));
+  const album = albumFaces.length ? albumFaces : (star && (nbVis(star.photo) >= 2 || nbTags(star.photo) > 3) ? [star.photo] : albumFaces);
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 4px" }}>
@@ -4456,57 +4496,84 @@ function SouvenirCard({ events, photos, messages, star, faces, onOpenEvent, onOp
           ))}
         </div>
       )}
-      {best && bestN >= 3 && (
-        <button onClick={() => onOpenEvent(best)} style={{ cursor: "pointer", border: "none", background: "#FFF8E9", borderRadius: 10, padding: 0, display: "flex", alignItems: "stretch", transform: "rotate(1.2deg)", boxShadow: T.sh.card, overflow: "hidden", textAlign: "left", width: "96%", alignSelf: "center" }}>
-          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "0 13px", fontSize: 23, borderRight: "2px dashed #E3D3AE", flex: "0 0 auto" }}>🤩</span>
-          <span style={{ flex: 1, minWidth: 0, padding: "10px 14px" }}>
-            <span style={{ display: "block", fontFamily: fB, fontWeight: 700, fontSize: 8.5, letterSpacing: 1.4, color: "#A5822F", textTransform: "uppercase" }}>Le moment préféré du groupe</span>
-            <span style={{ display: "block", fontFamily: fH, fontWeight: 600, fontSize: 23, color: "#4A3B23", lineHeight: 1.12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{best.title}</span>
-            <span style={{ display: "block", fontFamily: fB, fontSize: 11, color: "#8A7A55", marginTop: 1 }}>{bestN} réactions 🤩</span>
-          </span>
-        </button>
+      {tops.length > 0 && (
+        <div style={{ width: "96%", alignSelf: "center", background: "#FFF8E9", borderRadius: 12, boxShadow: T.sh.card, padding: "13px 14px 6px", transform: "rotate(-0.8deg)" }}>
+          <div style={{ fontFamily: fB, fontWeight: 700, fontSize: 8.5, letterSpacing: 1.5, color: "#A5822F", textTransform: "uppercase", marginBottom: 9 }}>Les moments préférés du groupe</div>
+          {tops.map(({ e, n }, r) => {
+            const med = ["#E8B23A", "#B9C2CB", "#CB8A55"][r];
+            return (
+              <button key={e.id} onClick={() => onOpenEvent(e)} style={{ width: "100%", textAlign: "left", cursor: "pointer", border: "none", background: "transparent", padding: "7px 0", borderTop: r ? "1px dashed #EBDCBB" : "none", display: "flex", alignItems: "center", gap: 11 }}>
+                <span style={{ flex: "0 0 auto", width: 26, height: 26, borderRadius: "50%", background: med, color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 5px rgba(0,0,0,0.12)" }}>{r + 1}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontFamily: fH, fontWeight: 600, fontSize: 20, color: "#4A3B23", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titreDe(e)}</span>
+                </span>
+                <span style={{ flex: "0 0 auto", fontFamily: fB, fontWeight: 700, fontSize: 12.5, color: "#8A7A55" }}>{n} 🤩</span>
+              </button>
+            );
+          })}
+        </div>
       )}
       {album.length > 0 && <AlbumVisages photos={album} faces={faces} onOpenPhoto={onOpenPhoto} />}
       <FilmEncart th={th} onFilm={onFilm} />
     </>
   );
 }
+function CartePhoto({ photo, faces, style, legende, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onTransitionEnd }) {
+  return (
+    <div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerCancel} onTransitionEnd={onTransitionEnd}
+      style={{ background: "#fff", padding: "11px 11px 12px", borderRadius: 4, boxShadow: "0 10px 26px rgba(31,58,68,0.18)", ...style }}>
+      <span style={{ position: "absolute", left: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(-38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+      <span style={{ position: "absolute", right: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+      <div style={{ position: "relative", overflow: "hidden", borderRadius: 2 }}>
+        <img src={photo.url} alt="" draggable={false} style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", objectPosition: faceCrop(faces, photo), display: "block", pointerEvents: "none" }} />
+      </div>
+      {legende != null && <span style={{ display: "block", textAlign: "center", fontFamily: fH, fontWeight: 600, fontSize: 18, color: "#40525B", marginTop: 9 }}>{legende}</span>}
+    </div>
+  );
+}
 function AlbumVisages({ photos, faces, onOpenPhoto }) {
   const [i, setI] = useState(0);
+  const [drag, setDrag] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [envol, setEnvol] = useState(0);
   const startX = useRef(null);
   const n = photos.length;
-  const va = (d) => setI((x) => (x + d + n) % n);
-  const p = photos[Math.min(i, n - 1)];
-  const tap = useRef(0);
+  const idx = ((i % n) + n) % n;
+  const cur = photos[idx];
+  const suiv = photos[(idx + 1) % n];
+  const label = `Les photos du groupe${n > 1 ? ` · ${idx + 1}/${n}` : ""}`;
+  const finEnvol = () => { if (envol !== 0) { setI((x) => (x + 1) % n); setEnvol(0); setDrag(0); } };
+  const down = (e) => { if (envol) return; startX.current = e.clientX; setDragging(true); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} };
+  const move = (e) => { if (startX.current == null) return; setDrag(e.clientX - startX.current); };
+  const up = (e) => {
+    if (startX.current == null) return;
+    const dx = e.clientX - startX.current; startX.current = null; setDragging(false);
+    if (n > 1 && Math.abs(dx) > 90) setEnvol(dx < 0 ? -1 : 1);
+    else if (Math.abs(dx) < 10) { setDrag(0); onOpenPhoto(cur, photos); }
+    else setDrag(0);
+  };
+  const transform = envol !== 0
+    ? `translateX(${envol * 130}vw) rotate(${envol * 22}deg)`
+    : `translateX(${drag}px) rotate(${drag * 0.05}deg)`;
   return (
     <div style={{ alignSelf: "center", width: "90%", marginTop: 2 }}>
-      <div style={{ position: "relative", background: "#fff", padding: "11px 11px 12px", borderRadius: 4, boxShadow: "0 10px 26px rgba(31,58,68,0.18)", transform: "rotate(-1.4deg)" }}>
-        <span style={{ position: "absolute", left: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(-38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
-        <span style={{ position: "absolute", right: -12, top: -8, width: 52, height: 17, background: "rgba(255,236,170,0.6)", transform: "rotate(38deg)", borderRadius: 2, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
-        <div
-          onPointerDown={(e) => { startX.current = e.clientX; tap.current = e.clientX; }}
-          onPointerUp={(e) => {
-            if (startX.current == null) return;
-            const dx = e.clientX - startX.current; startX.current = null;
-            if (dx < -34) va(1); else if (dx > 34) va(-1);
-            else if (Math.abs(e.clientX - tap.current) < 10) onOpenPhoto(p, photos);
-          }}
-          style={{ position: "relative", overflow: "hidden", borderRadius: 2, cursor: "pointer", touchAction: "pan-y" }}>
-          <img src={p.url} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", objectPosition: faceCrop(faces, p), display: "block" }} />
-          {n > 1 && (
-            <>
-              <button onClick={(e) => { e.stopPropagation(); va(-1); }} aria-label="Photo précédente" style={{ position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(6,14,18,0.32)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(3px)" }}>‹</button>
-              <button onClick={(e) => { e.stopPropagation(); va(1); }} aria-label="Photo suivante" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(6,14,18,0.32)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(3px)" }}>›</button>
-            </>
-          )}
-        </div>
-        <span style={{ display: "block", textAlign: "center", fontFamily: fH, fontWeight: 600, fontSize: 18, color: "#40525B", marginTop: 9 }}>La photo de groupe{n > 1 ? ` · ${i + 1}/${n}` : ""}</span>
+      <div style={{ position: "relative" }}>
+        {n > 1 && (dragging || envol !== 0) && (
+          <CartePhoto photo={suiv} faces={faces} legende={label} style={{ position: "absolute", inset: 0, transform: "rotate(-1.4deg) scale(0.965)", opacity: 0.92 }} />
+        )}
+        <CartePhoto photo={cur} faces={faces} legende={label}
+          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onTransitionEnd={finEnvol}
+          style={{ position: "relative", transform: `rotate(-1.4deg) ${transform}`, transition: dragging ? "none" : "transform .5s cubic-bezier(.2,.75,.3,1), opacity .5s ease", opacity: envol !== 0 ? 0 : 1, cursor: dragging ? "grabbing" : "grab", touchAction: "pan-y" }} />
       </div>
       {n > 1 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 9 }}>
-          {photos.slice(0, 12).map((ph, k) => (
-            <button key={ph.id} onClick={() => setI(k)} aria-label={`Photo ${k + 1}`} style={{ width: 7, height: 7, borderRadius: "50%", border: "none", padding: 0, cursor: "pointer", background: k === i ? T.c.seaDeep : T.c.line }} />
-          ))}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 11 }}>
+          <button onClick={() => setI((x) => (x - 1 + n) % n)} aria-label="Photo précédente" style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(6,14,18,0.32)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>‹</button>
+          <div style={{ display: "flex", gap: 6 }}>
+            {photos.slice(0, 12).map((ph, k) => (
+              <button key={ph.id} onClick={() => setI(k)} aria-label={`Photo ${k + 1}`} style={{ width: 7, height: 7, borderRadius: "50%", border: "none", padding: 0, cursor: "pointer", background: k === idx ? T.c.seaDeep : T.c.line }} />
+            ))}
+          </div>
+          <button onClick={() => setEnvol(-1)} aria-label="Photo suivante" style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(6,14,18,0.32)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>›</button>
         </div>
       )}
     </div>
