@@ -841,6 +841,21 @@ function GuessBubble({ m, onGuess, onReveal }) {
 
 /* ---- Message : bulle et saisie ---------------------------------------- */
 const REACTIONS = ["❤️", "👍", "😂", "🔥", "😮", "🙏"];
+const renderMentions = (txt, color) => {
+  const names = ROSTER.filter((p) => p.active).map((p) => person(p.id).name).filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!names.length || !txt) return txt;
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp("@(" + names.map(esc).join("|") + ")", "g");
+  const out = [];
+  let last = 0, m;
+  while ((m = re.exec(txt))) {
+    if (m.index > last) out.push(txt.slice(last, m.index));
+    out.push(<span key={m.index} style={{ color: color || T.c.seaDeep, fontWeight: 600 }}>@{m[1]}</span>);
+    last = m.index + m[0].length;
+  }
+  if (last < txt.length) out.push(txt.slice(last));
+  return out;
+};
 function MessageBubble({ m, onReact }) {
   const mine = m.who === ME;
   const p = person(m.who);
@@ -860,7 +875,7 @@ function MessageBubble({ m, onReact }) {
             fontFamily: fB, fontSize: 14.5, color: mine ? "#fff" : T.c.ink,
             background: mine ? T.c.sea : T.c.lineSoft, padding: "9px 13px",
             borderRadius: 16, borderBottomRightRadius: mine ? 4 : 16, borderBottomLeftRadius: mine ? 16 : 4,
-          }}>{m.text}</div>
+          }}>{renderMentions(m.text, mine ? "#DCEEF5" : undefined)}</div>
           {onReact && (
             <button onClick={() => setPick(!pick)} aria-label="Réagir" style={{ flex: "0 0 auto", cursor: "pointer", border: "none", background: "transparent", color: T.c.inkFaint, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.7 }}>
               <SmilePlus size={16} />
@@ -892,10 +907,29 @@ function MessageBubble({ m, onReact }) {
 }
 function MessageInput({ onSend, scope, onCreatePoll, onShareLocation }) {
   const [text, setText] = useState("");
+  const [mq, setMq] = useState(null);
   const [pollOpen, setPollOpen] = useState(false);
   const [locBusy, setLocBusy] = useState(false);
   const [locErr, setLocErr] = useState(false);
-  const send = () => { const t = text.trim(); if (!t) return; onSend(scope, t); setText(""); };
+  const inputRef = useRef(null);
+  const normA = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const mentionables = ROSTER.filter((p) => p.active && p.id !== ME);
+  const sugg = mq == null ? [] : mentionables.filter((p) => normA(person(p.id).name).startsWith(normA(mq))).slice(0, 5);
+  const onType = (e) => {
+    const v = e.target.value; setText(v);
+    const caret = e.target.selectionStart != null ? e.target.selectionStart : v.length;
+    const m = v.slice(0, caret).match(/(^|\s)@([\p{L}\p{M}'’-]*)$/u);
+    setMq(m ? m[2] : null);
+  };
+  const insertMention = (name) => {
+    const el = inputRef.current;
+    const caret = el && el.selectionStart != null ? el.selectionStart : text.length;
+    const up = text.slice(0, caret).replace(/@[\p{L}\p{M}'’-]*$/u, "@" + name + " ");
+    const nv = up + text.slice(caret);
+    setText(nv); setMq(null);
+    setTimeout(() => { if (el) { el.focus(); el.setSelectionRange(up.length, up.length); } }, 0);
+  };
+  const send = () => { const t = text.trim(); if (!t) return; onSend(scope, t); setText(""); setMq(null); };
   const shareLoc = async () => {
     if (locBusy) return;
     setLocBusy(true); setLocErr(false);
@@ -905,6 +939,16 @@ function MessageInput({ onSend, scope, onCreatePoll, onShareLocation }) {
   if (pollOpen) return <PollComposer scope={scope} onCreate={(s, q, opts, multi, allowComments) => { onCreatePoll(s, q, opts, multi, allowComments); setPollOpen(false); }} onCancel={() => setPollOpen(false)} />;
   return (
     <div>
+      {sugg.length > 0 && (
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 8, padding: "0 4px" }}>
+          {sugg.map((p) => (
+            <button key={p.id} onClick={() => insertMention(person(p.id).name)} style={{ cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, borderRadius: T.r.pill, padding: "4px 11px 4px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Avatar id={p.id} size={20} />
+              <span style={{ fontFamily: fD, fontWeight: 600, fontSize: 12.5, color: T.c.ink }}>{person(p.id).name}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {locErr && <div style={{ fontFamily: fB, fontSize: 12, color: T.c.coralDeep, padding: "0 4px 6px" }}>Position indisponible. Vérifiez l'autorisation de localisation.</div>}
     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
       {onCreatePoll && (
@@ -917,7 +961,7 @@ function MessageInput({ onSend, scope, onCreatePoll, onShareLocation }) {
           <MapPin size={18} style={locBusy ? { animation: "vbreath 1s ease-in-out infinite" } : undefined} />
         </button>
       )}
-      <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
+      <input ref={inputRef} value={text} onChange={onType} onKeyDown={(e) => e.key === "Enter" && send()}
         placeholder="Écrire un message" style={{ flex: 1, minWidth: 0, fontFamily: fB, fontSize: 14.5, color: T.c.ink, padding: "11px 14px", border: `1px solid ${T.c.line}`, borderRadius: T.r.pill, outline: "none", background: T.c.card }} />
       <button onClick={send} aria-label="Envoyer" style={{ cursor: "pointer", border: "none", background: T.c.sea, color: "#fff", width: 42, height: 42, borderRadius: T.r.pill, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
         <Send size={18} />
@@ -2225,7 +2269,6 @@ function CapsuleCard({ now, onSave, onDelete }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
             <span style={{ fontFamily: fB, fontSize: 10.5, color: inkFaintPaper, flex: 1, minWidth: 0 }}>Livre ouvert : visible immédiatement.</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
-              {atBtn}
               <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: "transparent", color: text.trim() ? T.c.seaDeep : inkFaintPaper, fontFamily: fH, fontWeight: 600, fontSize: 19, padding: "9px 4px", minHeight: 44, display: "inline-flex", alignItems: "center" }}>Signer le livre ✎</button>
             </span>
           </div>
@@ -2272,7 +2315,6 @@ function CapsuleCard({ now, onSave, onDelete }) {
       <textarea ref={taRef} value={text} onChange={onType} rows={2} placeholder="Un souvenir, un merci, une prédiction..." style={linedArea} />
       {mentionBar}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-        {atBtn}
         <button onClick={deposit} disabled={!text.trim()} style={{ cursor: text.trim() ? "pointer" : "default", border: "none", background: text.trim() ? T.c.sea : paperLine, color: text.trim() ? "#fff" : inkFaintPaper, borderRadius: T.r.md, padding: "9px 16px", fontFamily: fD, fontWeight: 700, fontSize: 13 }}>Déposer dans le carnet</button>
       </div>
     </div>
