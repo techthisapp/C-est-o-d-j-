@@ -5141,7 +5141,8 @@ function Sheet({ open, onClose, children, title }) {
   return (
     <div aria-hidden={!open} style={{ position: "absolute", inset: 0, zIndex: 40, pointerEvents: open ? "auto" : "none" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(18,58,75,0.34)", opacity: open ? 1 : 0, transition: "opacity .22s ease" }} />
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: T.c.card, borderTopLeftRadius: 26, borderTopRightRadius: 26, boxShadow: T.sh.lift, maxHeight: "90%", overflowY: "auto", transform: open ? "translateY(0)" : "translateY(101%)", transition: "transform .28s cubic-bezier(.22,1,.36,1)" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: T.c.card, borderTopLeftRadius: 26, borderTopRightRadius: 26, boxShadow: T.sh.lift, maxHeight: "90%", overflow: "hidden", transform: open ? "translateY(0)" : "translateY(101%)", transition: "transform .28s cubic-bezier(.22,1,.36,1)", display: "flex", flexDirection: "column" }}>
+        <div style={{ overflowY: "auto", WebkitOverflowScrolling: "touch", flex: "1 1 auto", minHeight: 0 }}>
         <div style={{ position: "sticky", top: 0, background: T.c.card, padding: "14px 18px 8px", zIndex: 1 }}>
           <div style={{ width: 40, height: 4, borderRadius: 4, background: T.c.line, margin: "0 auto 12px" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -5152,6 +5153,7 @@ function Sheet({ open, onClose, children, title }) {
           </div>
         </div>
         <div style={{ padding: "4px 18px 24px" }}>{children}</div>
+        </div>
       </div>
     </div>
   );
