@@ -2620,13 +2620,13 @@ function VehiculeSVG({ kind }) {
   );
 }
 const MUS = {
-  mer: { root: 220, bpm: 66, pad: "triangle", pluck: "sine", vol: 0.17, prog: [[0, 4, 7, 11], [-3, 0, 4, 7], [-5, -1, 2, 7], [2, 5, 9, 12]] },
-  ville: { root: 174.61, bpm: 98, pad: "triangle", pluck: "square", vol: 0.1, prog: [[0, 3, 7, 10], [-2, 1, 5, 8], [-4, 0, 3, 7], [-5, -1, 2, 7]] },
-  ski: { root: 261.63, bpm: 58, pad: "sine", pluck: "triangle", vol: 0.15, prog: [[0, 4, 7, 11], [2, 5, 9, 12], [-3, 0, 4, 9], [-5, 0, 4, 7]] },
-  rando: { root: 196, bpm: 78, pad: "triangle", pluck: "triangle", vol: 0.16, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [-3, 2, 7, 9], [-5, 0, 4, 7]] },
-  mariage: { root: 233.08, bpm: 62, pad: "sine", pluck: "sine", vol: 0.16, prog: [[0, 4, 7, 11], [-5, -1, 4, 7], [-3, 0, 4, 9], [2, 5, 9, 11]] },
-  detente: { root: 207.65, bpm: 56, pad: "sine", pluck: "sine", vol: 0.15, prog: [[0, 4, 7, 11], [-2, 2, 5, 9], [-4, 0, 3, 7], [-5, -1, 2, 7]] },
-  anniversaire: { root: 261.63, bpm: 106, pad: "triangle", pluck: "square", vol: 0.11, prog: [[0, 4, 7, 12], [5, 9, 12, 17], [7, 11, 14, 19], [0, 4, 9, 12]] },
+  mer: { root: 261.63, bpm: 114, pad: "triangle", pluck: "triangle", bass: "sawtooth", vol: 0.24, swing: 0.12, prog: [[0, 4, 7, 11], [7, 11, 14, 17], [9, 12, 16, 19], [5, 9, 12, 16]] },
+  ville: { root: 246.94, bpm: 120, pad: "sawtooth", pluck: "square", bass: "square", vol: 0.2, swing: 0.16, prog: [[0, 3, 7, 10], [5, 8, 12, 15], [8, 12, 15, 19], [3, 7, 10, 14]] },
+  ski: { root: 293.66, bpm: 100, pad: "sine", pluck: "triangle", bass: "sine", vol: 0.22, swing: 0.08, prog: [[0, 4, 7, 11], [9, 12, 16, 19], [5, 9, 12, 16], [7, 11, 14, 17]] },
+  rando: { root: 261.63, bpm: 108, pad: "triangle", pluck: "triangle", bass: "sawtooth", vol: 0.23, swing: 0.1, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]] },
+  mariage: { root: 277.18, bpm: 104, pad: "sine", pluck: "triangle", bass: "sine", vol: 0.22, swing: 0.14, prog: [[0, 4, 7, 11], [9, 12, 16, 19], [2, 5, 9, 12], [7, 11, 14, 17]] },
+  detente: { root: 261.63, bpm: 96, pad: "sine", pluck: "sine", bass: "sine", vol: 0.21, swing: 0.16, prog: [[0, 4, 7, 11], [5, 9, 12, 16], [-3, 0, 4, 9], [7, 11, 14, 17]] },
+  anniversaire: { root: 293.66, bpm: 126, pad: "sawtooth", pluck: "square", bass: "sawtooth", vol: 0.2, swing: 0.12, prog: [[0, 4, 7, 12], [5, 9, 12, 17], [9, 12, 16, 21], [7, 11, 14, 19]] },
 };
 let AUDIO_CTX = null;
 function ctxAudio() {
@@ -2659,25 +2659,47 @@ function useMusique(type, actif) {
     const cfg = MUS[type] || MUS.mer;
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
-    master.connect(ctx.destination);
+    const comp = ctx.createDynamicsCompressor();
+    try { comp.threshold.value = -14; comp.knee.value = 26; comp.ratio.value = 3.2; comp.attack.value = 0.004; comp.release.value = 0.2; } catch (e) {}
+    master.connect(comp); comp.connect(ctx.destination);
     const dly = ctx.createDelay(1);
-    dly.delayTime.value = 60 / cfg.bpm / 2;
-    const fb = ctx.createGain(); fb.gain.value = 0.3;
-    const wet = ctx.createGain(); wet.gain.value = 0.28;
+    dly.delayTime.value = (60 / cfg.bpm) * 0.75;
+    const fb = ctx.createGain(); fb.gain.value = 0.26;
+    const wet = ctx.createGain(); wet.gain.value = 0.2;
     dly.connect(fb); fb.connect(dly); dly.connect(wet); wet.connect(master);
     const f = (semi) => cfg.root * Math.pow(2, semi / 12);
-    const note = (freq, t, dur, wave, g, echo) => {
+    // bruit blanc partagé pour la batterie
+    const noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.4), ctx.sampleRate);
+    const nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    const bruit = (t, dur, g, hp, bp) => {
+      const s = ctx.createBufferSource(); s.buffer = noiseBuf;
+      const filt = ctx.createBiquadFilter();
+      if (bp) { filt.type = "bandpass"; filt.frequency.value = bp; filt.Q.value = 0.8; }
+      else { filt.type = "highpass"; filt.frequency.value = hp || 7000; }
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(g, t);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(filt); filt.connect(gn); gn.connect(master);
+      s.start(t); s.stop(t + dur + 0.02);
+    };
+    const voix = (freq, t, dur, wave, g, echo, gliss) => {
       const o = ctx.createOscillator(); o.type = wave;
       o.frequency.setValueAtTime(freq, t);
+      if (gliss) o.frequency.exponentialRampToValueAtTime(gliss, t + dur);
       const gn = ctx.createGain();
       gn.gain.setValueAtTime(0.0001, t);
-      gn.gain.linearRampToValueAtTime(g, t + Math.min(0.25, dur * 0.2));
+      gn.gain.linearRampToValueAtTime(g, t + Math.min(0.14, dur * 0.25));
       gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(gn); gn.connect(master);
       if (echo) gn.connect(dly);
       o.start(t); o.stop(t + dur + 0.06);
     };
+    const kick = (t) => { voix(150, t, 0.16, "sine", 0.9, false, 46); };
+    const charley = (t, ouvert) => bruit(t, ouvert ? 0.12 : 0.035, ouvert ? 0.12 : 0.16, 8500);
+    const clap = (t) => bruit(t, 0.14, 0.4, null, 1700);
     const spb = 60 / cfg.bpm;
+    const croche2 = spb / 4;
     let step = 0, next = 0, lance = false;
     const tick = () => {
       if (!ctx || ctx.state === "closed") return;
@@ -2685,14 +2707,30 @@ function useMusique(type, actif) {
       if (!lance) {
         lance = true;
         next = ctx.currentTime + 0.12;
-        try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0.0001, ctx.currentTime); master.gain.linearRampToValueAtTime(cfg.vol, ctx.currentTime + 3); } catch (e) {}
+        try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0.0001, ctx.currentTime); master.gain.linearRampToValueAtTime(cfg.vol, ctx.currentTime + 2.4); } catch (e) {}
       }
-      while (next < ctx.currentTime + 0.35) {
-        const acc = cfg.prog[Math.floor(step / 8) % cfg.prog.length];
-        if (step % 8 === 0) acc.forEach((s, j) => note(f(s - 12), next, spb * 4.4, cfg.pad, j === 0 ? 0.055 : 0.035, false));
-        const oct = step % 8 === 5 ? 12 : step % 8 === 3 ? 12 : 0;
-        note(f(acc[(step * 3) % acc.length] + oct), next, spb * 1.5, cfg.pluck, 0.075, true);
-        next += spb / 2;
+      while (next < ctx.currentTime + 0.4) {
+        const pos = step % 16;
+        const mesure = Math.floor(step / 16);
+        const acc = cfg.prog[mesure % cfg.prog.length];
+        const sw = pos % 2 === 1 ? croche2 * (cfg.swing || 0) : 0;
+        const t = next + sw;
+        // nappe : accord tenu en début de mesure
+        if (pos === 0) acc.forEach((s, j) => voix(f(s - 12), t, spb * 3.4, cfg.pad, j === 0 ? 0.05 : 0.032, false));
+        // basse : groove sur la fondamentale
+        if (pos === 0 || pos === 6 || pos === 10) voix(f(acc[0] - 24), t, pos === 6 ? spb * 0.5 : spb * 0.9, cfg.bass, 0.13, false);
+        if (pos === 14) voix(f(acc[0] - 12), t, spb * 0.45, cfg.bass, 0.09, false);
+        // batterie : kick sur les temps, clap en backbeat, charley en croches
+        if (pos % 4 === 0) kick(t);
+        if (pos === 4 || pos === 12) clap(t);
+        if (pos % 2 === 0) charley(t, pos % 8 === 6);
+        // arpège brillant en doubles-croches montantes
+        if (pos % 2 === 0) {
+          const idx = (step / 2) % (acc.length + 1);
+          const semi = idx < acc.length ? acc[idx] : acc[0] + 12;
+          voix(f(semi + 12), t, croche2 * 1.5, cfg.pluck, 0.06, true);
+        }
+        next += croche2;
         step += 1;
       }
     };
@@ -2759,17 +2797,32 @@ function buildFilm(events, photos, messages, faces) {
       });
       sc.push({ t: "trajet", d: 3400, day: d, seq });
     }
-    const MAXJ = 4;
-    let choisies;
-    if (pj.length <= MAXJ) choisies = pj;
-    else { choisies = []; for (let s = 0; s < MAXJ; s++) choisies.push(pj[Math.floor((s * pj.length) / MAXJ)]); }
-    choisies.forEach((p, k) => {
-      const leg = legendePhoto(p, events);
-      const groupe = nbVisages(p) >= 3;
-      const premiere = k === 0;
-      if (groupe) sc.push({ t: "polaroid", d: 5200, day: d, ph: p, leg, premiere });
-      else if ((d + k) % 2 === 0) sc.push({ t: "plein", d: 5000, day: d, ph: p, leg, premiere });
-      else sc.push({ t: "tirage", d: 4800, day: d, ph: p, leg, premiere });
+    const MAXJ = 6;
+    let choisies = pj;
+    if (pj.length > MAXJ) { choisies = []; for (let s = 0; s < MAXJ; s++) choisies.push(pj[Math.floor((s * pj.length) / MAXJ)]); }
+    // regrouper les photos consécutives d'une même activité
+    const groupes = [];
+    choisies.forEach((p) => {
+      const g = groupes[groupes.length - 1];
+      if (g && g.ev === p.event) g.photos.push(p); else groupes.push({ ev: p.event, photos: [p] });
+    });
+    let premiereDuJour = true;
+    groupes.forEach((g) => {
+      // paquets d'au plus 4 photos, en évitant de laisser une orpheline
+      const paquets = [];
+      let i = 0;
+      while (i < g.photos.length) {
+        const reste = g.photos.length - i;
+        const t = reste === 1 ? 1 : reste === 5 ? 3 : reste <= 4 ? reste : 4;
+        paquets.push(g.photos.slice(i, i + t));
+        i += t;
+      }
+      paquets.forEach((paq, idx) => {
+        const leg = idx === 0 ? legendePhoto(paq[0], events) : { l1: "", l2: "" };
+        const premiere = premiereDuJour; premiereDuJour = false;
+        if (paq.length === 1) sc.push({ t: "plein", d: 4800, day: d, ph: paq[0], leg, premiere });
+        else sc.push({ t: "mosaique", d: 4200 + paq.length * 650, day: d, phs: paq, leg, premiere });
+      });
     });
     if (bestE && bestV >= 3) sc.push({ t: "fort", d: 3800, day: d, e: bestE });
     const mj = (messages || []).filter((m) => dayOfMsg(m, events) === d && m.text && !isPoll(m) && !isGuess(m) && !isVibe(m) && !isLoc(m))
@@ -2856,7 +2909,6 @@ function FilmOverlay({ events, photos, messages, onClose }) {
     inner = (
       <div style={{ position: "absolute", inset: 0, background: th.bandes[sc.day % th.bandes.length], overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ position: "absolute", inset: 0, background: accent, transformOrigin: "left", animation: "fmWipe 0.7s cubic-bezier(.7,0,.2,1) both" }} />
-        <div style={{ position: "absolute", top: "13%", left: "50%", transform: "translateX(-50%)", fontFamily: fH, fontWeight: 700, fontSize: "38vw", color: accent, opacity: 0.1, lineHeight: 1, animation: "fmZoomIn 1s cubic-bezier(.2,.8,.2,1) both" }}>{sc.day + 1}</div>
         <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "0 26px", maxWidth: 640 }}>
           <div style={{ display: "inline-block", background: accent, color: "#fff", fontFamily: fB, fontWeight: 700, fontSize: 13, letterSpacing: 3, textTransform: "uppercase", borderRadius: T.r.pill, padding: "6px 16px", animation: "fmDrop .7s cubic-bezier(.2,.9,.3,1.2) both" }}>{`Étape ${sc.day + 1} sur ${DAYS.length}`}</div>
           <div style={{ fontFamily: fH, fontWeight: 700, fontSize: "clamp(66px, 23vw, 128px)", color: th.encre, transform: "rotate(-2deg)", animation: "fmZoomIn .9s cubic-bezier(.2,.8,.2,1) both", animationDelay: ".18s", lineHeight: 0.95, marginTop: 10 }}>{`Jour ${sc.day + 1}`}</div>
@@ -2883,38 +2935,22 @@ function FilmOverlay({ events, photos, messages, onClose }) {
         {legende(sc.leg, true)}
       </div>
     );
-  } else if (sc.t === "polaroid") {
+  } else if (sc.t === "mosaique") {
+    const n = sc.phs.length;
+    const grille = n === 2
+      ? { gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr" }
+      : n === 3
+      ? { gridTemplateColumns: "1.4fr 1fr", gridTemplateRows: "1fr 1fr" }
+      : { gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr" };
     inner = (
-      <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${th.papier[0]}, ${th.papier[1]})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        {sc.premiere && chipJour(sc.day)}
-        <div style={{ width: "min(86vw, 520px)", background: "#fff", borderRadius: 4, padding: "8px 8px 0", boxShadow: "0 18px 44px rgba(10,20,26,0.3)", transform: `rotate(${sc.day % 2 ? 1.6 : -1.8}deg)`, animation: "fmDrop 1s cubic-bezier(.2,.9,.3,1.15) both", position: "relative", marginBottom: 46 }}>
-          <div style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%) rotate(-2deg)", width: 74, height: 19, background: "rgba(250,230,160,0.85)", borderRadius: 2 }} />
-          <img src={sc.ph.url} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", objectPosition: posOf(sc.ph), borderRadius: 2, display: "block", maxHeight: "58vh" }} />
-          <div style={{ height: 46, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: fH, fontSize: 19, color: "#4a5560", padding: "0 10px", textAlign: "center" }}>{sc.leg ? sc.leg.l2 || sc.leg.l1 : ""}</div>
-        </div>
-        {legende({ l1: sc.leg ? sc.leg.l1 : "", l2: "" }, false)}
-      </div>
-    );
-  } else if (sc.t === "tirage") {
-    inner = (
-      <div style={{ position: "absolute", inset: 0, background: th.bandes[(sc.day + 2) % th.bandes.length], display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        {sc.premiere && chipJour(sc.day)}
-        <div style={{ background: "#fff", padding: 11, boxShadow: "0 16px 40px rgba(30,20,10,0.22)", transform: `rotate(${sc.day % 2 ? -1.2 : 1.2}deg)`, animation: "fmZoomIn 1.1s cubic-bezier(.2,.8,.2,1) both", marginBottom: 40 }}>
-          <img src={sc.ph.url} alt="" style={{ width: "min(84vw, 560px)", maxHeight: "58vh", aspectRatio: "3 / 2", objectFit: "cover", objectPosition: posOf(sc.ph), display: "block" }} />
-        </div>
-        {legende(sc.leg, false)}
-      </div>
-    );
-  } else if (sc.t === "diptyque") {
-    inner = (
-      <div style={{ position: "absolute", inset: 0, background: "#0B1620", display: "flex", overflow: "hidden" }}>
-        {chipJour(sc.day)}
+      <div style={{ position: "absolute", inset: 0, background: "#0B1620", display: "grid", gap: 3, ...grille, animation: `${sc.day % 2 ? "fmIrisIn" : "fmFadeIn"} .9s ease both` }}>
         {sc.phs.map((p, k) => (
-          <div key={p.id} style={{ flex: 1, minWidth: 0, position: "relative", overflow: "hidden", borderRight: k === 0 ? "3px solid #0B1620" : "none", animation: `${k === 0 ? "fmSlideL" : "fmSlideR"} .9s cubic-bezier(.2,.8,.2,1) both`, animationDelay: `${k * 0.35}s` }}>
-            <img src={p.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: posOf(p), animation: `${k ? "fmKenA" : "fmKenB"} 7s ease-out both` }} />
+          <div key={p.id} style={{ position: "relative", overflow: "hidden", ...(n === 3 && k === 0 ? { gridRow: "1 / 3" } : {}) }}>
+            <img src={p.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: posOf(p), animation: `${k % 2 ? "fmKenA" : "fmKenB"} ${7 + n}s ease-out both, fmFadeIn .5s ease both`, animationDelay: `${k * 0.14}s, ${k * 0.14}s` }} />
           </div>
         ))}
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,16,24,0.4) 0%, rgba(7,16,24,0) 26%, rgba(7,16,24,0) 54%, rgba(7,16,24,0.6) 100%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,16,24,0.42) 0%, rgba(7,16,24,0) 22%, rgba(7,16,24,0) 56%, rgba(7,16,24,0.62) 100%)", pointerEvents: "none" }} />
+        {sc.premiere && chipJour(sc.day)}
         {legende(sc.leg, true)}
       </div>
     );
