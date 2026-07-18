@@ -7149,25 +7149,27 @@ export default function App() {
         {film && <FilmOverlay events={events} photos={visiblePhotos} messages={messages} onClose={() => setFilm(false)} />}
         {presenceEvt && (
           <div onClick={() => setPresenceEvt(null)} style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(12,28,38,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26 }}>
-            <div style={{ background: T.c.card, color: T.c.ink, borderRadius: T.r.lg, padding: 18, width: "100%", maxWidth: 320, maxHeight: "70%", overflowY: "auto", boxShadow: T.sh.lift }}>
-              <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 16, marginBottom: 12 }}>{presenceEvt.title}</div>
-              <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, marginBottom: 9 }}>PRÉSENTS · {attendeesOf(presenceEvt).length}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                {attendeesOf(presenceEvt).map((id) => (
-                  <div key={id} style={{ display: "flex", alignItems: "center", gap: 9 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
-                ))}
-                {attendeesOf(presenceEvt).length === 0 && <span style={{ fontFamily: fB, fontSize: 13, color: T.c.inkFaint }}>Personne pour l'instant.</span>}
+            <div style={{ background: T.c.card, color: T.c.ink, borderRadius: T.r.lg, boxShadow: T.sh.lift, width: "100%", maxWidth: 320, maxHeight: "80%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              <div style={{ flex: "0 0 auto", padding: "16px 18px 10px", fontFamily: fD, fontWeight: 700, fontSize: 16 }}>{presenceEvt.title}</div>
+              <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "0 18px 16px" }}>
+                <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, marginBottom: 9 }}>PRÉSENTS · {attendeesOf(presenceEvt).length}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {attendeesOf(presenceEvt).map((id) => (
+                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 9 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
+                  ))}
+                  {attendeesOf(presenceEvt).length === 0 && <span style={{ fontFamily: fB, fontSize: 13, color: T.c.inkFaint }}>Personne pour l'instant.</span>}
+                </div>
+                {skipOf(presenceEvt).length > 0 && (
+                  <>
+                    <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, margin: "15px 0 9px" }}>PASSENT LEUR TOUR · {skipOf(presenceEvt).length}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                      {skipOf(presenceEvt).map((id) => (
+                        <div key={id} style={{ display: "flex", alignItems: "center", gap: 9, opacity: 0.55 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-              {skipOf(presenceEvt).length > 0 && (
-                <>
-                  <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.6, color: T.c.inkFaint, margin: "15px 0 9px" }}>PASSENT LEUR TOUR · {skipOf(presenceEvt).length}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                    {skipOf(presenceEvt).map((id) => (
-                      <div key={id} style={{ display: "flex", alignItems: "center", gap: 9, opacity: 0.55 }}><Avatar id={id} size={26} /><span style={{ fontFamily: fB, fontSize: 14, color: T.c.ink }}>{person(id).name}</span></div>
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
           </div>
         )}
