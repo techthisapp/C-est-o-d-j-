@@ -4542,7 +4542,7 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
   const cur = photos[idx];
   const suiv = photos[(idx + 1) % n];
   const label = `Les photos du groupe${n > 1 ? ` · ${idx + 1}/${n}` : ""}`;
-  const finEnvol = () => { if (envol !== 0) { setI((x) => (x + 1) % n); setEnvol(0); setDrag(0); } };
+  const finEnvol = (e) => { if (e && e.propertyName && e.propertyName !== "transform") return; if (envol !== 0) { setI((x) => (x + 1) % n); setEnvol(0); setDrag(0); } };
   const down = (e) => { if (envol) return; startX.current = e.clientX; setDragging(true); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} };
   const move = (e) => { if (startX.current == null) return; setDrag(e.clientX - startX.current); };
   const up = (e) => {
