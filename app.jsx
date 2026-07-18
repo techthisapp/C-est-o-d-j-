@@ -6423,6 +6423,11 @@ export default function App() {
     saveState({ events, messages, photos, roster: ROSTER, me: ME, settings: SETTINGS, at: Date.now() });
   }, [events, messages, photos, rev]);
 
+  // Fuseau du séjour, utilisé par le rappel serveur pour calculer l'heure des activités
+  useEffect(() => {
+    try { if (!SETTINGS.tz) { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz) applyTrip({ tz }); } } catch (e) { /* rien */ }
+  }, []);
+
   // Rappel local, une heure avant chaque activité (par appareil, sans serveur)
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) return undefined;
