@@ -4538,6 +4538,8 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
   const [envol, setEnvol] = useState(0);
   const [sansTrans, setSansTrans] = useState(false);
   const startX = useRef(null);
+  const startY = useRef(null);
+  const axe = useRef(null);
   const n = photos.length;
   const idx = ((i % n) + n) % n;
   const cur = photos[idx];
@@ -4558,15 +4560,29 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
     setEnvol(0);
     setDrag(0);
   };
-  const down = (e) => { if (envol) return; startX.current = e.clientX; setDragging(true); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} };
-  const move = (e) => { if (startX.current == null) return; setDrag(e.clientX - startX.current); };
+  const down = (e) => { if (envol) return; startX.current = e.clientX; startY.current = e.clientY; axe.current = null; setDragging(true); };
+  const move = (e) => {
+    if (startX.current == null) return;
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+    if (axe.current == null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      axe.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+      if (axe.current === "h") { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} }
+    }
+    if (axe.current === "h") setDrag(dx);
+  };
   const up = (e) => {
     if (startX.current == null) return;
-    const dx = e.clientX - startX.current; startX.current = null; setDragging(false);
-    if (n > 1 && Math.abs(dx) > 90) setEnvol(dx < 0 ? -1 : 1);
-    else if (Math.abs(dx) < 10) { setDrag(0); onOpenPhoto(cur, photos); }
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+    const a = axe.current;
+    startX.current = null; startY.current = null; axe.current = null;
+    setDragging(false);
+    if (a === "h" && n > 1 && Math.abs(dx) > 70) setEnvol(dx < 0 ? -1 : 1);
+    else if (a == null && Math.abs(dx) < 10 && Math.abs(dy) < 10) { setDrag(0); onOpenPhoto(cur, photos); }
     else setDrag(0);
   };
+  const cancel = () => { startX.current = null; startY.current = null; axe.current = null; setDragging(false); setDrag(0); };
   const transform = envol !== 0
     ? `translateX(${envol * 130}vw) rotate(${envol * 22}deg)`
     : `translateX(${drag}px) rotate(${drag * 0.05}deg)`;
@@ -4577,7 +4593,7 @@ function AlbumVisages({ photos, faces, onOpenPhoto }) {
           <CartePhoto photo={suiv} faces={faces} legende={labelDe((idx + 1) % n)} style={{ position: "absolute", inset: 0, transform: "rotate(-1.4deg)" }} />
         )}
         <CartePhoto photo={cur} faces={faces} legende={labelDe(idx)}
-          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onTransitionEnd={finEnvol}
+          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel} onTransitionEnd={finEnvol}
           style={{ position: "relative", transform: `rotate(-1.4deg) ${transform}`, transition: (dragging || sansTrans) ? "none" : "transform .5s cubic-bezier(.2,.75,.3,1), opacity .5s ease", opacity: envol !== 0 ? 0 : 1, cursor: dragging ? "grabbing" : "grab", touchAction: "pan-y" }} />
       </div>
       {n > 1 && (
