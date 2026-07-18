@@ -336,6 +336,33 @@ function UnreadBadge({ n, light }) {
 
 /* ---- Photos ------------------------------------------------------------ */
 function PhotoTile({ photo, size, onClick }) {
+  const ctx = React.useContext(PhotoCtx);
+  const [armed, setArmed] = useState(false);
+  const pressRef = useRef(null);
+  const longRef = useRef(false);
+  const startRef = useRef(null);
+  const autoRef = useRef(null);
+  const monRole = (person(ME) || {}).role || "participant";
+  const canDel = !!(ctx && ctx.del) && !photo.uploading && (photo.who === ME || monRole === "organisateur" || monRole === "co-éditeur");
+  const finPresse = () => { if (pressRef.current) { clearTimeout(pressRef.current); pressRef.current = null; } };
+  const desarmer = () => { setArmed(false); if (autoRef.current) { clearTimeout(autoRef.current); autoRef.current = null; } };
+  useEffect(() => () => { finPresse(); if (autoRef.current) clearTimeout(autoRef.current); }, []);
+  const debut = (e) => {
+    if (!canDel || armed) return;
+    startRef.current = { x: e.clientX || 0, y: e.clientY || 0 };
+    longRef.current = false;
+    finPresse();
+    pressRef.current = setTimeout(() => { longRef.current = true; setArmed(true); autoRef.current = setTimeout(() => setArmed(false), 4000); }, 550);
+  };
+  const bouge = (e) => {
+    if (!pressRef.current || !startRef.current) return;
+    if (Math.abs((e.clientX || 0) - startRef.current.x) > 10 || Math.abs((e.clientY || 0) - startRef.current.y) > 10) finPresse();
+  };
+  const clic = () => {
+    if (longRef.current) { longRef.current = false; return; }
+    if (armed) { desarmer(); return; }
+    if (onClick) onClick();
+  };
   const tags = photo.tags || [];
   const reactions = photo.reactions || {};
   let reactCount = 0; Object.keys(reactions).forEach((pid) => { reactCount += (reactions[pid] || []).length; });
@@ -343,7 +370,10 @@ function PhotoTile({ photo, size, onClick }) {
     ? <img src={photo.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
     : <div style={{ width: "100%", height: "100%", background: PHOTO_TONE[photo.tone], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>{photo.emoji}</div>;
   return (
-    <button onClick={onClick} style={{ position: "relative", aspectRatio: "1 / 1", width: size || "100%", borderRadius: T.r.md, overflow: "hidden", boxShadow: T.sh.card, cursor: onClick ? "pointer" : "default", border: "none", padding: 0, background: T.c.lineSoft, display: "block" }}>
+    <div style={{ position: "relative", aspectRatio: "1 / 1", width: size || "100%", borderRadius: T.r.md, overflow: "hidden", boxShadow: T.sh.card, background: T.c.lineSoft }}>
+    <button onClick={clic} onPointerDown={debut} onPointerMove={bouge} onPointerUp={finPresse} onPointerLeave={finPresse} onPointerCancel={() => { finPresse(); }}
+      onContextMenu={(e) => { if (canDel) e.preventDefault(); }}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: T.r.md, overflow: "hidden", cursor: onClick ? "pointer" : "default", border: "none", padding: 0, background: T.c.lineSoft, display: "block", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", touchAction: "manipulation" }}>
       {media}
       {photo.uploading && <span style={{ position: "absolute", inset: 0, background: "rgba(6,14,18,0.35)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: fD, fontWeight: 600, fontSize: 11 }}>Envoi...</span>}
       {photo.failed && <span style={{ position: "absolute", top: 5, right: 5, background: T.c.coral, color: "#fff", borderRadius: T.r.pill, padding: "2px 7px", fontFamily: fD, fontWeight: 700, fontSize: 10 }}>Échec</span>}
@@ -361,13 +391,27 @@ function PhotoTile({ photo, size, onClick }) {
         </span>
       )}
     </button>
+      {armed && (
+        <div onClick={desarmer} style={{ position: "absolute", inset: 0, background: "rgba(214,60,44,0.82)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, animation: "vfade .14s ease-out", cursor: "pointer" }}>
+          <button onClick={(e) => { e.stopPropagation(); desarmer(); if (ctx && ctx.del) ctx.del(photo.id); }} aria-label="Supprimer cette photo"
+            style={{ cursor: "pointer", border: "none", background: "#fff", color: "#C4392B", width: 38, height: 38, borderRadius: T.r.pill, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+            <Trash2 size={17} />
+          </button>
+          <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 10, color: "#fff" }}>Supprimer</span>
+        </div>
+      )}
+    </div>
   );
 }
-function readAndDownscale(file, cb) {
+const PHOTO_LOT_MAX = 20;
+function readAndDownscale(file, cb, onFail) {
+  const rate = () => { if (onFail) onFail(); };
   try {
     const reader = new FileReader();
+    reader.onerror = rate;
     reader.onload = () => {
       const img = new Image();
+      img.onerror = rate;
       img.onload = () => {
         const max = 1280;
         let w = img.width, h = img.height;
@@ -381,15 +425,28 @@ function readAndDownscale(file, cb) {
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
-  } catch (e) { /* import impossible */ }
+  } catch (e) { rate(); }
 }
+function lireLot(e, onEach, onDone) {
+  const files = [...((e.target && e.target.files) || [])].slice(0, PHOTO_LOT_MAX);
+  if (e.target) e.target.value = "";
+  if (!files.length) return;
+  let i = 0;
+  const suite = () => {
+    if (i >= files.length) { if (onDone) onDone(files.length); return; }
+    const f = files[i]; i += 1;
+    readAndDownscale(f, (url) => { if (url) onEach(url); setTimeout(suite, 0); }, () => setTimeout(suite, 0));
+  };
+  suite();
+}
+const PhotoCtx = React.createContext(null);
 function AddPhotoTile({ onPick }) {
   const ref = useRef(null);
   return (
     <>
-      <input ref={ref} type="file" accept="image/*" style={{ display: "none" }}
-        onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) readAndDownscale(f, onPick); e.target.value = ""; }} />
-      <button onClick={() => ref.current && ref.current.click()} aria-label="Ajouter une photo" style={{ aspectRatio: "1 / 1", cursor: "pointer", borderRadius: T.r.md, border: `2px dashed ${T.c.line}`, background: T.c.lineSoft, color: T.c.inkSoft, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+      <input ref={ref} type="file" accept="image/*" multiple style={{ display: "none" }}
+        onChange={(e) => lireLot(e, onPick)} />
+      <button onClick={() => ref.current && ref.current.click()} aria-label="Ajouter des photos" style={{ aspectRatio: "1 / 1", cursor: "pointer", borderRadius: T.r.md, border: `2px dashed ${T.c.line}`, background: T.c.lineSoft, color: T.c.inkSoft, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
         <ImagePlus size={20} />
         <span style={{ fontFamily: fB, fontSize: 11 }}>Ajouter</span>
       </button>
@@ -399,7 +456,7 @@ function AddPhotoTile({ onPick }) {
 function PhotoGrid({ photos, onAdd, onOpen, cols = 3 }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 8 }}>
-      {photos.map((ph) => <PhotoTile key={ph.id} photo={ph} onClick={onOpen ? () => onOpen(ph) : undefined} />)}
+      {photos.map((ph) => <PhotoTile key={ph.id} photo={ph} onClick={onOpen ? () => onOpen(ph, photos) : undefined} />)}
       {onAdd && <AddPhotoTile onPick={onAdd} />}
     </div>
   );
@@ -1322,8 +1379,8 @@ function QuickActions({ event, unread, onOpen, onDiscuss, onAddPhoto, onVibe, vi
             <span style={{ position: "absolute", top: -5, right: -3, minWidth: 17, height: 17, padding: "0 4px", borderRadius: T.r.pill, background: T.c.coral, color: "#fff", fontFamily: fD, fontWeight: 700, fontSize: 10.5, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 2px #fff", animation: "vpop .18s ease-out" }}>{unread > 9 ? "9+" : unread}</span>
           )}
         </button>
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
-          onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) readAndDownscale(f, (url) => onAddPhoto(event.id, url)); e.target.value = ""; }} />
+        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }}
+          onChange={(e) => lireLot(e, (url) => onAddPhoto(event.id, url))} />
         <button onClick={(e) => { stop(e); if (fileRef.current) fileRef.current.click(); }} style={base}>
           <ImagePlus size={15} color={iconColor} /> Photo
         </button>
@@ -1856,7 +1913,7 @@ function DailyChallengeCard({ dIdx, photos, onAddPhoto, onOpenPhoto, bare }) {
       <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
         {list.map((ph) => (
           <div key={ph.id} style={{ flex: "0 0 auto", width: 74 }}>
-            <PhotoTile photo={ph} onClick={() => onOpenPhoto(ph)} />
+            <PhotoTile photo={ph} onClick={() => onOpenPhoto(ph, list)} />
           </div>
         ))}
         <div style={{ flex: "0 0 auto", width: 74 }}>
@@ -4715,9 +4772,9 @@ function AddPhotoButton({ onPick }) {
   const ref = useRef(null);
   return (
     <>
-      <input ref={ref} type="file" accept="image/*" style={{ display: "none" }}
-        onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) readAndDownscale(f, onPick); e.target.value = ""; }} />
-      <button onClick={() => ref.current && ref.current.click()} aria-label="Ajouter une photo" title="Ajouter une photo" style={{ cursor: "pointer", flex: "0 0 auto", width: 42, height: 42, borderRadius: T.r.pill, border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.seaDeep, boxShadow: T.sh.card, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <input ref={ref} type="file" accept="image/*" multiple style={{ display: "none" }}
+        onChange={(e) => lireLot(e, onPick)} />
+      <button onClick={() => ref.current && ref.current.click()} aria-label="Ajouter des photos" title="Ajouter des photos" style={{ cursor: "pointer", flex: "0 0 auto", width: 42, height: 42, borderRadius: T.r.pill, border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.seaDeep, boxShadow: T.sh.card, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Plus size={21} />
       </button>
     </>
@@ -4728,7 +4785,7 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
   const sorted = [...photos].sort((a, b) => (b.at || 0) - (a.at || 0));
   const acts = sortByStart(mainList(events || []));
   const canDiapo = onDiapo && featureOn("film") && sorted.filter((p) => p.url).length >= 2;
-  const choose = (eventId) => { if (pending) { onAddPhoto(eventId, pending.url); setPending(null); } };
+  const choose = (eventId) => { if (pending && pending.urls) { pending.urls.forEach((u) => onAddPhoto(eventId, u)); setPending(null); } };
   const rowBtn = { width: "100%", textAlign: "left", cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, borderRadius: T.r.md, padding: "11px 13px", display: "flex", alignItems: "center", gap: 11 };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -4740,7 +4797,7 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
               <Play size={16} /> Diaporama
             </button>
           )}
-          <AddPhotoButton onPick={(url) => setPending({ url })} />
+          <AddPhotoButton onPick={(url) => setPending((p) => ({ urls: [...((p && p.urls) || []), url] }))} />
         </div>
       </div>
       <div style={{ fontFamily: fB, fontStyle: "italic", color: T.c.inkFaint, fontSize: 14 }}>
@@ -4768,17 +4825,22 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12, border: `1px dashed ${T.c.line}`, borderRadius: T.r.lg, padding: "13px 14px", marginTop: 4 }}>
           <Images size={20} color={T.c.inkFaint} style={{ flex: "0 0 auto" }} />
           <div style={{ flex: 1, minWidth: 0, fontFamily: fB, color: T.c.inkSoft, fontSize: 13 }}>Ajoutez vos photos du jour, le mur se remplit à plusieurs.</div>
-          <AddPhotoButton onPick={(url) => setPending({ url })} />
+          <AddPhotoButton onPick={(url) => setPending((p) => ({ urls: [...((p && p.urls) || []), url] }))} />
         </div>
       )}
       {pending && (
         <div onClick={() => setPending(null)} style={{ position: "fixed", inset: 0, zIndex: 65, background: "rgba(6,14,18,0.5)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: T.c.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "16px 18px calc(20px + env(safe-area-inset-bottom))", maxHeight: "78vh", display: "flex", flexDirection: "column", boxShadow: T.sh.soft }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <img src={pending.url} alt="" style={{ width: 46, height: 46, borderRadius: T.r.md, objectFit: "cover", flex: "0 0 auto" }} />
+              <span style={{ position: "relative", flex: "0 0 auto" }}>
+                <img src={pending.urls[0]} alt="" style={{ width: 46, height: 46, borderRadius: T.r.md, objectFit: "cover", display: "block" }} />
+                {pending.urls.length > 1 && (
+                  <span style={{ position: "absolute", top: -5, right: -5, background: T.c.seaDeep, color: "#fff", borderRadius: T.r.pill, padding: "1px 6px", fontFamily: fD, fontWeight: 700, fontSize: 10.5, boxShadow: "0 0 0 2px #fff" }}>{pending.urls.length}</span>
+                )}
+              </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 16 }}>Rattacher à une activité ?</div>
-                <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12.5 }}>La photo reste aussi sur le mur du séjour.</div>
+                <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 16 }}>{pending.urls.length > 1 ? `Rattacher ces ${pending.urls.length} photos à une activité ?` : "Rattacher à une activité ?"}</div>
+                <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12.5 }}>{pending.urls.length > 1 ? "Elles restent aussi sur le mur du séjour." : "La photo reste aussi sur le mur du séjour."}</div>
               </div>
             </div>
             <button onClick={() => choose("album")} style={{ ...rowBtn, marginBottom: 8 }}>
@@ -6224,7 +6286,7 @@ export default function App() {
 
   const openDetail = (event) => { markSeen((m) => m.scope === event.id); setSheet({ mode: "detail", event }); };
   const openDetailThread = (event) => { markSeen((m) => m.scope === event.id); setSheet({ mode: "detail", event, focusThread: true }); };
-  const openPhoto = (photo) => setPhotoView(photo.id);
+  const openPhoto = (photo, contexte) => setPhotoView({ id: photo.id, ids: contexte && contexte.length ? contexte.map((p) => p.id) : null });
   const openAdd = () => { setDraft({ id: null, title: "", type: "activite", day: selectedDay, start: "10:00", end: "11:00", placeName: "", coord: null, note: "", parallelOf: null }); setSheet({ mode: "edit" }); };
   const openAddToday = () => { setDraft({ id: null, title: "", type: "activite", day: clamp(dayOfNow(now), 0, DAYS.length - 1), start: "10:00", end: "11:00", placeName: "", coord: null, note: "", parallelOf: null }); setSheet({ mode: "edit" }); };
   const openEdit = (event) => { setDraft({ id: event.id, title: event.title, type: event.type, day: event.day, start: event.start, end: event.end, placeName: event.place.name, coord: event.place.coord || null, note: event.note || "", parallelOf: event.parallelOf || null }); setSheet({ mode: "edit" }); };
@@ -6526,6 +6588,7 @@ export default function App() {
   if (needIdentity) return <IdentityGate onPick={confirmIdentity} onCreateSelf={createIdentity} />;
 
   return (
+    <PhotoCtx.Provider value={{ del: deletePhoto }}>
     <div style={{ height: "100dvh", width: "100%", background: pageBg, display: "flex", justifyContent: "center", fontFamily: fB, color: T.c.ink }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Caveat:wght@500;600&display=swap');
@@ -6601,7 +6664,7 @@ export default function App() {
           {sheet?.mode === "share" && <ShareSheet events={events} photos={visiblePhotos} messages={messages} onDone={() => setSheet(null)} />}
         </Sheet>
 
-        <PhotoViewer photos={visiblePhotos} startId={photoView} onClose={() => setPhotoView(null)} onToggleTag={toggleTag} onReact={togglePhotoReaction} onDelete={deletePhoto} />
+        {photoView && <PhotoViewer photos={photoView.ids ? visiblePhotos.filter((p) => photoView.ids.indexOf(p.id) >= 0) : visiblePhotos} startId={photoView.id} onClose={() => setPhotoView(null)} onToggleTag={toggleTag} onReact={togglePhotoReaction} onDelete={deletePhoto} />}
         {film && <FilmOverlay events={events} photos={visiblePhotos} messages={messages} onClose={() => setFilm(false)} />}
         {diapo && <Diaporama photos={visiblePhotos} onClose={() => setDiapo(false)} onReact={togglePhotoReaction} onToggleTag={toggleTag} />}
         {mapOpen && (() => {
@@ -6611,6 +6674,7 @@ export default function App() {
         })()}
       </div>
     </div>
+  </PhotoCtx.Provider>
   );
 }
 
