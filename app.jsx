@@ -5871,7 +5871,8 @@ const sigOf = (d) => stableStringify([d.events || [], d.messages || [], d.roster
 const VAPID_PUB = CFG.vapidPublicKey || "";
 const FUNCTIONS_URL = CFG.supabaseUrl ? CFG.supabaseUrl + "/functions/v1" : "";
 const NOTIF_KEY = "vacances_notif_v1";
-const DEFAULT_NOTIF = { enabled: false, messages: true, addActivity: true, editActivity: true };
+const DEFAULT_NOTIF = { enabled: false, messages: true, addActivity: true, editActivity: true, nextActivity: true };
+const RAPPELS_KEY = "vacances_rappels_v1";
 function loadNotif() { try { return JSON.parse(localStorage.getItem(NOTIF_KEY)) || null; } catch (e) { return null; } }
 function saveNotif(p) { try { localStorage.setItem(NOTIF_KEY, JSON.stringify(p)); } catch (e) { /* rien */ } }
 const PUSH_OK = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && !!VAPID_PUB && SYNC_ON;
@@ -6241,6 +6242,7 @@ function NotifSettings() {
               <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Nouveaux messages</span><Toggle on={prefs.messages} onClick={() => toggleKind("messages")} /></div>
               <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Ajout d'activité</span><Toggle on={prefs.addActivity} onClick={() => toggleKind("addActivity")} /></div>
               <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Modification d'activité</span><Toggle on={prefs.editActivity} onClick={() => toggleKind("editActivity")} /></div>
+              <div style={{ ...row, borderTop: `1px solid ${T.c.line}` }}><span style={rowLabel}>Rappel avant une activité<span style={{ display: "block", fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Une heure avant le début, sur cet appareil.</span></span><Toggle on={prefs.nextActivity !== false} onClick={() => toggleKind("nextActivity")} /></div>
             </>
           )}
         </div>
@@ -6420,6 +6422,38 @@ export default function App() {
   useEffect(() => {
     saveState({ events, messages, photos, roster: ROSTER, me: ME, settings: SETTINGS, at: Date.now() });
   }, [events, messages, photos, rev]);
+
+  // Rappel local, une heure avant chaque activité (par appareil, sans serveur)
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) return undefined;
+    const check = async () => {
+      const prefs = loadNotif();
+      if (!prefs || !prefs.enabled || prefs.nextActivity === false) return;
+      if (Notification.permission !== "granted") return;
+      const nowMin = realNow();
+      let done = {};
+      try { done = JSON.parse(localStorage.getItem(RAPPELS_KEY) || "{}"); } catch (e) { done = {}; }
+      let reg = null;
+      for (const ev of mainList(events)) {
+        if (typeof ev.day !== "number" || !ev.start) continue;
+        const em = toAbs(ev.day, ev.start);
+        if (nowMin >= em - 60 && nowMin < em && !done[ev.id]) {
+          if (!reg) { try { reg = await navigator.serviceWorker.ready; } catch (er) { return; } }
+          const lieu = ev.place && ev.place.name && ev.place.name !== "À définir" ? ev.place.name : "";
+          try {
+            reg.showNotification("Bientôt : " + titreDe(ev), { body: "À " + ev.start.replace(":", "h") + (lieu ? " · " + lieu : "") + ", dans moins d'une heure.", tag: "rappel-" + ev.id, icon: "./icon-192.png", badge: "./icon-192.png" });
+            done[ev.id] = Date.now();
+          } catch (er) { /* rien */ }
+        }
+      }
+      try { localStorage.setItem(RAPPELS_KEY, JSON.stringify(done)); } catch (e) { /* rien */ }
+    };
+    check();
+    const id = setInterval(check, 60000);
+    const onVis = () => { if (typeof document !== "undefined" && !document.hidden) check(); };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis); };
+  }, [events, rev]);
 
   // Fond du corps de page et couleur de la barre d'état selon l'heure
   useEffect(() => {
