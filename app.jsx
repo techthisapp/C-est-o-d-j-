@@ -1071,7 +1071,7 @@ const LAND_PALETTE = {
   rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82", anniversaire: "#C79ED6",
 };
 const LAND_BASEOP = (t) => (t === "ville" ? 0.20 : t === "rando" ? 0.26 : 0.30);
-function Landscape({ type, night, figDx }) {
+function Landscape({ type, night, figDx, noGround }) {
   const c = T.c;
   const t = LAND_PALETTE[type] ? type : "mer";
   const col = LAND_PALETTE[t];
@@ -1267,7 +1267,7 @@ function Landscape({ type, night, figDx }) {
           <stop offset="1" stopColor={col} stopOpacity={op * 0.55} />
         </linearGradient>
       </defs>
-      <rect x="0" y="92.4" width="320" height="25.6" fill={"url(#" + gid + ")"} />
+      {!noGround && <rect x="0" y="92.4" width="320" height="25.6" fill={"url(#" + gid + ")"} />}
       {deco}
       <g opacity={figOp} transform={figDx ? `translate(${figDx}, 0)` : undefined}>{fig}</g>
     </g>
@@ -4557,18 +4557,15 @@ function SouvenirSky({ periode, stats }) {
     <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(178deg, #FFF4DE 0%, #FFE8CB 42%, #FBE1C7 68%, #F5DABF 88%, #FBEEDF 100%)", paddingBottom: 20 }}>
       <svg viewBox="0 0 320 128" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
         <g transform="translate(0, 10)">
-          <g style={{ transformOrigin: "250px 64px", animation: "vfloat 6.5s ease-in-out infinite" }}>
-            <circle cx="250" cy="64" r="26" fill={T.c.sun} opacity="0.3" style={{ transformOrigin: "250px 64px", animation: "vbreath 4.4s ease-in-out infinite" }} />
-            <circle cx="250" cy="64" r="19" fill={T.c.sun} opacity="0.22" style={{ transformOrigin: "250px 64px", animation: "vbreath 4.4s ease-in-out 0.4s infinite" }} />
+          <g style={{ transformOrigin: "250px 64px", animation: "vfloat 9s ease-in-out infinite" }}>
+            <circle cx="250" cy="64" r="26" fill={T.c.sun} style={{ transformOrigin: "250px 64px", animation: "vsunhalo 7.5s ease-in-out infinite" }} />
+            <circle cx="250" cy="64" r="19" fill={T.c.sun} style={{ transformOrigin: "250px 64px", animation: "vsunhalo 7.5s ease-in-out 0.7s infinite" }} />
             <circle cx="250" cy="64" r="13" fill={T.c.sun} opacity="0.92" />
           </g>
           {[[36, 16], [84, 30], [138, 12], [198, 26], [292, 18]].map(([sx, sy], i) => (
             <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
           ))}
-          <Landscape type={t} night={false} figDx={-86} />
-          {[[150, 94], [168, 95.4], [186, 94.2]].map(([wx, wy], k) => (
-            <path key={"wv" + k} d={`M ${wx} ${wy} q 3.4 -1.5 6.8 0 q 3.4 1.5 6.8 0`} fill="none" stroke="#9C7B4E" strokeOpacity="0.26" strokeWidth="1" strokeLinecap="round" style={{ transformOrigin: `${wx + 6.8}px ${wy}px`, animation: `vfloat ${3 + k * 0.5}s ease-in-out ${k * 0.35}s infinite` }} />
-          ))}
+          <Landscape type={t} night={false} figDx={-86} noGround />
           <line x1="0" y1="92" x2="320" y2="92" stroke="#B08A5A" strokeOpacity="0.3" strokeWidth="1.4" />
         </g>
       </svg>
@@ -4581,12 +4578,12 @@ function SouvenirSky({ periode, stats }) {
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px", marginTop: -2 }}>
           {stats.map(([n, l, act], i) => {
             const inner = (
-              <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, background: "rgba(255,255,255,0.62)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                 <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 19, color: encres[i], lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{n}</span>
                 <span style={{ fontFamily: fB, fontWeight: 700, fontSize: 7.5, letterSpacing: 1.1, color: encres[i], textTransform: "uppercase", marginTop: 2 }}>{l}</span>
               </div>
             );
-            const st = { width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, opacity: 0.82, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", background: "transparent", padding: 0 };
+            const st = { width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", background: `${encres[i]}14`, padding: 0 };
             const badge = act
               ? <button onClick={act} aria-label={`Voir les ${l} sur la carte`} style={{ ...st, cursor: "pointer" }}>{inner}</button>
               : <div style={st}>{inner}</div>;
@@ -7153,6 +7150,7 @@ export default function App() {
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         input[type="date"], input[type="time"] { -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; }
         @keyframes vbreath { 0%, 100% { transform: scale(1); opacity: 0.20; } 50% { transform: scale(1.45); opacity: 0.34; } }
+        @keyframes vsunhalo { 0%, 100% { transform: scale(1); opacity: 0.30; } 50% { transform: scale(1.1); opacity: 0.17; } }
         @keyframes vfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
         @keyframes vspin { to { transform: rotate(360deg); } }
         @keyframes vtwinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.85; } }
