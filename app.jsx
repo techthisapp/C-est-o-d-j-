@@ -4553,21 +4553,15 @@ function SouvenirSky({ periode, stats }) {
   const t = LAND_PALETTE[SETTINGS.tripType] ? SETTINGS.tripType : "mer";
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
-  const merMid = "#C4D2DA", merBas = "#E6ECEF";
   return (
-    <div style={{ position: "relative", margin: "0 -18px" }}>
+    <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(180deg, #FFF4DE 0%, #FFEBD3 58%, #FCE7CE 100%)" }}>
       <svg viewBox="0 0 320 128" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
         <defs>
-          <linearGradient id="souvSkyG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#FFF4DE" />
-            <stop offset="1" stopColor="#FFE7CA" />
-          </linearGradient>
           <linearGradient id="souvSeaG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#A7BFCC" />
-            <stop offset="1" stopColor="#C4D2DA" />
+            <stop offset="0" stopColor="#4B87A6" stopOpacity="0.30" />
+            <stop offset="1" stopColor="#4B87A6" stopOpacity="0.17" />
           </linearGradient>
         </defs>
-        <rect x="0" y="0" width="320" height="102" fill="url(#souvSkyG)" />
         <rect x="0" y="102" width="320" height="26" fill="url(#souvSeaG)" />
         <g transform="translate(0, 10)">
           <g style={{ transformOrigin: "250px 64px", animation: "vfloat 9s ease-in-out infinite" }}>
@@ -4579,7 +4573,7 @@ function SouvenirSky({ periode, stats }) {
             <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
           ))}
           <Landscape type={t} night={false} figDx={-86} noGround />
-          <line x1="0" y1="92" x2="320" y2="92" stroke="#8FAEAB" strokeOpacity="0.45" strokeWidth="1.2" />
+          <line x1="0" y1="92" x2="320" y2="92" stroke="#5E86A0" strokeOpacity="0.6" strokeWidth="1.3" />
         </g>
       </svg>
       <div style={{ position: "absolute", left: 18, top: 13, right: 18, pointerEvents: "none" }}>
@@ -4588,11 +4582,11 @@ function SouvenirSky({ periode, stats }) {
         <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4, animation: "vfade .7s ease both", animationDelay: ".16s" }}>{periode}</div>
       </div>
       {stats && stats.length > 0 && (
-        <div style={{ background: `linear-gradient(180deg, ${merMid} 0%, ${merBas} 100%)`, paddingTop: 6, paddingBottom: 18, marginTop: -1 }}>
+        <div style={{ background: "linear-gradient(180deg, rgba(75,135,166,0.17) 0%, rgba(75,135,166,0.06) 100%)", paddingTop: 6, paddingBottom: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px" }}>
             {stats.map(([n, l, act], i) => {
               const inner = (
-                <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, background: "rgba(255,255,255,0.68)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, background: "rgba(255,255,255,0.7)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                   <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 19, color: encres[i], lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{n}</span>
                   <span style={{ fontFamily: fB, fontWeight: 700, fontSize: 7.5, letterSpacing: 1.1, color: encres[i], textTransform: "uppercase", marginTop: 2 }}>{l}</span>
                 </div>
