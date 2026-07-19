@@ -4550,13 +4550,21 @@ function PlacesMap({ places, onClose }) {
   );
 }
 function SouvenirSky({ periode, stats }) {
+  // ===== Base de positionnement (ne pas bricoler) =====
+  // SVG viewBox 0..116, tout le paysage est dans <g transform="translate(0,10)">.
+  // L'horizon est y=92 dans le repere Landscape, soit y=102 a l'ecran.
+  // Landscape dessine LUI-MEME la mer : un aplat translucide de couleur LAND_PALETTE[type]
+  // a partir de y=92.4, puis ses collines et sa figure PAR-DESSUS (placement natif correct,
+  // aucune figure coupee). La ligne d'horizon doree est posee a y=92 (donc pile sur l'horizon).
+  // La mer se prolonge sous le SVG dans le bloc des badges, avec la meme teinte translucide.
+  // Seul le voilier (type "mer") est recentre via figDx ; les autres figures gardent leur place.
   const t = LAND_PALETTE[SETTINGS.tripType] ? SETTINGS.tripType : "mer";
+  const merCol = LAND_PALETTE[t];
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
   return (
-    <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(180deg, #FFF4DE 0%, #FFEBD3 58%, #FCE7CE 100%)" }}>
-      <svg viewBox="0 0 320 106" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
-        <rect x="0" y="102" width="320" height="4" fill="rgba(75,135,166,0.26)" />
+    <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(180deg, #FFF4DE 0%, #FFEAD1 100%)" }}>
+      <svg viewBox="0 0 320 116" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
         <g transform="translate(0, 10)">
           <g style={{ transformOrigin: "250px 64px", animation: "vfloat 9s ease-in-out infinite" }}>
             <circle cx="250" cy="64" r="26" fill={T.c.sun} style={{ transformOrigin: "250px 64px", animation: "vsunhalo 7.5s ease-in-out infinite" }} />
@@ -4566,7 +4574,7 @@ function SouvenirSky({ periode, stats }) {
           {[[36, 16], [84, 30], [138, 12], [198, 26], [292, 18]].map(([sx, sy], i) => (
             <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
           ))}
-          <Landscape type={t} night={false} figDx={t === "mer" ? -86 : 0} noGround />
+          <Landscape type={t} night={false} figDx={t === "mer" ? -86 : 0} />
           <line x1="0" y1="92" x2="320" y2="92" stroke="#D4A24A" strokeOpacity="0.85" strokeWidth="1.5" />
         </g>
       </svg>
@@ -4576,11 +4584,11 @@ function SouvenirSky({ periode, stats }) {
         <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4, animation: "vfade .7s ease both", animationDelay: ".16s" }}>{periode}</div>
       </div>
       {stats && stats.length > 0 && (
-        <div style={{ background: "linear-gradient(180deg, rgba(75,135,166,0.26) 0%, rgba(75,135,166,0.09) 100%)", paddingTop: 13, paddingBottom: 13 }}>
+        <div style={{ background: `linear-gradient(180deg, ${merCol}3A 0%, ${merCol}12 100%)`, marginTop: -2, paddingTop: 12, paddingBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px" }}>
             {stats.map(([n, l, act], i) => {
               const inner = (
-                <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, background: "rgba(255,255,255,0.7)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 61, height: 61, borderRadius: "50%", border: `1px dashed ${encres[i]}`, background: "rgba(255,255,255,0.72)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                   <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 19, color: encres[i], lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{n}</span>
                   <span style={{ fontFamily: fB, fontWeight: 700, fontSize: 7.5, letterSpacing: 1.1, color: encres[i], textTransform: "uppercase", marginTop: 2 }}>{l}</span>
                 </div>
