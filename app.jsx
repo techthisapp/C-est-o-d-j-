@@ -4553,7 +4553,7 @@ function SouvenirSky({ periode, stats }) {
   const t = LAND_PALETTE[SETTINGS.tripType] ? SETTINGS.tripType : "mer";
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
-  const merMid = "#CBDEDB", merBas = "#E7F0ED";
+  const merMid = "#C4D2DA", merBas = "#E6ECEF";
   return (
     <div style={{ position: "relative", margin: "0 -18px" }}>
       <svg viewBox="0 0 320 128" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
@@ -4563,12 +4563,12 @@ function SouvenirSky({ periode, stats }) {
             <stop offset="1" stopColor="#FFE7CA" />
           </linearGradient>
           <linearGradient id="souvSeaG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#B4D1D2" />
-            <stop offset="1" stopColor="#CBDEDB" />
+            <stop offset="0" stopColor="#A7BFCC" />
+            <stop offset="1" stopColor="#C4D2DA" />
           </linearGradient>
         </defs>
-        <rect x="0" y="0" width="320" height="92" fill="url(#souvSkyG)" />
-        <rect x="0" y="92" width="320" height="36" fill="url(#souvSeaG)" />
+        <rect x="0" y="0" width="320" height="102" fill="url(#souvSkyG)" />
+        <rect x="0" y="102" width="320" height="26" fill="url(#souvSeaG)" />
         <g transform="translate(0, 10)">
           <g style={{ transformOrigin: "250px 64px", animation: "vfloat 9s ease-in-out infinite" }}>
             <circle cx="250" cy="64" r="26" fill={T.c.sun} style={{ transformOrigin: "250px 64px", animation: "vsunhalo 7.5s ease-in-out infinite" }} />
