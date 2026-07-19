@@ -4555,14 +4555,7 @@ function SouvenirSky({ periode, stats }) {
   const rot = [-6, 3, -3, 5];
   return (
     <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(180deg, #FFF4DE 0%, #FFEBD3 58%, #FCE7CE 100%)" }}>
-      <svg viewBox="0 0 320 128" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
-        <defs>
-          <linearGradient id="souvSeaG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#4B87A6" stopOpacity="0.30" />
-            <stop offset="1" stopColor="#4B87A6" stopOpacity="0.17" />
-          </linearGradient>
-        </defs>
-        <rect x="0" y="102" width="320" height="26" fill="url(#souvSeaG)" />
+      <svg viewBox="0 0 320 106" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
         <g transform="translate(0, 10)">
           <g style={{ transformOrigin: "250px 64px", animation: "vfloat 9s ease-in-out infinite" }}>
             <circle cx="250" cy="64" r="26" fill={T.c.sun} style={{ transformOrigin: "250px 64px", animation: "vsunhalo 7.5s ease-in-out infinite" }} />
@@ -4582,7 +4575,7 @@ function SouvenirSky({ periode, stats }) {
         <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4, animation: "vfade .7s ease both", animationDelay: ".16s" }}>{periode}</div>
       </div>
       {stats && stats.length > 0 && (
-        <div style={{ background: "linear-gradient(180deg, rgba(75,135,166,0.17) 0%, rgba(75,135,166,0.06) 100%)", paddingTop: 6, paddingBottom: 18 }}>
+        <div style={{ background: "linear-gradient(180deg, rgba(75,135,166,0.26) 0%, rgba(75,135,166,0.09) 100%)", paddingTop: 13, paddingBottom: 13 }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px" }}>
             {stats.map(([n, l, act], i) => {
               const inner = (
