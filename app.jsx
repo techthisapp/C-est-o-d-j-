@@ -4555,7 +4555,8 @@ function SouvenirSky({ periode, stats }) {
   const rot = [-6, 3, -3, 5];
   return (
     <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(180deg, #FFF4DE 0%, #FFEBD3 58%, #FCE7CE 100%)" }}>
-      <svg viewBox="0 0 320 106" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
+      <svg viewBox="0 0 320 108" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
+        <rect x="0" y="104" width="320" height="4" fill="rgba(75,135,166,0.26)" />
         <g transform="translate(0, 10)">
           <g style={{ transformOrigin: "250px 64px", animation: "vfloat 9s ease-in-out infinite" }}>
             <circle cx="250" cy="64" r="26" fill={T.c.sun} style={{ transformOrigin: "250px 64px", animation: "vsunhalo 7.5s ease-in-out infinite" }} />
@@ -4566,7 +4567,7 @@ function SouvenirSky({ periode, stats }) {
             <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
           ))}
           <Landscape type={t} night={false} figDx={-86} noGround />
-          <line x1="0" y1="92" x2="320" y2="92" stroke="#5E86A0" strokeOpacity="0.6" strokeWidth="1.3" />
+          <line x1="0" y1="94" x2="320" y2="94" stroke="#D4A24A" strokeOpacity="0.85" strokeWidth="1.5" />
         </g>
       </svg>
       <div style={{ position: "absolute", left: 18, top: 13, right: 18, pointerEvents: "none" }}>
