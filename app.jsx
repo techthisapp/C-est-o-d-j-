@@ -4554,7 +4554,7 @@ function SouvenirSky({ periode, stats }) {
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
   return (
-    <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(178deg, #FFF4DE 0%, #FFE8CB 44%, #FBE1C7 72%, #F6DABF 100%)", paddingBottom: 14 }}>
+    <div style={{ position: "relative", margin: "0 -18px", background: "linear-gradient(178deg, #FFF4DE 0%, #FFE8CB 42%, #FBE1C7 68%, #F5DABF 88%, #FBEEDF 100%)", paddingBottom: 20 }}>
       <svg viewBox="0 0 320 128" aria-hidden="true" style={{ display: "block", width: "100%", height: "auto" }}>
         <g transform="translate(0, 10)">
           <g style={{ transformOrigin: "250px 64px", animation: "vfloat 6.5s ease-in-out infinite" }}>
@@ -4566,13 +4566,16 @@ function SouvenirSky({ periode, stats }) {
             <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
           ))}
           <Landscape type={t} night={false} figDx={-86} />
+          {[[150, 94], [168, 95.4], [186, 94.2]].map(([wx, wy], k) => (
+            <path key={"wv" + k} d={`M ${wx} ${wy} q 3.4 -1.5 6.8 0 q 3.4 1.5 6.8 0`} fill="none" stroke="#9C7B4E" strokeOpacity="0.26" strokeWidth="1" strokeLinecap="round" style={{ transformOrigin: `${wx + 6.8}px ${wy}px`, animation: `vfloat ${3 + k * 0.5}s ease-in-out ${k * 0.35}s infinite` }} />
+          ))}
           <line x1="0" y1="92" x2="320" y2="92" stroke="#B08A5A" strokeOpacity="0.3" strokeWidth="1.4" />
         </g>
       </svg>
       <div style={{ position: "absolute", left: 18, top: 13, right: 18, pointerEvents: "none" }}>
-        <div style={{ fontFamily: fB, fontWeight: 700, fontSize: 10.5, letterSpacing: 1.2, color: "#8A6E4B", textTransform: "uppercase" }}>{(SETTINGS.place || SETTINGS.name || "")} · Souvenirs</div>
-        <div style={{ fontFamily: fH, fontWeight: 600, fontSize: 37, color: "#233B45", lineHeight: 1.02, marginTop: 2 }}>C'était {SETTINGS.place || "le séjour"}</div>
-        <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4 }}>{periode}</div>
+        <div style={{ fontFamily: fB, fontWeight: 700, fontSize: 10.5, letterSpacing: 1.2, color: "#8A6E4B", textTransform: "uppercase", animation: "vfade .6s ease both" }}>{(SETTINGS.place || SETTINGS.name || "")} · Souvenirs</div>
+        <div style={{ fontFamily: fH, fontWeight: 600, fontSize: 37, color: "#233B45", lineHeight: 1.02, marginTop: 2, animation: "vfade .7s ease both", animationDelay: ".08s" }}>C'était {SETTINGS.place || "le séjour"}</div>
+        <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4, animation: "vfade .7s ease both", animationDelay: ".16s" }}>{periode}</div>
       </div>
       {stats && stats.length > 0 && (
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px", marginTop: -2 }}>
@@ -4584,9 +4587,10 @@ function SouvenirSky({ periode, stats }) {
               </div>
             );
             const st = { width: 72, height: 72, borderRadius: "50%", border: `2.2px solid ${encres[i]}`, opacity: 0.82, transform: `rotate(${rot[i]}deg)`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", background: "transparent", padding: 0 };
-            return act
-              ? <button key={l} onClick={act} aria-label={`Voir les ${l} sur la carte`} style={{ ...st, cursor: "pointer" }}>{inner}</button>
-              : <div key={l} style={st}>{inner}</div>;
+            const badge = act
+              ? <button onClick={act} aria-label={`Voir les ${l} sur la carte`} style={{ ...st, cursor: "pointer" }}>{inner}</button>
+              : <div style={st}>{inner}</div>;
+            return <div key={l} style={{ flex: "0 0 auto", animation: "vfade .5s ease both", animationDelay: `${0.12 + i * 0.1}s` }}>{badge}</div>;
           })}
         </div>
       )}
