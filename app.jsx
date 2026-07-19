@@ -4561,6 +4561,13 @@ function SouvenirSky({ periode, stats }) {
   // Seul le voilier (type "mer") est recentre via figDx ; les autres figures gardent leur place.
   const t = LAND_PALETTE[SETTINGS.tripType] ? SETTINGS.tripType : "mer";
   const merCol = LAND_PALETTE[t];
+  const opSol = LAND_BASEOP(t);
+  const hexA = (x) => Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16).padStart(2, "0");
+  // Le sol (Landscape) va de l'opacite opSol (a l'horizon) a opSol*0.55 (en bas du sol).
+  // Le SVG coupe le sol vers 76% de sa hauteur, ou l'opacite vaut ~opSol*0.76 : le bloc des
+  // badges reprend cette valeur exacte et poursuit le degrade, pour une seule progression continue.
+  const merHaut = `${merCol}${hexA(opSol * 0.76)}`;
+  const merBas = `${merCol}${hexA(opSol * 0.16)}`;
   const encres = [T.c.seaDeep, T.c.coralDeep, "#A5822F", "#7E5DA8"];
   const rot = [-6, 3, -3, 5];
   return (
@@ -4584,7 +4591,7 @@ function SouvenirSky({ periode, stats }) {
         <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4, animation: "vfade .7s ease both", animationDelay: ".16s" }}>{periode}</div>
       </div>
       {stats && stats.length > 0 && (
-        <div style={{ background: `linear-gradient(180deg, transparent 0, transparent 4px, ${merCol}3A 4px, ${merCol}12 100%)`, marginTop: -4, paddingTop: 16, paddingBottom: 12 }}>
+        <div style={{ background: `linear-gradient(180deg, transparent 0, transparent 4px, ${merHaut} 4px, ${merBas} 100%)`, marginTop: -4, paddingTop: 16, paddingBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px" }}>
             {stats.map(([n, l, act], i) => {
               const inner = (
