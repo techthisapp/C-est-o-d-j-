@@ -1071,7 +1071,7 @@ const LAND_PALETTE = {
   rando: "#B98F63", mariage: "#D8B4A8", detente: "#D9BC82", anniversaire: "#C79ED6",
 };
 const LAND_BASEOP = (t) => (t === "ville" ? 0.20 : t === "rando" ? 0.26 : 0.30);
-function Landscape({ type, night, figDx, noGround }) {
+function Landscape({ type, night, figDx, noGround, horizonLine }) {
   const c = T.c;
   const t = LAND_PALETTE[type] ? type : "mer";
   const col = LAND_PALETTE[t];
@@ -1268,6 +1268,7 @@ function Landscape({ type, night, figDx, noGround }) {
         </linearGradient>
       </defs>
       {!noGround && <rect x="0" y="92.4" width="320" height="25.6" fill={"url(#" + gid + ")"} />}
+      {horizonLine && <line x1="0" y1="92" x2="320" y2="92" stroke={horizonLine} strokeOpacity="0.85" strokeWidth="1.5" />}
       {deco}
       <g opacity={figOp} transform={figDx ? `translate(${figDx}, 0)` : undefined}>{fig}</g>
     </g>
@@ -4574,8 +4575,7 @@ function SouvenirSky({ periode, stats }) {
           {[[36, 16], [84, 30], [138, 12], [198, 26], [292, 18]].map(([sx, sy], i) => (
             <circle key={i} cx={sx} cy={sy} r="1.3" fill="#E2A244" style={{ animation: `vtwinkle ${2.6 + i * 0.7}s ease-in-out ${i * 0.5}s infinite` }} />
           ))}
-          <Landscape type={t} night={false} figDx={t === "mer" ? -86 : 0} />
-          <line x1="0" y1="92" x2="320" y2="92" stroke="#D4A24A" strokeOpacity="0.85" strokeWidth="1.5" />
+          <Landscape type={t} night={false} figDx={t === "mer" ? -86 : 0} horizonLine="#D4A24A" />
         </g>
       </svg>
       <div style={{ position: "absolute", left: 18, top: 13, right: 18, pointerEvents: "none" }}>
@@ -4584,7 +4584,7 @@ function SouvenirSky({ periode, stats }) {
         <div style={{ fontFamily: fB, fontSize: 12.5, color: "#6E6046", marginTop: 4, animation: "vfade .7s ease both", animationDelay: ".16s" }}>{periode}</div>
       </div>
       {stats && stats.length > 0 && (
-        <div style={{ background: `linear-gradient(180deg, ${merCol}3A 0%, ${merCol}12 100%)`, marginTop: -2, paddingTop: 12, paddingBottom: 12 }}>
+        <div style={{ background: `linear-gradient(180deg, transparent 0, transparent 4px, ${merCol}3A 4px, ${merCol}12 100%)`, marginTop: -4, paddingTop: 16, paddingBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, padding: "0 18px" }}>
             {stats.map(([n, l, act], i) => {
               const inner = (
