@@ -4918,7 +4918,7 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
 
       {after.length > 0 && (
         <div>
-          <div style={{ fontFamily: fD, fontWeight: 600, color: T.c.inkSoft, fontSize: 14, marginBottom: 4 }}>Ensuite dans la journée</div>
+          <SectionTitle>Ensuite dans la journée</SectionTitle>
           {after.map((e, i) => (
             <div key={e.id}>
               <button onClick={() => onOpenEvent(e)} style={{ width: "100%", textAlign: "left", cursor: "pointer", background: "transparent", border: "none", borderTop: i === 0 ? "none" : `1px solid ${T.c.lineSoft}`, padding: "12px 0", display: "flex", alignItems: "center", gap: 13 }}>
@@ -4937,13 +4937,18 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
       )}
 
       {play && featureOn("rituel") && RITUAL_SLOTS.some((s) => featureOn(s.feat)) && (
-        <div style={{ marginTop: 6 }}>
-          <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 1.1, color: T.c.inkFaint, textTransform: "uppercase", margin: "0 2px 8px" }}>Rendez-vous du jour</div>
+        <div>
+          <SectionTitle>Rendez-vous du jour</SectionTitle>
           <DailyRitualCard dIdx={dIdx} mid={mid} now={now} events={events} photos={photos || []} play={play} onAddPhoto={onAddPhoto} onOpenPhoto={onOpenPhoto} todayDone={todayDone} />
         </div>
       )}
 
-      {featureOn("homephotos") && <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} />}
+      {featureOn("homephotos") && (photos || []).some((p) => p.url) && (
+        <div>
+          <SectionTitle>Photos récentes</SectionTitle>
+          <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} noLabel />
+        </div>
+      )}
 
       {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
     </div>
