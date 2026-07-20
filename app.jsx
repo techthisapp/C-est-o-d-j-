@@ -3372,7 +3372,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
     );
   };
 
-  const wrap = { background: `linear-gradient(150deg, ${T.c.seaSoft}, ${T.c.card} 72%)`, border: `1px solid ${T.c.line}`, borderRadius: T.r.lg, padding: "12px 14px" };
+  const wrap = { background: `linear-gradient(150deg, ${T.c.seaSoft}, ${T.c.card} 72%)`, border: `1px solid ${T.c.line}`, borderRadius: T.r.lg, padding: "12px 14px", boxShadow: T.sh.card };
   const onPD = (e) => { geste.current = { x: e.clientX, y: e.clientY, axe: null, gesting: false }; };
   const onPM = (e) => {
     const g = geste.current; if (!g) return;
@@ -3388,9 +3388,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   const onCC = (e) => { if (swipeFlag.current) { e.stopPropagation(); e.preventDefault(); swipeFlag.current = false; } };
   const wrapProps = { onPointerDown: onPD, onPointerMove: onPM, onPointerUp: onPU, onPointerCancel: () => { geste.current = null; }, onClickCapture: onCC, style: { ...wrap, touchAction: "pan-y" } };
   const header = (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: (collapsed || upcoming) ? 0 : 10 }}>
-      <span style={{ fontFamily: fD, fontWeight: 700, fontSize: 11, letterSpacing: 1.1, color: T.c.inkFaint }}>RENDEZ-VOUS DU JOUR</span>
-      <span style={{ flex: 1 }} />
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: (collapsed || upcoming) ? 0 : 10 }}>
       <span style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>{active.map(dot)}</span>
     </div>
   );
@@ -4938,9 +4936,14 @@ function ScreenNow({ events, now, onOpenEvent, onOpenThread, onAddPhoto, onOpenP
         </div>
       )}
 
-      <DailyRitualCard dIdx={dIdx} mid={mid} now={now} events={events} photos={photos || []} play={play} onAddPhoto={onAddPhoto} onOpenPhoto={onOpenPhoto} todayDone={todayDone} />
+      {play && featureOn("rituel") && RITUAL_SLOTS.some((s) => featureOn(s.feat)) && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 11.5, letterSpacing: 1.1, color: T.c.inkFaint, textTransform: "uppercase", margin: "0 2px 8px" }}>Rendez-vous du jour</div>
+          <DailyRitualCard dIdx={dIdx} mid={mid} now={now} events={events} photos={photos || []} play={play} onAddPhoto={onAddPhoto} onOpenPhoto={onOpenPhoto} todayDone={todayDone} />
+        </div>
+      )}
 
-      <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} />
+      {featureOn("homephotos") && <PhotoStrip photos={photos} onOpen={onOpenPhoto} onLike={onLikePhoto} />}
 
       {featureOn("capsule") && play && <CapsuleCard now={now} onSave={play.saveCapsule} onDelete={play.deleteCapsule} />}
     </div>
@@ -5224,7 +5227,7 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo, onSetPho
   const [assign, setAssign] = useState(null);
   const sorted = [...photos].sort((a, b) => (b.at || 0) - (a.at || 0));
   const acts = sortByStart(mainList(events || []));
-  const canDiapo = onDiapo && featureOn("film") && sorted.filter((p) => p.url).length >= 2;
+  const canDiapo = onDiapo && sorted.filter((p) => p.url).length >= 2;
   const choose = (eventId) => { if (pending && pending.urls) { pending.urls.forEach((u) => onAddPhoto(eventId, u)); setPending(null); } };
   const rowBtn = { width: "100%", textAlign: "left", cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, borderRadius: T.r.md, padding: "11px 13px", display: "flex", alignItems: "center", gap: 11 };
   return (
@@ -6360,7 +6363,7 @@ const FEATURE_DEFS = [
   { id: "recap", zone: "rituel", label: "Récap du soir", desc: "Le bilan de la journée : activités, photos, messages, lieux explorés." },
   { id: "awards", zone: "rituel", label: "Hauts faits du jour", desc: "Photographe du jour, bavard du jour, premier message (dans le récap)." },
   { id: "capsule", zone: "accueil", label: "Capsule temporelle", desc: "Chacun dépose un mot secret, révélé le dernier soir." },
-  { id: "film", zone: "photos", label: "Diaporama photos", desc: "Un diaporama qui enchaîne les photos depuis la galerie, avec réactions et identification." },
+  { id: "homephotos", zone: "accueil", label: "Photos récentes sur l'accueil", desc: "Un aperçu des dernières photos du séjour, à la suite de la journée." },
   { id: "guess", zone: "jeux", label: "Devine le lieu", desc: "Une photo mystère dans la discussion, le groupe devine où c'est." },
   { id: "quiz", zone: "jeux", label: "Quiz du séjour", desc: "Le dernier soir, un quiz généré depuis vos journées, avec les scores du groupe." },
 ];
@@ -6579,8 +6582,6 @@ function SettingsSheet({ onTrip, themeMode, onTheme, favorites, onRemoveFavorite
           <Toggle on={featureOn("rituel")} onClick={() => onToggleFeature("rituel")} />
         </div>
         {featureOn("rituel") && <FeaturesZone zone="rituel" onToggle={onToggleFeature} />}
-        {sousTitre("Dans les photos")}
-        <FeaturesZone zone="photos" onToggle={onToggleFeature} />
         {sousTitre("Dans le coin jeux")}
         <FeaturesZone zone="jeux" onToggle={onToggleFeature} />
         <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Ces interactions sont partagées avec tout le groupe.</div>
