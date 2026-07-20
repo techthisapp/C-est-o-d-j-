@@ -3340,7 +3340,6 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   const nextSlot = active.find((s) => s.from > cur.from) || null;
   const curDone = !upcoming && doneOf(cur);
   const collapsed = !consultation && curDone && !expanded && cur.id !== "recap";
-  const passesAccessibles = active.some((s) => accessible(s) && s.id !== cur.id);
   const navSlots = active.filter((s) => accessible(s) || s.id === cur.id);
   const idxVu = Math.max(0, navSlots.findIndex((s) => s.id === vu.id));
   const aller = (delta) => {
@@ -3364,11 +3363,8 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
     const isVu = s.id === vu.id;
     const passed = s.to <= mid && !isVu;
     const filled = doneOf(s);
-    const clickable = accessible(s);
     return (
-      <button key={s.id} onClick={clickable ? () => setSelId(s.id === cur.id ? null : s.id) : undefined} aria-label={clickable ? "Voir : " + s.label.toLowerCase() : undefined} style={{ width: 15, height: 15, padding: 0, border: "none", background: "transparent", flex: "0 0 auto", cursor: clickable ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ width: 8, height: 8, borderRadius: 8, background: filled ? T.c.sea : passed ? T.c.line : "transparent", border: isVu && !filled ? `2px solid ${T.c.sea}` : filled ? "none" : `2px solid ${T.c.line}`, boxSizing: "border-box", boxShadow: isVu ? `0 0 0 3px ${T.c.seaSoft}` : "none" }} />
-      </button>
+      <span key={s.id} aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 8, background: filled ? T.c.sea : passed ? T.c.line : "transparent", border: isVu && !filled ? `2px solid ${T.c.sea}` : filled ? "none" : `2px solid ${T.c.line}`, boxSizing: "border-box", boxShadow: isVu ? `0 0 0 3px ${T.c.seaSoft}` : "none", flex: "0 0 auto" }} />
     );
   };
 
@@ -3387,9 +3383,18 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   };
   const onCC = (e) => { if (swipeFlag.current) { e.stopPropagation(); e.preventDefault(); swipeFlag.current = false; } };
   const wrapProps = { onPointerDown: onPD, onPointerMove: onPM, onPointerUp: onPU, onPointerCancel: () => { geste.current = null; }, onClickCapture: onCC, style: { ...wrap, touchAction: "pan-y" } };
-  const header = (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: (collapsed || upcoming) ? 0 : 10 }}>
-      <span style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>{active.map(dot)}</span>
+  const dotsRow = <span style={{ display: "inline-flex", gap: 7, alignItems: "center", flex: "0 0 auto" }}>{active.map(dot)}</span>;
+  const slotTitle = (s, status) => (
+    <span style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, minWidth: 0 }}>
+      <span style={{ fontSize: 16, flex: "0 0 auto" }}>{s.emoji}</span>
+      <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14.5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.label}</span>
+      {status && <span style={{ fontFamily: fB, fontWeight: 600, color: status.on ? T.c.sea : T.c.inkFaint, fontSize: 11.5, flex: "0 0 auto", marginLeft: 4 }}>{status.txt}</span>}
+    </span>
+  );
+  const topRow = (titleNode) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: (collapsed || upcoming) ? 0 : 10 }}>
+      {titleNode || <span style={{ flex: 1 }} />}
+      {dotsRow}
     </div>
   );
 
@@ -3403,12 +3408,7 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
     const fait = doneOf(vu);
     return (
       <div {...wrapProps}>
-        {header}
-        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
-          <span style={{ fontSize: 16 }}>{vu.emoji}</span>
-          <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14.5 }}>{vu.label}</span>
-          <span style={{ fontFamily: fB, fontWeight: 600, color: fait ? T.c.sea : T.c.inkFaint, fontSize: 11.5, marginLeft: "auto" }}>{fait ? "déjà répondu" : "à compléter"}</span>
-        </div>
+        {topRow(slotTitle(vu, { on: fait, txt: fait ? "déjà répondu" : "à compléter" }))}
         {contenu(vu)}
         {retour}
       </div>
@@ -3418,18 +3418,17 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   if (upcoming) {
     return (
       <div {...wrapProps}>
-        {header}
+        {topRow(null)}
         <div style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 13.5, marginTop: 8 }}>
           {cur.emoji} Prochain rendez-vous à <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink }}>{fmtMin(cur.from)}</span> : {cur.label.toLowerCase()}.
         </div>
-        {passesAccessibles && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11, marginTop: 8 }}>Touchez un point ci-dessus pour revoir un rendez-vous passé.</div>}
       </div>
     );
   }
   if (collapsed) {
     return (
       <div {...wrapProps}>
-        {header}
+        {topRow(null)}
         <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 8 }}>
           <Check size={15} color={T.c.sea} />
           <span style={{ fontFamily: fB, color: T.c.inkSoft, fontSize: 13.5, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -3442,14 +3441,8 @@ function DailyRitualCard({ dIdx, mid, now, events, photos, play, onAddPhoto, onO
   }
   return (
     <div {...wrapProps}>
-      {header}
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
-        <span style={{ fontSize: 16 }}>{cur.emoji}</span>
-        <span style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14.5 }}>{cur.label}</span>
-        {nextSlot && <span style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5, marginLeft: "auto" }}>puis {fmtMin(nextSlot.from)}</span>}
-      </div>
+      {topRow(slotTitle(cur))}
       {contenu(cur)}
-      {passesAccessibles && <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11, marginTop: 9 }}>Touchez un point ci-dessus pour revoir un rendez-vous passé.</div>}
     </div>
   );
 }
