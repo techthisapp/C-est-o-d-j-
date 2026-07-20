@@ -342,12 +342,17 @@ barre de navigation fixe en bas.
    verrouillage des règles d'accès (aujourd'hui ouvertes sur trips et push_subs),
    dépôt de code en privé, licence et mention de droits.
 
-3. Sondages dans la discussion : lancer un sondage dans le fil d'une activité pour
-   affiner ses modalités, ou dans la discussion générale pour proposer une activité
-   à ajouter, avec vote et résultats, et transformation du résultat en activité ou
-   en modification par l'organisateur. Entièrement dans l'app, sans étape Supabase.
+3. Test réel des notifications push sur iPhone. Le serveur est en place (fonctions
+   notify et remind actives), reste la validation sur appareil.
 
-4. Test réel des notifications sur iPhone (installation Supabase faite).
+Livrés, retirés du backlog (vérifiés le 20 juillet 2026, voir la section datée en
+fin de document) :
+- Sondages dans la discussion : création dans un fil d'activité ou dans le canal
+  général, vote simple ou multiple, commentaires, clôture, et transformation du
+  résultat en activité par l'organisateur ou le co-éditeur. Entièrement dans l'app.
+- Rappel serveur push une heure avant une activité (fonction remind) : déployé et
+  actif côté Supabase (fonction, table reminders_sent, tâche pg_cron toutes les
+  5 minutes).
 
 Formalisations internes en attente : système de design (R2) et schéma de données
 versionné (R3), à faire après la phase de test.
@@ -639,3 +644,184 @@ Captures IMG_9836 (intertitre Jour 1) et IMG_9837 (photo du vol légendée « Ar
 - CHIP JOUR UNIQUE : chaque scène photo reçoit `premiere` (k === 0 dans la journée) ; le chip « Jour N · date » ne s'affiche que si sc.premiere, sur les scènes plein, polaroid et tirage. Supprime la répétition du rappel de jour sur chaque photo.
 - Test /tmp/testfilm2.js enrichi : pA (rattachée à l'activité a0 « Arrivée », jour 0) affiche « Arrivée à la villa », pMur (album) n'affiche plus de titre d'activité ; scotch unique réservé au groupe, une seule scène trajet, bouton son présent. Déployé v100 / cache vacances-v101.
 - À VALIDER SUR APPAREIL : le son sur iPhone réel (jsdom ne teste pas l'audio), en touchant l'écran une fois si besoin.
+
+## Film v101 : chronologie, photos rattachées seulement, audio (3e correction)
+- PHOTOS RATTACHÉES SEULEMENT : buildFilm ne distribue plus les photos orphelines (event "album" ou sans activité). evById mappe les activités ; seules les photos dont p.event pointe une activité réelle entrent, regroupées par le jour de cette activité. Le montage final (rain + star) utilise baseFin = photos rattachées (repli sur toutes si aucune n'est rattachée), passé via sc.minis. CONSÉQUENCE UX : une photo ajoutée au mur avec « Le mur seulement » n'apparaît pas dans le film ; pour l'y faire figurer, la rattacher à une activité.
+- ORDRE CHRONOLOGIQUE : dans chaque journée, tri des photos par l'heure de début de leur activité (ordreEvt = e.start) puis par horodatage. Sélection = échantillon réparti (MAXJ = 4) conservant l'ordre au lieu des 3 premières, pour couvrir toute la journée sans casser la chronologie.
+- AUDIO (3e correction, cause = notes programmées pendant suspension) : useMusique ne programme plus rien tant que ctx.state !== "running" (tick fait resume() et sort) ; au premier tick en running, ancre next = currentTime + 0.12 et lance la montée de volume à cet instant (plus de rampe ni de notes calées sur un currentTime figé à 0). Déverrouillage direct debloquerAudio() ajouté dans l'onClick du bouton son. Le module partagé (AUDIO_CTX, debloquerAudio via buffer muet, écouteurs document en capture) est conservé.
+- RESTE POSSIBLE SI TOUJOURS MUET : interrupteur physique Sonnerie/Silencieux de l'iPhone (WebAudio est coupé par le mode silencieux sur iOS, indépendamment du code). À vérifier avant d'aller plus loin (piste suivante : router le master vers un élément audio via MediaStreamDestination).
+- Test /tmp/testfilm2.js enrichi : pMur (mur) exclue, jour 1 dans l'ordre Plage (11h) puis Dîner (20h). Déployé v101 / cache vacances-v102.
+
+## Film v102 : musique riche, mosaïques plein écran, sans cadres (livré)
+- MUSIQUE ENRICHIE : registre MUS retravaillé (tempos 96 à 126 bpm, progressions pop I-V-vi-IV majeures, swing par thème). Moteur useMusique refondu sur une grille de doubles-croches (16 pas/mesure) : nappe (accord tenu début de mesure), basse groove (fondamentale -24 demi-tons, pos 0/6/10/14), batterie synthétisée (kick = sinus 150→46 Hz enveloppe courte sur les temps ; charley = bruit filtré passe-haut 8.5 kHz en croches, ouvert sur le et de 3 ; clap = bruit bande-passante 1.7 kHz en backbeat pos 4/12), arpège brillant en doubles-croches montantes. Bruit blanc partagé (createBuffer 0.4 s). DynamicsCompressor avant destination pour éviter la saturation quand tout joue. Le déverrouillage iOS (contexte partagé, buffer muet, ordonnanceur différé jusqu'à running) est conservé.
+- PHOTOS EN GROUPE, PLEIN ÉCRAN, SANS CADRE : buildFilm regroupe les photos consécutives d'une même activité, découpe en paquets d'au plus 4 (évite l'orpheline : 5 → 3+2). 1 photo → scène « plein » (edge-to-edge, Ken Burns). 2 à 4 → scène « mosaique » plein écran (CSS grid : 2 = deux colonnes, 3 = une grande à gauche sur deux rangées + deux à droite, 4 = grille 2x2), séparateur sombre fin (gap 3 sur fond #0B1620), Ken Burns décalé + fondu. Les scènes « polaroid », « tirage » et « diptyque » (cadres blancs, scotch) sont SUPPRIMÉES du film. nbVisages n'influe plus sur le style. Le carnet PDF garde ses polaroïds (demande limitée au film).
+- LÉGENDE UNE FOIS PAR ACTIVITÉ : la légende (momentLabel + titre + lieu) n'apparaît que sur la première scène de chaque activité (idx === 0 du groupe) ; les scènes suivantes de la même activité ont une légende vide. Le chip « Jour N » reste sur la première scène photo du jour (sc.premiere).
+- SCÈNE JOUR ÉPURÉE : le grand chiffre en filigrane (fontSize 38vw, opacité 0.1) est retiré. Restent la pastille « Étape N sur X », le titre « Jour N », la date et le récit.
+- Test /tmp/testfilm2.js : 3 photos sur l'activité Plage → une mosaïque, Dîner → plein écran, ordre chronologique, aucun style à cadre blanc. Déployé v102 / cache vacances-v103.
+
+## Film v103 : livre d'or intégral, musique deep house plage (livré)
+- LIVRE D'OR INTÉGRAL : buildFilm ne coupe plus (mots.forEach au lieu de mots.slice(0,8)), une scène par entrée, durée proportionnelle (min(12000, 3400 + w*170)). Rendu refondu : texte COMPLET affiché en bloc avec fondu (vfade) et légère inclinaison par longueur, plus de mot-à-mot (fmWordIn supprimé de cette scène) ; taille de police en 3 paliers selon la longueur pour que les longues entrées tiennent ; guillemet ouvrant décoratif + avatar et signature.
+- MOMENTS SANS PHOTO RETIRÉS : les scènes « fort » (temps fort / moment préféré) et « mot » (mot du jour) ne sont plus générées (demande : le film ne garde que les photos et le livre d'or). Calcul de bestE/bestV supprimé. Le carnet PDF garde ses temps forts (demande limitée au film).
+- MUSIQUE DEEP HOUSE (thème mer) : MUS.mer passe en style "deephouse" (bpm 122, sub sinus, swing 0.06, accords min7 plus deep). Branche dédiée dans le moteur : kick quatre temps au sol (pos %4), charley OUVERT sur les contretemps pos 2/6/10/14 (signature house) et fermé léger ailleurs, clap sur 2 et 4, nappe chaude tenue, sub profond roulant (pos 0/3/6/8/11/14, fondamentale -24), stab d'accord sur les levées pos 6/14. Les autres thèmes gardent le groove pop précédent (branche else).
+- Tests : /tmp/testlivre2.js (3 entrées de capsule dont une longue → 3 scènes livre, textes entiers « coeur »/« possible »/« ensemble » présents, aucune scène fort ni mot) ; testfilm2 confirme mosaïque et ordre. Déployé v103 / cache vacances-v104.
+
+## Carte souvenir : album de visages + encart film v104 (livré)
+- BOUTON FILM RETIRÉ : plus dans le bandeau d'actions (actions = Quiz, Carte, Partager), plus sur la photo. Le film se lance depuis un encart dédié (aria « Lancer le film du séjour » ; les tests film pointaient « Revoir le film du séjour », libellé mis à jour).
+- ALBUM FEUILLETABLE (AlbumVisages) : remplace la photo star unique. Prend toutes les photos avec au moins 1 visage (faces[p.id].n >= 1), triées par nombre de visages puis par cœurs ; repli sur la star si aucun visage détecté. Cadre polaroïd (scotchs), flèches ‹ ›, glissement au pointeur (seuil 34 px), tap (< 10 px) ouvre en plein écran via onOpenPhoto(p, photos) donc le PhotoViewer ne montre que l'album, pastilles de position (12 max), légende « La photo de groupe · i/n ».
+- ENCART FILM (FilmEncart) : sous l'album, bouton pleine largeur thématisé via themeDe() : dégradé du ciel du thème, halo de soleil (th.astre), étoiles (th.etoile), pastille lecture, surtitre « Le film du séjour », titre « Revivez tout le voyage », sous-titre « Photos, étapes et livre d'or, en musique ». Couleurs encre/label du thème ; variante ville (fonds translucides plus sombres).
+- Test /tmp/testsouv2.js : 3 photos à visages (n=4/2/1) + 1 sans → album de 3 (compteur 1/3), plus de bouton film sur photo ni bandeau, encart présent, glissement 1/3 vers 2/3. Déployé v104 / cache vacances-v105.
+
+## Carte souvenir : podium, album filtré, swipe Tinder, audio arrangé v105 (livré)
+- PODIUM DES 3 MOMENTS PRÉFÉRÉS : tops = activités triées par vibeTotal du message vibe-+e.id (champ hits), slice(0,3), n>=1. Carte « Les moments préférés du groupe » avec 3 rangs numérotés (médailles #E8B23A/#B9C2CB/#CB8A55), titre + réactions 🤩, chaque ligne cliquable (onOpenEvent). Remplace le moment préféré unique.
+- ALBUM FILTRÉ ET PLURIEL : AlbumVisages ne prend que les photos avec faces[p.id].n >= 2 OU (p.tags||[]).length > 3 (plus de 3 personnes identifiées), triées par visages puis tags puis cœurs. Libellé « Les photos du groupe · i/n ». Repli sur la star seulement si elle-même qualifie.
+- ANIMATION SWIPE TINDER : deck à deux cartes (CartePhoto réutilisable). La carte du dessus suit le doigt (transform translateX(drag) + rotate(drag*0.05), transition none pendant le drag) ; au relâchement, |dx|>90 déclenche l'envol translateX(±130vw)+rotate(±22deg)+opacity 0 avec transition, onTransitionEnd avance l'index et réinitialise ; la carte suivante est rendue derrière (scale 0.965) pendant le geste. Tap (<10 px) ouvre en plein écran. Flèches (la suivante lance l'envol, la précédente change l'index) et pastilles conservées. setPointerCapture dans try/catch, touchAction pan-y.
+- AUDIO MOINS MONOTONE : moteur useMusique arrangé sur un cycle de 8 mesures. Intro (bars 0-1) sans batterie qui monte ; break sur la mesure 7 (kick coupé à partir du 8e pas, clap du 2e temps coupé, lead muet) avec riser (bruit bandpass balayant 600→6000 Hz, gain en swell) relançant la boucle ; fills en fin des mesures 3 et 7 (snare + charley). Lead piloté par un tableau MOTIFS de 6 patterns sur 8 croches (valeurs = index d'accord ou null), choisi par Math.floor(bar/2)%MOTIFS.length, avec saut d'octave. Voicing de nappe enrichi une mesure sur quatre. Snare et riser ajoutés aux helpers. S'applique aux deux branches (deephouse mer et pop). Non testé par jsdom (correction par inspection, le bundle build et les tests non-audio passent).
+- Test /tmp/testsouv2.js : podium avec les 3 activités (Plage 14, Arrivée 5, Dîner 2), album « Les photos du groupe · 1/2 » (photo à 1 visage exclue, photo à 5 tags incluse), plus de bouton film photo/bandeau, encart présent. Déployé v105 / cache vacances-v106.
+
+## Correctif feuilletage album v106 (livré)
+- BUG : un envol faisait sauter une photo sur deux. Cause : la carte du dessus a `transition: transform ..., opacity ...` ; l'envol anime les deux, donc onTransitionEnd se déclenche DEUX fois, et comme setEnvol(0) n'a pas encore pris effet entre les deux, finEnvol incrémentait l'index deux fois.
+- CORRECTIF : finEnvol ignore les événements dont e.propertyName !== "transform" (une seule fin de transition traitée par envol). La flèche précédente (setI direct) et le retour élastique (envol===0, gardé) ne sont pas affectés.
+- Test /tmp/testswipe.js : 3 photos qualifiantes, chaque envol (flèche suivante puis double transitionend transform+opacity simulé) avance d'une seule photo : 1/3, 2/3, 3/3. Déployé v106 / cache vacances-v107.
+
+## Correctif effet de pile album v107 (livré)
+- BUGS : (1) la carte suivante n'était rendue que pendant le geste, avec scale(0.965)/opacity(0.92), donc elle "grossissait" en devenant carte du dessus ; (2) après l'envol, la carte du dessus revenait en glissant depuis le bord car sa transition transform restait active pendant que envol repassait à 0 puis translateX(0).
+- CORRECTIFS : la carte de fond (photo suivante) est rendue EN PERMANENCE à sa position finale (rotate(-1.4deg), sans scale ni opacité réduite), donc superposée exactement sous la carte du dessus au repos et parfaitement immobile ; elle porte le compteur de la photo suivante (labelDe((idx+1)%n)). Nouvel état `sansTrans` : finEnvol le passe à true avant setI ; la transition de la carte du dessus est coupée ((dragging || sansTrans) ? "none" : ...) le temps d'un requestAnimationFrame, si bien que la nouvelle carte du dessus se pose à translateX(0) sans revenir en glissant, puis rAF remet sansTrans à false pour les gestes suivants.
+- Test /tmp/testswipe.js : fond présent au repos (p1 et p2 dans le DOM), aucun scale(0.965), et chaque envol avance d'une photo (1/3, 2/3, 3/3, compteur lu sur la carte du dessus via cursor grab). Déployé v107 / cache vacances-v108.
+
+## Feuilletage album : geste horizontal uniquement v108 (livré)
+- BUG : le geste vertical (défilement de la page) et parfois un simple appui faisaient partir la carte du dessus. Cause : up() déclenchait l'envol sur |dx|>90 sans distinguer l'axe, et setPointerCapture au down gênait le scroll ; onPointerCancel appelait up() (qui pouvait envoler).
+- CORRECTIF : détection d'axe. down enregistre startX/startY et met axe=null. move fixe axe.current = |dx|>|dy| ? "h" : "v" dès que le mouvement dépasse 8 px ; setPointerCapture seulement si axe "h" ; la carte ne se déplace (setDrag) que si axe "h". up : envol seulement si axe "h" ET |dx|>70 (dx<0 gauche, dx>0 droite, les deux avancent d'une photo via finEnvol, la pile boucle) ; ouverture plein écran seulement si axe null ET |dx|<10 ET |dy|<10 (vrai tap) ; sinon retour élastique. onPointerCancel appelle désormais cancel() qui réinitialise sans rien enlever (défilement pris par le navigateur). touchAction pan-y conservé. Flèches et pastilles inchangées.
+- Test /tmp/testgeste.js : geste vertical → carte ne part pas, compteur inchangé ; tap → ne part pas ; swipe gauche → part et avance (1/3→2/3) ; swipe droite → avance aussi (2/3→3/3). Déployé v108 / cache vacances-v109.
+
+## Feuilletage album : marge diagonale et défilement interne v109 (livré)
+- PROBLÈME : un swipe horizontal avec légère dérive verticale s'interrompait. Deux causes : détection d'axe à 45° (|dx|>|dy|) trop stricte, et touch-action pan-y laissant le navigateur voler le geste (pointercancel) dès une composante verticale.
+- CORRECTIFS : (1) tolérance d'angle élargie à environ 63° : axe.current = Math.abs(dx)*2 >= Math.abs(dy) ? "h" : "v" (seuil de décision abaissé à 6 px, seuil d'envol à 60 px). (2) touchAction "none" sur la carte du dessus : le navigateur n'interrompt plus jamais le swipe. (3) Défilement vertical géré en interne : trouveScrollable remonte au premier ancêtre à overflowY auto/scroll (repli window via scrollBy) ; quand axe "v", scrollDe(lastY - clientY) suit le doigt. setPointerCapture au down pour capter tout le geste. cancel() inchangé.
+- Test /tmp/testgeste.js : geste vertical net → carte reste + défilement déclenché (window.scrollBy appelé) ; tap → reste ; swipe diagonal ~53° gauche → envole et avance ; diagonal droite → avance ; geste presque vertical (dx faible) → n'envole pas, compteur identique. Déployé v109 / cache vacances-v110.
+
+## Réglages réorganisés en rubriques v110 (livré)
+- STRUCTURE : SettingsSheet réécrit avec navigation à rubriques (état `vue`). Racine = liste de 5 rubriques (LigneRubrique avec emoji, titre, description, chevron) : Le séjour, Apparence, Notifications, Contenu et interactions, Outils. Chaque rubrique ouvre sa sous-page avec un bouton retour « ‹ Réglages ».
+- PARTICIPANTS RETIRÉS : la section Participants (roster, avatars, tel, email, rôles) et le choix « Je suis » sont supprimés des réglages (risque : un appareil pouvait écrire à la place d'un autre en changeant d'identité). L'édition des coordonnées reste dans ScreenFriends. L'identité vient de la première connexion.
+- BOUTON ENREGISTRER SUPPRIMÉ : plus de commit global. Nouvelle fonction App applyTrip(s) : mute SETTINGS, reconstruit DAYS si dates changées, setRev (déclenche la sauvegarde locale sur [.,rev] et la synchro). SettingsSheet reçoit onTrip (remplace commit) ; nom et lieu s'appliquent au blur, dates au change, type/humeur/thème/catégories/favoris/interactions déjà en direct.
+- INTERACTIONS PAR EMPLACEMENT : FEATURE_DEFS reçoit un champ `zone` (accueil/photos/jeux). FeaturesSection remplacé par FeaturesZone({zone}) qui filtre. Rubrique « Contenu et interactions » découpée en sous-sections : Dans le programme (CategoriesSection + FavoritesSection), Sur l'accueil (status, photoChallenge, morningQuestion, wholikely, quickvibe, recap, awards, capsule), Dans les photos (film), Dans le coin jeux (bingo, guess, quiz). Emplacements vérifiés dans le code (rituel du jour = ScreenNow ; diaporama = ScreenWall ; bingo/guess/quiz = GamesSheet).
+- Test /tmp/testreglages.js : 5 rubriques, racine sans Participants ni « Je suis », dans Le séjour pas de bouton Enregistrer et nom appliqué au blur, 4 sous-sections présentes avec les bonnes interactions. Déployé v110 / cache vacances-v111.
+
+## Rappel prochaine activité 1h avant v111 (livré)
+- RÉGLAGE : DEFAULT_NOTIF gagne nextActivity (activé par défaut). Toggle ajouté dans NotifSettings « Rappel avant une activité, une heure avant le début, sur cet appareil ». Clé de dédoublonnage RAPPELS_KEY = "vacances_rappels_v1".
+- MÉCANISME (local, par appareil, sans serveur) : nouvel effet dans App (deps [events, rev]) actif si serviceWorker + Notification présents. Vérification au montage, toutes les 60 s, et au retour de visibilité. Pour chaque activité de mainList, calcule em = toAbs(day, start) ; si realNow() est dans [em - 60, em) et l'activité n'est pas déjà dans la mémoire, appelle registration.showNotification("Bientôt : " + titre, body « À {h} · {lieu}, dans moins d'une heure. », tag rappel-<id>, icône icon-192.png), puis enregistre l'id dans RAPPELS_KEY. Une seule notification par activité, pas de doublon entre appareils (chacun le sien), la simulation Aperçu du temps n'affecte rien (realNow = heure réelle).
+- LIMITE : notification locale, donc l'appareil doit avoir eu l'app ouverte/récente pour que le check tourne. Pour un rappel garanti même app fermée, il faudrait un cron serveur appelant l'Edge Function notify (piste future).
+- Tests /tmp/testrappel.js (mocks serviceWorker.ready + Notification.permission granted) : à 11h15, brunch de 12h00 rappelé une fois, dîner de 20h00 non ; corps correct ; id mémorisé. Hors fenêtre (10h00) nb=0 ; réglage désactivé nb=0. Déployé v111 / cache vacances-v112.
+
+## Rappel serveur (push, même app fermée) v112 (livré côté client + code serveur versionné, serveur DÉPLOYÉ depuis, voir la vérification du 20 juillet 2026 en fin de document)
+- OBJECTIF : rappel 1h avant activité qui marche même app fermée (vraie push), complément du rappel local v111.
+- ARCHITECTURE : réutilise les tables existantes. trips.data contient events + settings (le serveur a tout). push_subs contient les abonnements. Nouvelle table reminders_sent(trip_code, event_id, sent_at) PK(trip_code,event_id) pour l'anti-doublon. Edge Function remind (Deno) planifiée par pg_cron toutes les 5 min : pour chaque trip, calcule pour chaque activité l'instant UTC de début (via decalageFuseau/Intl et settings.tz, défaut Europe/Athens), rappel = début - 1h ; si rappel dû dans la fenêtre de 12 min et pas déjà réservé (upsert reminders_sent onConflict ignoreDuplicates = réservation atomique), envoie une push web-push à tous les abonnés du trip (payload {title,body,tag:"rappel-<id>",url}, respecte prefs.nextActivity). Le tag "rappel-<id>" est IDENTIQUE au rappel local, donc aucun doublon visuel (la 2e notif remplace la 1re).
+- FICHIERS (dépôt) : supabase/functions/remind/index.ts, supabase/migrations/reminders.sql (table + extensions + cron.schedule, remplacer <ANON_KEY>), supabase/DEPLOIEMENT-RAPPELS.md (marche à suivre). Le code de notify n'était pas versionné ; remind est autonome (web-push, secrets VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT réutilisés).
+- CLIENT : effet au montage renseigne SETTINGS.tz (Intl du device) s'il est absent, via applyTrip (persisté + synchronisé dans trips) pour que le serveur calcule juste. Déployé app v112 / cache vacances-v113.
+- NOTE HISTORIQUE (corrigée depuis) : au moment de la rédaction, le connecteur Supabase MCP avait renvoyé « No approval received » et le déploiement serveur n'avait pas été réalisé par Claude. Ce n'est plus le cas : le serveur est déployé (voir la section datée du 20 juillet 2026). Calcul de fuseau validé hors ligne (12:00 Athens = 09:00 UTC, rappel 08:00 UTC, fenêtre OK).
+- LIMITE FUSEAU : settings.tz = fuseau du premier appareil ouvrant l'app ; idéalement sur place. Un réglage de fuseau explicite serait un plus (backlog).
+
+## Fuseau du séjour (réglage) + remind finalisé v113 (livré côté app ; serveur DÉPLOYÉ depuis, voir la vérification du 20 juillet 2026)
+- RÉGLAGE FUSEAU : sélecteur ajouté dans Réglages, Le séjour (FUSEAUX_COURANTS + fuseau appareil + fuseau actuel, chaque option montre l'heure locale via heureFuseau). Valeur = SETTINGS.tz, appliquée en direct par onTrip({tz}). Remplace/complète l'auto-détection au montage. Le serveur remind lit settings.tz.
+- REMIND ALIGNÉ SUR NOTIFY : après lecture du code de notify via le connecteur, remind corrigé pour utiliser les MÊMES secrets (VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT), les mêmes imports (npm:web-push@3.6.7, npm:@supabase/supabase-js@2), et le nettoyage des abonnements morts (404/410). Le code est donc prêt et cohérent avec l'existant.
+- NOTE HISTORIQUE (corrigée depuis) : à la rédaction, les écritures du connecteur Supabase étaient refusées « No approval received » et le déploiement serveur n'avait pas été réalisé par Claude. Depuis, le serveur est déployé : fonction remind ACTIVE, table reminders_sent créée, tâche pg_cron toutes les 5 minutes active (voir la section datée du 20 juillet 2026). La marche à suivre manuelle reste dans supabase/DEPLOIEMENT-RAPPELS.md pour référence.
+
+## Correctif artefact 1px en haut des feuilles v114 (livré)
+- BUG : sur les feuilles (composant Sheet, utilisé par les réglages et autres), une fine ligne du contenu défilant (pastilles colorées de la barre de progression du fond) apparaissait sur ~1px au-dessus de l'en-tête. Cause : le panneau portait à la fois overflowY:auto ET borderTopRadius, avec un header sticky top:0 ; bug de clipping Safari (overflow + border-radius + sticky) qui laisse le contenu fuir sur 1px près des coins.
+- CORRECTIF : dans Sheet, le panneau externe passe en overflow:hidden (clippe les coins) + display:flex column ; un conteneur interne rectangulaire (overflowY:auto, WebkitOverflowScrolling:touch, flex 1 1 auto, minHeight 0) porte désormais le défilement et enveloppe le header sticky + le contenu. Le sticky colle proprement, plus de fuite. Déployé v114 / cache vacances-v115.
+
+## Réglages : accueil scindé en deux sous-sections v115 (livré)
+- La sous-section « Sur l'accueil » de Contenu et interactions est scindée en deux, car certaines interactions sont sur la page et d'autres dans la carte rituel. Nouvelle valeur de zone "rituel". Zones : accueil = status, quickvibe, capsule (« Directement sur l'accueil ») ; rituel = morningQuestion, photoChallenge, wholikely, recap, awards (« Dans le Rendez-vous du jour »), dans l'ordre chronologique du rituel (RITUAL_SLOTS). Ordre obtenu en échangeant les lignes photoChallenge/morningQuestion dans FEATURE_DEFS et en passant leur zone à "rituel". SettingsSheet vue contenu : deux sousTitre + deux FeaturesZone (accueil, rituel). Aucun changement de comportement. Déployé v115 / cache vacances-v116.
+
+## Rendez-vous du jour : revenir sur un créneau passé v116 (livré)
+- BESOIN : dans la carte Rendez-vous du jour, pouvoir revenir sur les rendez-vous précédents pour les compléter ou consulter.
+- SOLUTION : DailyRitualCard réécrit avec état selId. Les points du header deviennent des boutons ; accessible(s)=mid>=s.from (créneau commencé). Cliquer un point accessible autre que le courant ouvre la vue consultation (contenu du créneau via contenu(s) : MorningQuestionCard/DailyChallengeCard/WhoLikelyCard/RecapCard avec dIdx), avec mention « à compléter » ou « déjà répondu » et bouton « Revenir à maintenant » (setSelId(null)). Le créneau courant garde le halo (isVu). Les créneaux à venir (mid<from) restent non cliquables. Indication « Touchez un point ci-dessus pour revoir un rendez-vous passé » dans les vues normal/upcoming quand passesAccessibles. Les sous-composants prennent dIdx (jour courant), donc voter dans un créneau passé du jour complète bien la réponse.
+- PORTÉE : navigation entre créneaux du JOUR COURANT. Les jours précédents ne sont pas couverts ici (piste future).
+- Test /tmp/testrituel.js (séjour en cours, 15h jour 0, cur=photo, matin passé) : carte visible, 2 points cliquables, clic sur le matin ouvre son contenu + « Revenir à maintenant », retour effectif. Déployé v116 / cache vacances-v117.
+
+## Rendez-vous du jour : glissement horizontal v117 (livré)
+- GESTE : dans DailyRitualCard, glissement horizontal pour naviguer d'un cran entre les créneaux du jour. Droite = créneau précédent (jusqu'au premier), gauche = suivant (jusqu'au courant). S'ajoute aux points cliquables. navSlots = créneaux accessibles + courant ; aller(delta) saute d'un cran (setSelId null si on revient au courant).
+- IMPLÉMENTATION : refs geste/swipeFlag. Handlers pointer sur le panneau (wrapProps, appliqués aux 4 vues) : onPointerDown mémorise x/y ; onPointerMove fixe l'axe après 8px (horizontal si |dx|>|dy|*1.2) et n'active gesting que pour l'axe horizontal ; onPointerUp navigue si |dx|>40. touchAction:"pan-y" laisse le scroll vertical au navigateur. Un simple appui (pas de mouvement) ne déclenche pas gesting, donc les boutons de vote fonctionnent. onClickCapture absorbe le clic fantôme après un glissement (swipeFlag). onPointerCancel réinitialise.
+- Test /tmp/testrituel.js (mid=900) : swipe droite recule vers le créneau précédent, swipe gauche revient au courant ; navigation par points toujours OK. Déployé v117 / cache vacances-v118.
+
+## Rendez-vous du jour : interrupteur maître v118 (livré)
+- BESOIN : désactiver toute la boîte Rendez-vous du jour d'un coup.
+- SOLUTION : feature maître "rituel" (pas dans FEATURE_DEFS ; featureOn défaut on car clé absente => true). DailyRitualCard masqué si !featureOn("rituel") (ajouté à la condition de garde). Dans SettingsSheet vue contenu, sous « Dans le Rendez-vous du jour » : une ligne toggle maître « Afficher le Rendez-vous du jour » (onToggleFeature("rituel")) ; les 5 sous-toggles (FeaturesZone zone="rituel") ne sont rendus que si featureOn("rituel"), et conservent leur état (features individuelles inchangées). Rallumer restaure les choix.
+- Tests : /tmp/testmaitre.js (rituel:false => carte absente ; défaut => présente) ; testreglages voit l'interrupteur maître. Déployé v118 / cache vacances-v119.
+
+## Accueil : affinages visuels + participation v119-v120 (livré)
+- LOT 1 (v119) : remainingLabel format collé (5h18). Bouton réaction CurrentHero libellé « J'adore » (aria/title idem). Helper lieuSecondaire(e) (masque le nom de lieu qui répète le titre), appliqué à la carte PUIS À et à la liste « Ensuite dans la journée » (CurrentHero le gérait déjà). CurrentHero compacté (padding 13/15, titre 22, marges) et contraste renforcé (pilules light #ffffff40, icônes/texte #ffffffe6, opacity 1).
+- LOT 2 (v120) : participation. toggleMine passé à ScreenNow (onToggleMine). QuickActions gagne onJoin/going : quand onJoin fourni (carte suivante), le bouton Photo est remplacé par « Je passe » (going) / « Je reviens » (!going), branché sur toggleMine(sameDayNext.id). Terme « Finalement, je viens » du détail harmonisé en « Je reviens ». CurrentHero : grappe d'avatars cliquable (span role=button aria-label « Voir les participants ») ouvrant un panneau fixed (overlay) avec sections PRÉSENTS (attendeesOf) et PASSENT LEUR TOUR (skipOf), avatars + person(id).name. La liste des skippers existait déjà dans le détail.
+- Tests /tmp/testaccueil.js (heures collées, J'adore, lieu redondant masqué) et /tmp/testpresence.js (bouton participation, tap grappe ouvre panneau présents/passe). Déployé v120 / cache vacances-v121.
+- RESTE du feedback UX non fait (volontairement, non redemandé) : en-tête (titre tronqué, badge Synchro), point 5/7 plus poussés. Backlog.
+
+## NextCard : participation à la place de Photo v121 (livré)
+- La grande carte « PROCHAINE ACTIVITÉ » (NextCard, affichée quand aucune activité en cours) reçoit onJoin/going et les passe à son QuickActions, remplaçant Photo par « Je passe » / « Je reviens » ; onVibe retiré de son QuickActions (pas de J'adore avant le début) (toggleMine(sameDayNext.id)). Cohérent avec la carte suivante compacte (sameDayNext). Test /tmp/testnextcard.js (carte prochaine, bouton participation présent, Photo absent). Déployé v121 / cache vacances-v122.
+
+## Panneau participants : montage racine (clic stable) v124 (livré)
+- BUG : le panneau de présence était rendu DANS CurrentHero. Le conteneur d'onglet a `animation: vfade` avec transform, ce qui crée un contexte de positionnement piégeant le position:fixed du panneau (il ne couvrait pas tout l'écran, clics traversant vers les cartes ; instable).
+- CORRECTIF : état remonté à App (presenceEvt). CurrentHero reçoit onShowPresence (prop) et l'appelle au tap sur la grappe (plus d'état local ni de panneau dans CurrentHero). ScreenNow relaie onShowPresence. Le panneau est rendu au niveau du conteneur racine de App (position:absolute inset 0, comme les Sheets/overlays), zIndex 60, fermeture au clic n'importe où (setPresenceEvt(null)), contenu sans stopPropagation. Couvre tout, aucun clic-through.
+
+## Programme : swipe pour changer de jour v127 (livré)
+- Geste horizontal sur le conteneur racine de ScreenProgram (touch events, cohérent avec SwipeActions) : swipe gauche = jour suivant (selectedDay+1), droite = précédent (selectedDay-1), bornés [0, DAYS.length-1]. En complément des onglets. Détection d'axe (dayMoved : |dx|>10 et |dx|>|dy|*1.3), seuil 45px. onClickCapture absorbe le clic post-swipe. Racine passé en minHeight:100% pour couvrir toute la zone.
+- ANTI-CONFLIT : le geste s'annule si le touchstart part d'une carte (marqueur data-swipe-card sur le wrapper SwipeActions, laissant Modifier/Supprimer prioritaire) ou de la barre d'onglets (data-no-day-swipe). Pas de touchAction/preventDefault, donc le scroll vertical natif reste libre.
+- Test /tmp/testprogswipe.js : depuis J1, swipe gauche va à J2, swipe droite revient à J1. Déployé v127 / cache vacances-v128.
+
+## Mentions dans les conversations + retrait bouton @ livre d'or v128 (livré)
+- Livre d'or : retiré les deux {atBtn} (bouton @ supprimé, suggestions par frappe de @ conservées via onType).
+- renderMentions(txt, color) créé au niveau module (avant MessageBubble) : met les @noms de participants actifs en span coloré (fontWeight 600), param color pour bulles envoyées (#DCEEF5 sur fond sea).
+- MessageBubble : {m.text} → {renderMentions(m.text, mine ? "#DCEEF5" : undefined)}.
+- MessageInput réécrit : ajout mq/inputRef/normA/mentionables/sugg/onType/insertMention, barre de suggestions (avatars) au début du return, input ref+onChange=onType, send() reset mq. Utilisé par Thread (activités) ET ScreenTalk (général), donc mentions partout.
+- Test /tmp/testmention.js : mention affichée dans un message existant, suggestions en tapant @, insertion au clic. ATTENTION test : le fil général = DERNIER bouton "Discussion" (BottomNav), pas la pilule d'activité ; boutons de suggestion commencent par l'emoji avatar. Déployé v128 / cache vacances-v129.
+- BACKLOG : notifier (push) la personne mentionnée dans une conversation.
+
+## Notification de mention v129 (client livré, serveur DÉPLOYÉ)
+- CLIENT (déployé v129 / cache vacances-v130) : helper mentionedIds(txt) module-level (participants actifs, sauf ME, dont @nom est présent avec limite de mot). sendMessage : notif générale INCHANGÉE (type messages, exclude=ME par défaut) + si mentions, notif ciblée notify({type:"mentions", only:[ids], title:"X vous a mentionné"}). notify(client) : exclude via payload.exclude (défaut ME), only passe via payload. DEFAULT_NOTIF gagne mentions:true. NotifSettings : toggle « Mentions » (prefs.mentions !== false). Test /tmp/testmentionnotif.js (générale exclude=ME, mention only ciblé, titre).
+- SERVEUR notify : reconstruit d'après remind (mêmes imports web-push@3.6.7 + supabase-js@2, mêmes secrets VAPID_PUBLIC/PRIVATE/SUBJECT, CORS, suppression 404/410). AJOUTS : `only` (liste, ne notifie que ces user_id), `exclude` accepte string OU liste (helper toList), filtre prefs[type]===false. Code dans le dépôt supabase/functions/notify/index.ts + supabase/DEPLOIEMENT-NOTIFY.md. Copies dans /mnt/user-data/outputs/notify-index.ts et DEPLOIEMENT-NOTIFY.md.
+- Serveur notify DÉPLOYÉ (version 5) via deploy_edge_function : le ciblage des mentions fonctionne. Code exact dans supabase/functions/notify/index.ts.
+
+## Carte souvenir : refonte en-tête v130 (livré)
+- SouvenirSky réécrit. Fond dégradé porté par le div conteneur (linear-gradient 178deg clair→beige), SVG rendu SANS rect de fond (transparent) pour un dégradé continu. Le dégradé englobe soleil + collines + titre + badges.
+- Soleil : enveloppé dans un g `vfloat` (flottement) ; halo (r26) et cercle intermédiaire (r19) en `vbreath` (pulsation), cœur (r13) net.
+- Badges de stats DÉPLACÉS de SouvenirCard vers SouvenirSky (prop stats). SouvenirCard ne rend plus les badges (stats/encres/rot y restent définis, inoffensif). ScreenNow (tripOver) calcule svStats = souvenirStats(events, photos, play?.messages).map(map→onMap si n>0) et le passe à SouvenirSky.
+- Bateau (voilier « mer » de Landscape, x=250) décalé au centre : nouveau prop figDx sur Landscape (`<g transform=translate(figDx,0)>{fig}`), SouvenirSky passe figDx=-86 (→ x≈164). SunArc (accueil) sans figDx : inchangé. Piège transform respecté (g parent translate attribut, sous-g animation CSS).
+- Test badges dans le bandeau (casse : labels minuscules « activités », uppercase CSS). Déployé v130 / cache vacances-v131.
+
+## Carte souvenir : paysage correct tous types v138 (livré)
+- BUG : figDx={-86} était passé à Landscape pour TOUS les types. Bon pour le voilier (x=250→164) mais casse les figures des autres types (ville cycliste x~90→coupé, mariage/detente figures à gauche→coupées, ski/ville figures coupées). De plus la ligne d'horizon dorée était à y=94 (visuel 104) alors que l'horizon du paysage Landscape est à y=92 (visuel 102) → éléments gris flottant 2 unités au-dessus.
+- CORRECTIF : figDx={t === "mer" ? -86 : 0} (décalage réservé au voilier). Ligne dorée redescendue à y=92 (visuel 102 = horizon Landscape). rect mer à y=102 (au lieu de 104), viewBox 106 (au lieu de 108). Test /tmp/testtypes.js : paysage présent pour les 7 types (mer/ville/ski/rando/mariage/detente/anniversaire), figures dans le cadre après translate. Déployé v138 / cache vacances-v139.
+
+## Carte souvenir : BASE DE POSITIONNEMENT STABLE v139 (livré) — NE PLUS BRICOLER
+Règles fixes du bandeau SouvenirSky (après de nombreux allers-retours cassants) :
+- SVG viewBox "0 0 320 116". TOUT le paysage est dans un seul <g transform="translate(0,10)">.
+- Horizon = y=92 dans le repère Landscape = y=102 à l'écran (à cause du translate 10).
+- La MER = le SOL natif de Landscape (rect y=92.4, dégradé de LAND_PALETTE[type], opacité 0.30→0.165). On garde donc Landscape SANS noGround. Landscape dessine sol PUIS deco PUIS figure : les figures/collines sont par-dessus le sol → jamais coupées.
+- Ligne d'horizon dorée : <line y1=92 y2=92 stroke=#D4A24A> DANS le g → pile sur l'horizon.
+- La mer se prolonge sous le SVG dans le bloc des badges : div fond `linear-gradient(180deg, ${merCol}3A, ${merCol}12)` avec merCol=LAND_PALETTE[type], marginTop:-2 (anti-liseré). Badges centrés (paddingTop=paddingBottom=12).
+- Décalage horizontal figDx=-86 RÉSERVÉ au voilier (type "mer") ; sinon 0.
+- NE PAS : ajouter de rect mer manuel, changer le viewBox, mettre noGround, décaler la ligne ailleurs que y=92. Ces bricolages ont tous cassé le rendu (pieds coupés, ligne blanche parasite, horizon décalé, figures hors cadre).
+- Vérif /tmp/testtypes.js : sol/mer + figures + horizon doré + badges présents pour les 7 types (mer/ville/ski/rando/mariage/detente/anniversaire). Déployé v139 / cache vacances-v140.
+
+## Carte souvenir : figure au 1er plan + raccord sans liseré v140 (livré)
+- Ligne d'horizon dorée déplacée DANS Landscape (nouvelle prop horizonLine), dessinée entre le rect sol et {deco}/{fig}. La figure (voilier) est le dernier élément → au premier plan, au-dessus de la ligne. La ligne externe de SouvenirSky (après Landscape) est SUPPRIMÉE (elle passait sur le voilier). SunArc/accueil : n'appelle pas horizonLine → pas de ligne (inchangé).
+- Raccord SVG (sol) / div badges sans liseré : div badges `background: linear-gradient(180deg, transparent 0, transparent 4px, ${merCol}3A 4px, ${merCol}12 100%)` + marginTop:-4. Les 4px du haut chevauchent le bas du SVG en TRANSPARENT (montrent le sol, pas de doublement d'opacité), puis la mer reprend à la même teinte → ni vide beige ni surépaisseur. Déployé v140 / cache vacances-v141.
+
+## Carte souvenir : dégradé de mer continu par type v141 (livré)
+- Le bloc des badges ne prend plus une opacité fixe (3A=0.228) mais reprend l'opacité du sol Landscape au point de coupure, calculée par type : opSol=LAND_BASEOP(t) (0.20 ville, 0.26 rando, 0.30 autres) ; merHaut=opSol*0.76 (opacité du sol à ~76% de sa hauteur = la coupure viewBox), merBas=opSol*0.16. Helper hexA(x) pour l'alpha hex. Ainsi le dégradé total (sol natif Landscape + bloc badges) est une SEULE progression continue, sans rupture de couleur (corrige ville 0.153 et rando 0.196 qui étaient à 0.228). Vérif : opacité du bloc = opSol*0.76 pour chaque type. Déployé v141 / cache vacances-v142.
+
+## Vérification Supabase et sondages (20 juillet 2026)
+Contrôle du réel après constat que le document n'était plus à jour sur le rappel serveur et les sondages. État vérifié directement dans le code source (app.jsx du dépôt) et sur le projet Supabase zvnlyggusqtaukuwxgel.
+
+Rappel serveur push (fonction remind), DÉPLOYÉ ET ACTIF, contrairement aux mentions « à faire manuellement » des sections v112 et v113 (corrigées ci-dessus) :
+- Fonction Edge remind : ACTIVE (version 1).
+- Fonction Edge notify : ACTIVE (version 5).
+- Table reminders_sent : présente (0 ligne, normal, le séjour est terminé, aucune activité future dans la fenêtre de rappel).
+- Tâche pg_cron : active, toutes les 5 minutes, appelle https://zvnlyggusqtaukuwxgel.functions.supabase.co/remind avec le jeton anon en Bearer.
+- Reste à faire : la seule validation manquante est un test réel sur iPhone (aucune preuve d'un envoi effectif tant qu'il n'y a pas d'activité future).
+
+Sondages dans la discussion, LIVRÉS dans l'app (étaient listés « à faire » au backlog, section 12) :
+- PollComposer : création d'un sondage avec question, options, choix unique ou multiple, commentaires autorisés.
+- Lancement depuis le canal général et depuis le fil d'une activité (paramètre scope).
+- createPoll (message kind "poll" : q, multi, allowComments, closed, votes, comments, opts), votePoll, commentPoll, closePoll.
+- pollToActivity : transformation du résultat en activité (l'option en tête devient le titre), réservée à l'organisateur et au co-éditeur dans le canal général, bouton « Créer l'activité ».
+- PollBubble : affichage avec barres de vote et votants ; indicateurs de sondage en attente ailleurs dans l'app.
+
+Document du dépôt resynchronisé : le REPRISE.md du dépôt était figé à la version v100 (non maintenu depuis, alors que la copie du projet allait jusqu'à v141). À cette occasion, le dépôt et le projet ont été remis au même contenu, à jour et corrigé.
