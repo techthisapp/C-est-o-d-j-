@@ -3671,7 +3671,8 @@ const dayDeScope = (scope, events) => {
   return e && typeof e.day === "number" ? e.day : null;
 };
 const dayDansSejour = (at) => { const d = dayOfTs(at || 0); return d >= 0 && d < DAYS.length ? d : null; };
-const dayOfPhoto = (p, events) => { const d = dayDeScope(p.event, events); return d != null ? d : dayDansSejour(p.at); };
+const dayFromDefi = (scope) => { const m = /^defi-d(\d+)$/.exec(scope || ""); if (!m) return null; const k = Number(m[1]); return k >= 0 && k < DAYS.length ? k : null; };
+const dayOfPhoto = (p, events) => { const d = dayDeScope(p.event, events); if (d != null) return d; const df = dayFromDefi(p.event); if (df != null) return df; return dayDansSejour(p.at); };
 const dayOfMsg = (m, events) => { const d = dayDeScope(m.scope, events); return d != null ? d : dayDansSejour(m.at); };
 const dayLabel = (i) => {
   const dt = new Date(isoPlusDays(SETTINGS.startISO, i) + "T12:00:00");
@@ -5236,14 +5237,19 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
         {sorted.length > 0 ? `${sorted.length} photo${sorted.length > 1 ? "s" : ""} du séjour, partagées avec le groupe.` : "Le mur du séjour. Ajoutez la première photo."}
       </div>
       {sorted.length > 0 && (() => {
+        const startOf = {}; (events || []).forEach((e) => { startOf[e.id] = e.start || "99:99"; });
         const groups = []; const gm = new Map();
         sorted.forEach((p) => {
-          let key = "autres", label = "Plus tôt";
-          const d = new Date(p.at);
-          if (p.at && !isNaN(d)) { key = d.toDateString(); label = `${WL[d.getDay()]} ${d.getDate()} ${MO[d.getMonth()]}`; }
-          if (!gm.has(key)) { const g = { key, label, items: [] }; gm.set(key, g); groups.push(g); }
+          const di = dayOfPhoto(p, events);
+          const hasDay = di != null && di >= 0 && di < DAYS.length;
+          const key = hasDay ? "d" + di : "autres";
+          const label = hasDay ? `Jour ${di + 1} · ${dayLabel(di)}` : "Autres photos";
+          const ord = hasDay ? di : 999;
+          if (!gm.has(key)) { const g = { key, label, ord, items: [] }; gm.set(key, g); groups.push(g); }
           gm.get(key).items.push(p);
         });
+        groups.sort((a, b) => a.ord - b.ord);
+        groups.forEach((g) => g.items.sort((a, b) => (startOf[a.event] || "99:99").localeCompare(startOf[b.event] || "99:99") || ((a.at || 0) - (b.at || 0))));
         return groups.map((g) => (
           <div key={g.key}>
             <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 13, color: T.c.inkSoft, margin: "4px 0 7px" }}>{g.label}</div>
