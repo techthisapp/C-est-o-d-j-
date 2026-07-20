@@ -6360,8 +6360,8 @@ const FEATURE_DEFS = [
   { id: "quickvibe", zone: "accueil", label: "Réaction rapide", desc: "Un bouton pour dire au groupe que le moment est bon." },
   { id: "recap", zone: "rituel", label: "Récap du soir", desc: "Le bilan de la journée : activités, photos, messages, lieux explorés." },
   { id: "awards", zone: "rituel", label: "Hauts faits du jour", desc: "Photographe du jour, bavard du jour, premier message (dans le récap)." },
-  { id: "capsule", zone: "accueil", label: "Capsule temporelle", desc: "Chacun dépose un mot secret, révélé le dernier soir." },
   { id: "homephotos", zone: "accueil", label: "Photos récentes sur l'accueil", desc: "Un aperçu des dernières photos du séjour, à la suite de la journée." },
+  { id: "capsule", zone: "accueil", label: "Capsule temporelle", desc: "Chacun dépose un mot secret, révélé le dernier soir." },
   { id: "guess", zone: "jeux", label: "Devine le lieu", desc: "Une photo mystère dans la discussion, le groupe devine où c'est." },
   { id: "quiz", zone: "jeux", label: "Quiz du séjour", desc: "Le dernier soir, un quiz généré depuis vos journées, avec les scores du groupe." },
 ];
@@ -6572,14 +6572,18 @@ function SettingsSheet({ onTrip, themeMode, onTheme, favorites, onRemoveFavorite
         {sousTitre("Directement sur l'accueil")}
         <FeaturesZone zone="accueil" onToggle={onToggleFeature} />
         {sousTitre("Dans le Rendez-vous du jour")}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: T.c.lineSoft, borderRadius: T.r.md }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 14.5 }}>Afficher le Rendez-vous du jour</div>
             <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12 }}>Éteint d'un coup toute la boîte sur l'accueil.</div>
           </div>
           <Toggle on={featureOn("rituel")} onClick={() => onToggleFeature("rituel")} />
         </div>
-        {featureOn("rituel") && <FeaturesZone zone="rituel" onToggle={onToggleFeature} />}
+        {featureOn("rituel") && (
+          <div style={{ paddingLeft: 14, borderLeft: `2px solid ${T.c.line}`, marginLeft: 3 }}>
+            <FeaturesZone zone="rituel" onToggle={onToggleFeature} />
+          </div>
+        )}
         {sousTitre("Dans le coin jeux")}
         <FeaturesZone zone="jeux" onToggle={onToggleFeature} />
         <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 11.5 }}>Ces interactions sont partagées avec tout le groupe.</div>
