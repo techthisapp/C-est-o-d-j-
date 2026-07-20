@@ -336,7 +336,7 @@ function UnreadBadge({ n, light }) {
 }
 
 /* ---- Photos ------------------------------------------------------------ */
-function PhotoTile({ photo, size, onClick }) {
+function PhotoTile({ photo, size, onClick, onAssignDay }) {
   const ctx = React.useContext(PhotoCtx);
   const [armed, setArmed] = useState(false);
   const pressRef = useRef(null);
@@ -392,6 +392,12 @@ function PhotoTile({ photo, size, onClick }) {
         </span>
       )}
     </button>
+      {onAssignDay && !photo.uploading && (
+        <button onClick={(e) => { e.stopPropagation(); onAssignDay(); }} aria-label="Attribuer un jour à cette photo" title="Attribuer un jour"
+          style={{ position: "absolute", top: 4, left: 4, zIndex: 2, width: 32, height: 32, borderRadius: T.r.pill, border: "none", background: "rgba(6,14,18,0.55)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+          <CalendarDays size={15} />
+        </button>
+      )}
       {armed && (
         <div onClick={desarmer} style={{ position: "absolute", inset: 0, background: "rgba(214,60,44,0.82)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, animation: "vfade .14s ease-out", cursor: "pointer" }}>
           <button onClick={(e) => { e.stopPropagation(); desarmer(); if (ctx && ctx.del) ctx.del(photo.id); }} aria-label="Supprimer cette photo"
@@ -3672,7 +3678,7 @@ const dayDeScope = (scope, events) => {
 };
 const dayDansSejour = (at) => { const d = dayOfTs(at || 0); return d >= 0 && d < DAYS.length ? d : null; };
 const dayFromDefi = (scope) => { const m = /^defi-d(\d+)$/.exec(scope || ""); if (!m) return null; const k = Number(m[1]); return k >= 0 && k < DAYS.length ? k : null; };
-const dayOfPhoto = (p, events) => { const d = dayDeScope(p.event, events); if (d != null) return d; const df = dayFromDefi(p.event); if (df != null) return df; return dayDansSejour(p.at); };
+const dayOfPhoto = (p, events) => { const d = dayDeScope(p.event, events); if (d != null) return d; const df = dayFromDefi(p.event); if (df != null) return df; if (typeof p.day === "number" && p.day >= 0 && p.day < DAYS.length) return p.day; return dayDansSejour(p.at); };
 const dayOfMsg = (m, events) => { const d = dayDeScope(m.scope, events); return d != null ? d : dayDansSejour(m.at); };
 const dayLabel = (i) => {
   const dt = new Date(isoPlusDays(SETTINGS.startISO, i) + "T12:00:00");
@@ -5213,8 +5219,9 @@ function AddPhotoButton({ onPick }) {
     </>
   );
 }
-function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
+function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo, onSetPhotoDay }) {
   const [pending, setPending] = useState(null);
+  const [assign, setAssign] = useState(null);
   const sorted = [...photos].sort((a, b) => (b.at || 0) - (a.at || 0));
   const acts = sortByStart(mainList(events || []));
   const canDiapo = onDiapo && featureOn("film") && sorted.filter((p) => p.url).length >= 2;
@@ -5253,8 +5260,11 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
         return groups.map((g) => (
           <div key={g.key}>
             <div style={{ fontFamily: fD, fontWeight: 700, fontSize: 13, color: T.c.inkSoft, margin: "4px 0 7px" }}>{g.label}</div>
+            {g.key === "autres" && onSetPhotoDay && (
+              <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12, margin: "-3px 0 7px" }}>Sans jour. Touchez l'icône calendrier sur une photo pour la ranger.</div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-              {g.items.map((ph) => <PhotoTile key={ph.id} photo={ph} onClick={() => onOpenPhoto(ph)} />)}
+              {g.items.map((ph) => <PhotoTile key={ph.id} photo={ph} onClick={() => onOpenPhoto(ph)} onAssignDay={onSetPhotoDay && dayDeScope(ph.event, events) == null && dayFromDefi(ph.event) == null ? () => setAssign(ph) : undefined} />)}
             </div>
           </div>
         ));
@@ -5299,6 +5309,37 @@ function ScreenWall({ photos, events, onAddPhoto, onOpenPhoto, onDiapo }) {
               ))}
             </div>
             <button onClick={() => setPending(null)} style={{ marginTop: 12, cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.inkSoft, borderRadius: T.r.md, padding: "11px", fontFamily: fD, fontWeight: 600, fontSize: 14 }}>Annuler</button>
+          </div>
+        </div>
+      )}
+      {assign && (
+        <div onClick={() => setAssign(null)} style={{ position: "fixed", inset: 0, zIndex: 66, background: "rgba(6,14,18,0.5)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: T.c.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "16px 18px calc(20px + env(safe-area-inset-bottom))", maxHeight: "78vh", display: "flex", flexDirection: "column", boxShadow: T.sh.soft }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <img src={assign.url} alt="" style={{ width: 46, height: 46, borderRadius: T.r.md, objectFit: "cover", display: "block", flex: "0 0 auto" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: fD, fontWeight: 700, color: T.c.ink, fontSize: 16 }}>Ranger cette photo</div>
+                <div style={{ fontFamily: fB, color: T.c.inkFaint, fontSize: 12.5 }}>Choisissez le jour du séjour où la classer.</div>
+              </div>
+            </div>
+            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 7, paddingBottom: 2 }}>
+              {DAYS.map((d, i) => {
+                const on = dayOfPhoto(assign, events) === i;
+                return (
+                  <button key={i} onClick={() => { onSetPhotoDay(assign.id, i); setAssign(null); }} style={{ ...rowBtn, borderColor: on ? T.c.sea : T.c.line }}>
+                    <span style={{ width: 34, height: 34, borderRadius: T.r.pill, background: on ? T.c.sea : T.c.lineSoft, color: on ? "#fff" : T.c.inkSoft, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", fontFamily: fD, fontWeight: 700, fontSize: 13 }}>{i + 1}</span>
+                    <span style={{ fontFamily: fD, fontWeight: 600, color: T.c.ink, fontSize: 14.5 }}>Jour {i + 1} · {dayLabel(i)}</span>
+                  </button>
+                );
+              })}
+              {typeof assign.day === "number" && (
+                <button onClick={() => { onSetPhotoDay(assign.id, null); setAssign(null); }} style={{ ...rowBtn, marginTop: 2 }}>
+                  <span style={{ width: 34, height: 34, borderRadius: T.r.pill, background: T.c.lineSoft, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><X size={16} color={T.c.inkSoft} /></span>
+                  <span style={{ fontFamily: fD, fontWeight: 600, color: T.c.inkSoft, fontSize: 14.5 }}>Retirer du jour (remettre dans Autres)</span>
+                </button>
+              )}
+            </div>
+            <button onClick={() => setAssign(null)} style={{ marginTop: 12, cursor: "pointer", border: `1px solid ${T.c.line}`, background: T.c.card, color: T.c.inkSoft, borderRadius: T.r.md, padding: "11px", fontFamily: fD, fontWeight: 600, fontSize: 14 }}>Annuler</button>
           </div>
         </div>
       )}
@@ -6752,7 +6793,8 @@ export default function App() {
         const loc = byId[rp.id];
         const tags = Array.from(new Set([...((loc && loc.tags) || []), ...(rp.tags || [])]));
         const reactions = { ...((loc && loc.reactions) || {}), ...(rp.reactions || {}) };
-        return { ...rp, tags, reactions, deleted: !!((loc && loc.deleted) || rp.deleted), remote: true };
+        const day = (typeof rp.day === "number") ? rp.day : (loc && typeof loc.day === "number" ? loc.day : undefined);
+        return { ...rp, tags, reactions, day, deleted: !!((loc && loc.deleted) || rp.deleted), remote: true };
       });
       const ids = new Set(merged.map((p) => p.id));
       return [...merged, ...cur.filter((p) => !ids.has(p.id))];
@@ -6776,7 +6818,7 @@ export default function App() {
           lastSig.current = sigOf(data.data);
           applyRemote(data.data);
         } else {
-          const init = { events, messages, roster: ROSTER, settings: SETTINGS, photos: photos.filter((p) => p.url && !String(p.url).startsWith("data:")).map((p) => ({ id: p.id, event: p.event, url: p.url, path: p.path, who: p.who, at: p.at, tags: p.tags || [], reactions: p.reactions || {} })) };
+          const init = { events, messages, roster: ROSTER, settings: SETTINGS, photos: photos.filter((p) => p.url && !String(p.url).startsWith("data:")).map((p) => ({ id: p.id, event: p.event, url: p.url, path: p.path, who: p.who, at: p.at, tags: p.tags || [], reactions: p.reactions || {}, day: p.day })) };
           lastSig.current = sigOf(init);
           await supa.from("trips").upsert({ code: TRIP_CODE, data: init, client_id: clientId.current, updated_at: Date.now() });
           canSend.current = true;
@@ -6816,7 +6858,7 @@ export default function App() {
   useEffect(() => {
     if (!SYNC_ON) return;
     if (!canSend.current) return;
-    const sharedPhotos = photos.filter((p) => p.url && !String(p.url).startsWith("data:")).map((p) => ({ id: p.id, event: p.event, url: p.url, path: p.path, who: p.who, at: p.at, tags: p.tags || [], reactions: p.reactions || {} }));
+    const sharedPhotos = photos.filter((p) => p.url && !String(p.url).startsWith("data:")).map((p) => ({ id: p.id, event: p.event, url: p.url, path: p.path, who: p.who, at: p.at, tags: p.tags || [], reactions: p.reactions || {}, day: p.day }));
     const data = { events, messages, roster: ROSTER, settings: SETTINGS, photos: sharedPhotos };
     const sig = sigOf(data);
     if (sig === lastSig.current) return;
@@ -7038,6 +7080,10 @@ export default function App() {
       }
     })();
   };
+  const setPhotoDay = (photoId, day) => {
+    setPhotos((l) => l.map((p) => (p.id === photoId ? { ...p, day: (typeof day === "number" ? day : undefined) } : p)));
+    setRev((v) => v + 1);
+  };
   const deletePhoto = (photoId) => {
     const ph = photos.find((p) => p.id === photoId);
     setPhotos((l) => l.map((p) => (p.id === photoId ? { ...p, deleted: true } : p)));
@@ -7222,7 +7268,7 @@ export default function App() {
           {tab === "now" && <ScreenNow events={events} now={now} onOpenEvent={openDetail} onOpenThread={openDetailThread} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} photos={visiblePhotos} onAdd={canEdit ? openAddToday : null} onSetStatus={setMyStatus} onToggleMine={toggleMine} onShowPresence={setPresenceEvt} onLikePhoto={(id) => togglePhotoReaction(id, "❤️")} onFilm={() => setFilm(true)} onOpenQuiz={openQuiz} onMap={() => setMapOpen(true)} onShare={() => setSheet({ mode: "share" })} wx={wx} wxCoord={wxCoord} play={{ voteMorning, voteWho, openBingo, openQuiz, saveCapsule, deleteCapsule, vibe: vibeUp, messages }} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "program" && <ScreenProgram events={events} now={now} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onOpenEvent={openDetail} onEditEvent={openEdit} onAdd={openAdd} onDelete={deleteEvent} canEdit={canEdit} unreadByEvent={unreadInfo.byEvent} openPollsByEvent={openPollsByEvent} />}
           {tab === "talk" && <ScreenTalk messages={messages} onSend={sendMessage} pollHandlers={pollHandlers} />}
-          {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onDiapo={() => setDiapo(true)} />}
+          {tab === "wall" && <ScreenWall photos={visiblePhotos} events={events} onAddPhoto={addPhoto} onOpenPhoto={openPhoto} onDiapo={() => setDiapo(true)} onSetPhotoDay={setPhotoDay} />}
         </div>
 
         <BottomNav tab={tab} setTab={setTab} unreadTalk={unreadInfo.general} unreadNow={unreadInfo.activities} />
