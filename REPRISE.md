@@ -345,6 +345,10 @@ barre de navigation fixe en bas.
 3. Test réel des notifications push sur iPhone. Le serveur est en place (fonctions
    notify et remind actives), reste la validation sur appareil.
 
+4. Gestion de plusieurs séjours (modèle Tricount) : liste « Mes séjours », créer,
+   rejoindre par lien, basculer. Proposé et non engagé. Détail, options et découpage
+   dans la section datée « Backlog : gestion de plusieurs séjours » en fin de document.
+
 Livrés, retirés du backlog (vérifiés le 20 juillet 2026, voir la section datée en
 fin de document) :
 - Sondages dans la discussion : création dans un fil d'activité ou dans le canal
@@ -869,3 +873,19 @@ Document du dépôt resynchronisé : le REPRISE.md du dépôt était figé à la
 - ORDRE ACCUEIL : ordre d'affichage réel sur l'accueil = statut (bande en haut), réaction rapide (pilule sur le hero), photos récentes (bandeau après le rituel), capsule (carte en dernier). Dans FEATURE_DEFS, homephotos est déplacé avant capsule pour que la zone accueil liste : Statut, Réaction rapide, Photos récentes, Capsule (en dernier). Les zones rituel (morning, photo, who, recap, awards, ordre des RITUAL_SLOTS) et jeux (bingo, guess, quiz, ordre du GamesSheet) étaient déjà dans l'ordre d'affichage.
 - LIGNE MAÎTRE DISTINGUÉE : la ligne « Afficher le Rendez-vous du jour » reçoit un fond léger (background lineSoft, coins arrondis, padding 12x14) qui la détache comme interrupteur maître ; les 5 sous-réglages du rituel (FeaturesZone zone rituel) sont enveloppés dans un conteneur indenté (paddingLeft 14, borderLeft 2px line, marginLeft 3) pour montrer l'imbrication sous le maître.
 - Test /tmp/testsettings.js : ouverture des réglages puis rubrique Contenu, « Capsule temporelle » bien après « Photos récentes sur l'accueil ». PIÈGE : « Capsule temporelle » apparaît aussi sur l'accueil (CapsuleCard), donc cibler l'occurrence des réglages (celle qui suit « Photos récentes sur l'accueil ») et non la première. Vérifie aussi le fond de la ligne maître et le borderLeft des sous-réglages. Déployé v147 / cache vacances-v148.
+
+## Backlog : gestion de plusieurs séjours (proposé le 21 juillet 2026, non engagé)
+- OBJECTIF : passer d'un séjour unique à plusieurs séjours, sur le modèle Tricount (liste de séjours, chacun avec son lien de partage et son identité propre, pas de compte obligatoire).
+- ACQUIS : côté Supabase, presque tout est déjà en place. Table trips indexée par code (un séjour égale une ligne), push_subs indexée par trip_code, fonction notify (paramètre tripCode) et fonction remind (traite chaque séjour). Le multi-séjours est donc surtout un chantier côté application, pas côté base.
+- APPROCHE RECOMMANDÉE :
+  - Bascule par rechargement : sélectionner un séjour enregistre le séjour actif puis recharge l'app sur ce séjour. Le code du séjour (TRIP_CODE) et une grande partie de l'état sont fixés au chargement ; le rechargement évite une refonte lourde de l'état pour une bascule à chaud, et reste quasi instantané en PWA.
+  - Codes non devinables pour les nouveaux séjours (slug plus suffixe aléatoire, par exemple mykonos-7f3k), ce qui améliore aussi la sécurité par rapport au code actuel mykonos-2026, devinable.
+  - Partage par lien contenant le code (par exemple l'adresse du site suivie de #/t/<code>) ; à l'ouverture d'un lien portant un code, l'app rejoint le séjour. Site statique, aucune configuration serveur.
+  - Stockage local par code : les clés localStorage aujourd'hui figées sur un séjour (vacances_mykonos_v1, vacances_me_v1) deviennent indexées par code, plus un index des séjours (la liste, en cache pour l'affichage hors ligne) et un « séjour actif ».
+  - Les règles d'accès (RLS) restent ouvertes sur le modèle du lien (qui a le lien accède), comme Tricount ; un durcissement (auth) reste une option ultérieure.
+- ÉCRANS : « Mes séjours » (liste : nom, lieu, dates, statut à venir/en cours/terminé, nombre de participants) ; Créer un séjour (nom, lieu, date de début, nombre de jours, type, puis code plus lien plus identité) ; Rejoindre par lien ou code ; Inviter (feuille de partage iOS) ; retour à la liste depuis l'en-tête du séjour ; identité « Je suis... » par séjour.
+- MIGRATION : au premier lancement de la version multi-séjours, le séjour Mykonos existant apparaît comme premier élément de la liste, sans perte de données, ouvrable comme avant.
+- LIMITE CONNUE : la liste des séjours est locale à l'appareil (comme Tricount sans compte), le partage passe par les liens. La continuité entre appareils (retrouver ses séjours après réinstallation ou changement de téléphone) demanderait une étape ultérieure (compte léger ou sauvegarde de la liste).
+- DÉCOUPAGE PROPOSÉ : Lot 1 socle (écran « Mes séjours », séjour actif, bascule par rechargement, migration Mykonos). Lot 2 créer un séjour. Lot 3 rejoindre par lien ou code, plus bouton « Inviter ». Lot 4 gestion fine (quitter un séjour, renommer, tri par statut) et éventuelle piste multi-appareils.
+- DÉCISIONS À TRANCHER AVANT DE CODER : (1) bascule par rechargement validée plutôt que bascule à chaud ; (2) invitation par lien avec code non devinable validée ; (3) lot de départ (conseillé : lot 1).
+- STATUT : proposé, en attente de validation. Rien n'est engagé côté code.
